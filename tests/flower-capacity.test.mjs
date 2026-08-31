@@ -19,7 +19,10 @@ import { createMemoryPool } from "../src/data/memoryPool.js";
 import { MEMORY_UI_CONFIG } from "../src/memory/MemoryExperience.js";
 import { BloomParticleSystem } from "../src/effects/BloomParticleSystem.js";
 import { estimatePNGBloomWork } from "../src/effects/PNGBloomPipeline.js";
-import { AIRBORNE_FLOWER_CONFIG } from "../src/effects/AirborneFlowerSystem.js";
+import {
+  AIRBORNE_FLOWER_CONFIG,
+  getAirborneParticleBudget,
+} from "../src/effects/AirborneFlowerSystem.js";
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 720;
@@ -608,22 +611,28 @@ test("PNG bloom budget exposes the full-scene HDR cost and viewport gate", () =>
   assert.ok(tinyBudget.deepestMinimumDimension < 16);
 });
 
-test("airborne flower accents stay sparse, subtle, and slow", () => {
+test("airborne flower fragments use a sparse analytic particle budget", () => {
+  const budget = getAirborneParticleBudget();
   assert.equal(AIRBORNE_FLOWER_CONFIG.count, 5);
   assert.equal(AIRBORNE_FLOWER_CONFIG.accents.length, 5);
-  assert.equal(
-    AIRBORNE_FLOWER_CONFIG.accents.filter((accent) => accent.mobileVisible)
-      .length,
-    3,
-  );
+  assert.equal(budget.fragmentCount, 5);
+  assert.equal(budget.mobileFragmentCount, 3);
+  assert.equal(budget.particleCapacity, 450);
+  assert.equal(budget.drawCalls, 1);
+  assert.equal(budget.motionMode, "analytic");
   assert.equal(
     AIRBORNE_FLOWER_CONFIG.accents.every(
       (accent) =>
-        accent.opacity <= 0.2 &&
-        accent.speed <= 0.22 &&
-        accent.driftX <= 0.018 &&
-        accent.driftY <= 0.019 &&
-        accent.rotationAmount <= 0.035,
+        accent.pointCount <= 104 &&
+        accent.opacity <= 0.38 &&
+        accent.speed >= 0.3 &&
+        accent.speed <= 0.42 &&
+        accent.driftX >= 0.025 &&
+        accent.driftX <= 0.043 &&
+        accent.driftY >= 0.03 &&
+        accent.driftY <= 0.041 &&
+        accent.rotationAmount <= 0.078 &&
+        accent.completeness < 0.65,
     ),
     true,
   );

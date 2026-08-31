@@ -257,6 +257,20 @@ export async function createFlowerFieldApp({
       canvas.dataset.bloomInternalBytes = String(
         renderPipeline?.diagnostics?.internalBytes ?? 0,
       );
+      const atmosphereDiagnostics = atmosphereSystem?.diagnostics ?? null;
+      canvas.dataset.airborneRepresentation =
+        atmosphereDiagnostics?.representation ?? "not-applicable";
+      canvas.dataset.airborneFragments = String(
+        atmosphereDiagnostics?.visibleFragmentCount ?? 0,
+      );
+      canvas.dataset.airborneParticles = String(
+        atmosphereDiagnostics?.particleCount ?? 0,
+      );
+      canvas.dataset.airborneMotion =
+        atmosphereDiagnostics?.mode ?? "not-applicable";
+      canvas.dataset.airborneCpuUpdates = String(
+        atmosphereDiagnostics?.particleCpuUpdatesPerFrame ?? 0,
+      );
       if (bloomPatchSystem) {
         const patchStates = { growing: 0, alive: 0, decaying: 0 };
         let oldestPatchAge = 0;

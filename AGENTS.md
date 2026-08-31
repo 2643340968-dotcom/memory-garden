@@ -15,7 +15,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 ## CURRENT WORKING STATE
 
 - `/png.html` is the current main demo.
-- `/model.html` is the preserved GLB demo and must remain independently usable.
+- `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - `/` still opens the preserved model entry through `src/main.js`.
 - The last verified automated suite has 15 passing tests.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
@@ -41,7 +41,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
 - Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
-- Five soft detached-flower accents drift in the upper air on desktop; narrow screens show three. They are decorative PNG-crown sprites, not BloomEvent flowers.
+- Five soft particle-flower fragments drift in the upper air on desktop; narrow screens show three. They are incomplete fixed-slot point silhouettes sampled from the PNG flowers, not BloomEvent flowers.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow.
 - Avoid cyberpunk neon, bright blue/cyan accents, heavy app-style cards, and bright daytime botanical styling.
 - Do not change the Three.js scene merely to adjust the memory UI.
@@ -115,7 +115,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing, matrix access for attached points, and the subdued 11%-maximum continuity card.
 - `src/flowers/renderers/PNGFlowerParticleSampler.js`: one precomputed alpha/color sample library per PNG variant, with petal-edge weighting and flower-center detection.
 - `src/effects/BloomParticleSystem.js`: the PNG flower body's primary fixed-capacity stable-slot `THREE.Points` renderer. Immutable flower samples are uploaded once; flower matrices and patch state use compact float data textures, while gather, attention drift, center light, and edge-led breakup are evaluated analytically in the vertex shader. The patch aura is distributed across flower-center contributors rather than drawn as a large glow disc.
-- `src/effects/AirborneFlowerSystem.js`: PNG-only upper-air composition accents. It crops detached flower crowns from the five already-loaded PNG textures, projects a sparse set of sprites from NDC into camera space, and applies very slow analytic drift/rotation. It is independent from BloomEvents and hidden down to three accents on narrow screens.
+- `src/effects/AirborneFlowerSystem.js`: PNG-only upper-air composition accents. It reuses the five cached PNG alpha/color sample libraries to build one 450-point fixed-capacity `THREE.Points` draw containing five incomplete flower fragments. Motion is analytic in the shader; desktop shows five fragments and narrow screens show three. It is independent from BloomEvents and the main 262,144-slot flower pool.
 - `src/effects/PNGBloomPipeline.js`: PNG-only `EffectComposer` pipeline with a high-threshold `UnrealBloomPass` and `OutputPass`; includes an explicit bloom-off control and viewport/resource-budget diagnostics. The model page remains on the shared direct renderer.
 - `src/flowers/renderers/PNGFlowerConfig.js`: PNG-only renderer and scene tuning.
 - `src/flowers/renderers/ModelFlowerRenderer.js`: preserved GLB renderer.
@@ -177,10 +177,13 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 
 ### Upper-air composition: `src/effects/AirborneFlowerSystem.js`
 
-- `5` detached-flower accents on desktop; `3` remain on narrow screens
-- Maximum opacity `0.20`, maximum drift speed `0.22`
-- Maximum NDC drift `0.018 / 0.019`, maximum rotation amplitude `0.035`
-- Uses cropped flower crowns from the active PNG textures; no new asset files and no BloomEvent or particle-pool participation
+- `5` particle-flower fragments on desktop; `3` remain on narrow screens
+- One fixed-capacity `THREE.Points` draw with `450` total slots and zero per-particle CPU updates per frame
+- Opacity up to `0.38`; analytic speed `0.30–0.42`
+- Maximum NDC drift `0.043 / 0.041`; maximum rotation amplitude `0.078`
+- Reuses the active PNG alpha/color sample libraries, filters to upper blossoms, and applies deterministic gaps so every accent remains incomplete
+- Normal alpha blending, depth test on, depth write off; the points enter the existing PNG full-scene HDR pipeline without owning a second post path
+- The particles exist immediately at page load and only the shared `uTime` uniform changes each frame
 - Vite production base is `/memory-garden/`; public PNG and GLB asset URLs are document-relative so both MPA entries resolve inside the GitHub Pages project path.
 
 ### Memory UI and rhythm: `src/memory/MemoryExperience.js`
@@ -193,6 +196,7 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Visible duration `4200ms`; fade duration `700ms`; enter duration `480ms`
 - Card width `330px`; viewport margin `30px`; acceptable overlap target `0.22`
 - Modal exit `850ms`
+- Entry layout uses `place-items: start center`, not geometric centering. Desktop top padding is `clamp(24px, 3.5vh, 42px)`; mobile is `clamp(44px, 6.5vh, 58px)`. Short desktop viewports use `12px` plus reduced vertical panel padding.
 
 ### BloomPatch lifecycle and flower-body particles: `src/flowers/BloomPatchConfig.js`
 
@@ -236,7 +240,9 @@ npm run dev
 npm run build
 ```
 
-When visual or interaction behavior changes, verify both URLs in a browser and check console errors. At minimum test entry lock, submit transition, automatic first bloom, short/medium/long drag rhythms, three-card maximum, collision/viewport bounds, reset, and model-page regression.
+Active development, visual QA, and public verification now target `/png.html` only. At minimum test entry lock, submit transition, automatic first bloom, short/medium/long drag rhythms, three-card maximum, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
+
+After every completed modification round, commit the verified changes, push `main` to `origin`, wait for the GitHub Pages workflow to succeed, and verify the public `/memory-garden/png.html` URL still returns HTTP 200 with the new revision. The user expects the public URL to always show the newest completed version; do not stop after local verification.
 
 ## KNOWN LIMITATIONS
 

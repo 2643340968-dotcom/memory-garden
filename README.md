@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。上半幅使用缩小后的“记忆之场”标题与少量缓慢漂浮的断花切片平衡构图。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。上半幅使用缩小后的“记忆之场”标题与少量缓慢漂浮的粒子断花平衡构图。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -33,6 +33,8 @@ pnpm run dev
 
 `.github/workflows/deploy.yml` 在 `main` 分支更新时运行 `npm ci`、`npm run build`，上传 `dist` 并通过 GitHub 官方 Pages Actions 发布；也支持手动触发。仓库创建后应在 **Settings → Pages** 中把 Source 设为 **GitHub Actions**。
 
+本项目约定每一轮修改完成后都必须：测试与浏览器验收、提交、推送 `main`、等待 Pages 工作流成功，并确认公开 `/memory-garden/png.html` 返回 HTTP 200 且包含最新版本。不要只停留在本地版本。
+
 ## 新 Codex 账号接手步骤
 
 1. 打开项目根目录 `D:\记忆花园`。
@@ -49,10 +51,12 @@ pnpm run dev
 | 页面 | 入口模块 | 用途 |
 | --- | --- | --- |
 | `/png.html` | `src/png-main.js` | 当前主版本；PNG 花朵、记忆入口、自动首次开花、Memory Echo |
-| `/model.html` | `src/model-main.js` | 保留的 GLB 花朵版本 |
+| `/model.html` | `src/model-main.js` | 留存的旧 GLB 花朵版本；不再作为日常开发与验收目标 |
 | `/` | `src/main.js` | 继续加载保留的 GLB 行为 |
 
 两个页面分别创建自己的场景和运行时状态，种花与 Reset 不会互相影响。
+
+当前后续开发、视觉验收和公开版本确认只针对 `/png.html`。模型版文件继续留存，但除非重新明确提出，不再为它安排每轮修改或回归检查。
 
 ## 当前 PNG 体验
 
@@ -179,7 +183,9 @@ public/assets/flowers/
 - 花心 glow 强度/半径 `0.15 / 6.5`；patch glow 强度/时长 `0.006 / 0.85s`
 - 消散按花瓣边缘权重先后碎裂，breakup `0.42`，轻微表面漂移 `0.003`
 - PNG 页面启用 `EffectComposer + UnrealBloomPass + OutputPass` 的高阈值全场 HDR bloom；普通草地和花卡保持在提取阈值以下。没有体积光或 DOF
-- 上半幅漂浮断花共 `5` 个，窄屏显示 `3` 个；最大透明度 `0.20`，运动速度不超过 `0.22`，使用原 PNG 顶部花冠裁切并做缓慢位移和轻微摆动
+- 上半幅漂浮断花是独立的 `450` 点固定池：桌面 `5` 组、窄屏 `3` 组，1 次 draw call、每帧 0 次逐粒子 CPU 更新
+- 粒子复用原 PNG 的 alpha/颜色采样，限制到上部花冠并用确定性缺口形成残缺轮廓；最大透明度 `0.38`，解析速度 `0.30–0.42`，最大 NDC 漂移 `0.043 / 0.041`
+- 留言弹窗不再几何居中：桌面顶部为 `clamp(24px, 3.5vh, 42px)`，手机为 `clamp(44px, 6.5vh, 58px)`，短桌面视口使用 `12px` 和收紧后的纵向内边距
 
 ## 测试与构建
 

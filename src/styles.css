@@ -169,13 +169,16 @@ canvas {
 }
 
 .memory-entry-overlay {
-  --memory-entry-shift-y: clamp(-86px, -8vh, -48px);
+  --memory-entry-top: clamp(24px, 3.5vh, 42px);
   position: fixed;
   inset: 0;
   z-index: 6;
   display: grid;
-  place-items: center;
-  padding: clamp(24px, 5vw, 72px);
+  place-items: start center;
+  padding:
+    var(--memory-entry-top)
+    clamp(24px, 5vw, 72px)
+    clamp(24px, 4vh, 44px);
   color: #d8d4dd;
   background: rgba(7, 5, 12, 0.38);
   -webkit-backdrop-filter: blur(10px) brightness(0.76);
@@ -221,7 +224,7 @@ canvas {
     0 24px 72px rgba(0, 0, 0, 0.28),
     0 0 36px var(--memory-glass-glow),
     inset 0 1px 0 rgba(232, 219, 242, 0.08);
-  transform: translateY(var(--memory-entry-shift-y));
+  transform: translateY(0);
   transition:
     opacity 540ms ease,
     transform var(--memory-modal-exit-duration, 850ms)
@@ -252,7 +255,7 @@ canvas {
 
 .memory-entry-overlay.is-submitting .memory-entry-panel {
   opacity: 0;
-  transform: translateY(calc(var(--memory-entry-shift-y) - 8px));
+  transform: translateY(-10px);
 }
 
 .memory-entry-index,
@@ -695,9 +698,9 @@ canvas {
   }
 
   .memory-entry-overlay {
-    --memory-entry-shift-y: clamp(-48px, -6vh, -30px);
-    place-items: center;
-    padding: 20px;
+    --memory-entry-top: clamp(44px, 6.5vh, 58px);
+    place-items: start center;
+    padding: var(--memory-entry-top) 20px 20px;
   }
 
   .memory-entry-panel {
@@ -719,6 +722,26 @@ canvas {
 
   .memory-echo-text {
     font-size: 15px;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 521px) {
+  .memory-entry-overlay {
+    --memory-entry-top: 12px;
+  }
+
+  .memory-entry-panel {
+    padding-top: 34px;
+    padding-bottom: 38px;
+  }
+
+  .memory-entry-description {
+    margin-top: 20px;
+    margin-bottom: 24px;
+  }
+
+  .memory-entry-panel textarea {
+    min-height: 96px;
   }
 }
 
