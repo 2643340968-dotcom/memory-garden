@@ -260,7 +260,7 @@ export class PNGFlowerRenderer {
     this.variantBatches[variantIndex].meshes.forEach((mesh) => {
       mesh.count = this.batchCounts[variantIndex];
       mesh.setColorAt(localIndex, this.vitalityColor.setRGB(1, 1, 1));
-      mesh.geometry.getAttribute("instanceOpacity").setX(localIndex, 1);
+      mesh.geometry.getAttribute("instanceOpacity").setX(localIndex, 0);
     });
   }
 
@@ -331,7 +331,10 @@ export class PNGFlowerRenderer {
         1,
       ),
     );
-    const visibility = reveal * decayVisibility;
+    const visibility =
+      reveal *
+      decayVisibility *
+      BLOOM_PATCH_CONFIG.FLOWER_CARD_MAX_VISIBILITY;
     const brightness = 0.72 + value * 0.28;
     this.vitalityColor.setRGB(
       brightness,
@@ -385,7 +388,7 @@ export class PNGFlowerRenderer {
     this.meshes.forEach((mesh) => {
       mesh.count = 0;
       mesh.instanceColor.array.fill(1);
-      mesh.geometry.getAttribute("instanceOpacity").array.fill(1);
+      mesh.geometry.getAttribute("instanceOpacity").array.fill(0);
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;
       mesh.geometry.getAttribute("instanceOpacity").needsUpdate = true;

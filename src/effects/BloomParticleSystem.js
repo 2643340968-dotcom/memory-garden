@@ -39,10 +39,12 @@ function createParticleMaterial(pixelRatio) {
       attribute float aSize;
       attribute float aSoftness;
       attribute float aRotation;
+      attribute float aRadiance;
       attribute vec3 color;
       varying float vAlpha;
       varying float vSoftness;
       varying float vRotation;
+      varying float vRadiance;
       varying vec3 vColor;
 
       void main() {
@@ -57,6 +59,7 @@ function createParticleMaterial(pixelRatio) {
         vAlpha = aAlpha;
         vSoftness = aSoftness;
         vRotation = aRotation * 6.28318530718;
+        vRadiance = aRadiance;
         vColor = color;
       }
     `,
@@ -64,6 +67,7 @@ function createParticleMaterial(pixelRatio) {
       varying float vAlpha;
       varying float vSoftness;
       varying float vRotation;
+      varying float vRadiance;
       varying vec3 vColor;
 
       void main() {
@@ -85,13 +89,13 @@ function createParticleMaterial(pixelRatio) {
         float glowPoint = step(0.9, vSoftness);
         float alpha = vAlpha * mix(microPoint, softGlow, glowPoint);
         if (alpha < 0.002) discard;
-        gl_FragColor = vec4(vColor, alpha);
+        gl_FragColor = vec4(vColor * vRadiance, alpha);
       }
     `,
     transparent: true,
     depthTest: true,
     depthWrite: false,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.NormalBlending,
     toneMapped: false,
   });
 }
@@ -127,6 +131,7 @@ export class BloomParticleSystem {
     this.alphas = new Float32Array(this.capacity);
     this.sizes = new Float32Array(this.capacity);
     this.softness = new Float32Array(this.capacity);
+    this.radiances = new Float32Array(this.capacity);
     this.localPositions = new Float32Array(this.capacity * 3);
     this.startPositions = new Float32Array(this.capacity * 3);
     this.driftDirections = new Float32Array(this.capacity * 3);
@@ -136,6 +141,11 @@ export class BloomParticleSystem {
     this.phases = new Float32Array(this.capacity);
     this.pointKinds = new Uint8Array(this.capacity);
     this.flowerIndices = new Uint32Array(this.capacity);
+    this.slotAlive = new Uint8Array(this.capacity);
+    this.maxDrawSlot = -1;
+    this.staticDirtyMin = this.capacity;
+    this.staticDirtyMax = -1;
+    this.degradedPatchCount = 0;
 
     for (let index = this.capacity - 1; index >= 0; index -= 1) {
       this.freeSlots.push(index);
@@ -148,6 +158,7 @@ export class BloomParticleSystem {
     this.sizeAttribute = new THREE.BufferAttribute(this.sizes, 1);
     this.softnessAttribute = new THREE.BufferAttribute(this.softness, 1);
     this.rotationAttribute = new THREE.BufferAttribute(this.phases, 1);
+    this.radianceAttribute = new THREE.BufferAttribute(this.radiances, 1);
     [
       this.positionAttribute,
       this.colorAttribute,
@@ -155,6 +166,7 @@ export class BloomParticleSystem {
       this.sizeAttribute,
       this.softnessAttribute,
       this.rotationAttribute,
+      this.radianceAttribute,
     ].forEach((attribute) => attribute.setUsage(THREE.DynamicDrawUsage));
     this.geometry.setAttribute("position", this.positionAttribute);
     this.geometry.setAttribute("color", this.colorAttribute);
@@ -162,7 +174,8 @@ export class BloomParticleSystem {
     this.geometry.setAttribute("aSize", this.sizeAttribute);
     this.geometry.setAttribute("aSoftness", this.softnessAttribute);
     this.geometry.setAttribute("aRotation", this.rotationAttribute);
-    this.geometry.setDrawRange(0, this.capacity);
+    this.geometry.setAttribute("aRadiance", this.radianceAttribute);
+    this.geometry.setDrawRange(0, 0);
 
     this.material = createParticleMaterial(renderer.getPixelRatio());
     this.points = new THREE.Points(this.geometry, this.material);
@@ -179,7 +192,33 @@ export class BloomParticleSystem {
   }
 
   allocateSlot() {
-    return this.freeSlots.length > 0 ? this.freeSlots.pop() : -1;
+    if (this.freeSlots.length === 0) {
+      return -1;
+    }
+    const slot = this.freeSlots.pop();
+    this.slotAlive[slot] = 1;
+    this.maxDrawSlot = Math.max(this.maxDrawSlot, slot);
+    this.staticDirtyMin = Math.min(this.staticDirtyMin, slot);
+    this.staticDirtyMax = Math.max(this.staticDirtyMax, slot);
+    return slot;
+  }
+
+  releaseSlot(slot) {
+    if (this.slotAlive[slot] === 0) {
+      return;
+    }
+    this.slotAlive[slot] = 0;
+    this.alphas[slot] = 0;
+    this.sizes[slot] = 0;
+    this.freeSlots.push(slot);
+    if (slot === this.maxDrawSlot) {
+      while (
+        this.maxDrawSlot >= 0 &&
+        this.slotAlive[this.maxDrawSlot] === 0
+      ) {
+        this.maxDrawSlot -= 1;
+      }
+    }
   }
 
   setSlotColor(slot, color, edge = 0, variance = 0) {
@@ -205,22 +244,6 @@ export class BloomParticleSystem {
 
   setSolidSlotColor(slot, color) {
     setTriplet(this.colors, slot, color.r, color.g, color.b);
-  }
-
-  chooseEnhancedFlowers(patch, random) {
-    const shuffled = [...patch.flowerIndices];
-    for (let index = shuffled.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(random() * (index + 1));
-      [shuffled[index], shuffled[swapIndex]] = [
-        shuffled[swapIndex],
-        shuffled[index],
-      ];
-    }
-    const count = Math.max(
-      1,
-      Math.round(shuffled.length * this.config.ACTIVE_PATCH_ENHANCED_RATIO),
-    );
-    return shuffled.slice(0, count);
   }
 
   createFlowerPoint(effect, flowerIndex, sample, random) {
@@ -258,6 +281,7 @@ export class BloomParticleSystem {
       this.config.FLOWER_PARTICLE_SIZE_MAX,
     ) * (0.88 + sample.alpha * 0.12 + sample.edge * 0.1);
     this.softness[slot] = 0.08 + sample.edge * 0.38;
+    this.radiances[slot] = this.config.FLOWER_PARTICLE_HDR_GAIN;
     this.setSlotColor(
       slot,
       sample.color,
@@ -299,6 +323,7 @@ export class BloomParticleSystem {
     setTriplet(this.driftDirections, slot, 0, 1, 0);
     this.baseSizes[slot] = this.config.FLOWER_CENTER_GLOW_RADIUS;
     this.softness[slot] = 1;
+    this.radiances[slot] = this.config.FLOWER_CENTER_HDR_GAIN;
     this.setSolidSlotColor(slot, CENTER_GLOW_COLOR);
     effect.slots.push(slot);
     return true;
@@ -322,6 +347,7 @@ export class BloomParticleSystem {
       this.config.PATCH_GLOW_RADIUS_MAX,
     );
     this.softness[slot] = 1;
+    this.radiances[slot] = 1;
     this.setSolidSlotColor(slot, PATCH_GLOW_COLOR);
     effect.slots.push(slot);
     effect.patchGlowSlot = slot;
@@ -345,17 +371,34 @@ export class BloomParticleSystem {
       lastSyncTime: patch.birthTime,
       flowerMatrices: null,
     };
-    const enhancedFlowers = this.chooseEnhancedFlowers(patch, random);
+    const enhancedFlowers = [...patch.flowerIndices];
     effect.flowerMatrices = new Map(
       enhancedFlowers.map((flowerIndex) => [flowerIndex, new THREE.Matrix4()]),
     );
-    const sampleCount = Math.max(
+    const desiredSampleCount = Math.max(
       1,
       Math.round(
         this.config.FLOWER_PARTICLE_SAMPLE_COUNT *
           this.config.FLOWER_PARTICLE_ACTIVE_RATIO,
       ),
     );
+    const reservedNonBodySlots = enhancedFlowers.length + 1;
+    const availableBodySlots = Math.max(
+      0,
+      this.freeSlots.length - reservedNonBodySlots,
+    );
+    const sampleCount = Math.min(
+      desiredSampleCount,
+      Math.floor(availableBodySlots / Math.max(1, enhancedFlowers.length)),
+    );
+    effect.samplesPerFlower = sampleCount;
+    effect.degraded = sampleCount < desiredSampleCount;
+    if (effect.degraded) {
+      this.degradedPatchCount += 1;
+    }
+    if (sampleCount <= 0) {
+      return;
+    }
 
     for (const flowerIndex of enhancedFlowers) {
       const variantIndex = this.flowerRenderer.getVariantIndex(flowerIndex);
@@ -384,9 +427,7 @@ export class BloomParticleSystem {
     }
     this.effects.set(patch.id, effect);
     this.points.visible = true;
-    this.colorAttribute.needsUpdate = true;
-    this.softnessAttribute.needsUpdate = true;
-    this.rotationAttribute.needsUpdate = true;
+    this.geometry.setDrawRange(0, this.maxDrawSlot + 1);
   }
 
   captureAttachedPosition(slot) {
@@ -529,11 +570,17 @@ export class BloomParticleSystem {
       this.localPoint.z,
       gather,
     );
+    const coherence = THREE.MathUtils.lerp(
+      1,
+      0.54,
+      effect.attentionEmphasis * patch.attention,
+    );
     const surfaceDrift =
       Math.sin(timeSeconds * 1.1 + this.phases[slot] * Math.PI * 2) *
       this.config.FLOWER_PARTICLE_DRIFT_AMOUNT *
       (0.35 + this.edgeFactors[slot] * 0.65) *
-      gather;
+      gather *
+      coherence;
     this.positions[offset] += surfaceDrift;
     this.positions[offset + 1] += Math.abs(surfaceDrift) * 0.3;
     this.alphas[slot] =
@@ -636,17 +683,44 @@ export class BloomParticleSystem {
       return;
     }
     for (const slot of effect.slots) {
-      this.alphas[slot] = 0;
-      this.sizes[slot] = 0;
-      this.freeSlots.push(slot);
+      this.releaseSlot(slot);
     }
     this.effects.delete(patchId);
+    this.geometry.setDrawRange(0, this.maxDrawSlot + 1);
   }
 
   update() {
-    this.positionAttribute.needsUpdate = true;
-    this.alphaAttribute.needsUpdate = true;
-    this.sizeAttribute.needsUpdate = true;
+    const drawCount = this.maxDrawSlot + 1;
+    this.geometry.setDrawRange(0, drawCount);
+    if (drawCount > 0) {
+      const dynamicAttributes = [
+        [this.positionAttribute, 3],
+        [this.alphaAttribute, 1],
+        [this.sizeAttribute, 1],
+      ];
+      dynamicAttributes.forEach(([attribute, itemSize]) => {
+        attribute.clearUpdateRanges();
+        attribute.addUpdateRange(0, drawCount * itemSize);
+        attribute.needsUpdate = true;
+      });
+    }
+    if (this.staticDirtyMax >= this.staticDirtyMin) {
+      const first = this.staticDirtyMin;
+      const count = this.staticDirtyMax - first + 1;
+      const staticAttributes = [
+        [this.colorAttribute, 3],
+        [this.softnessAttribute, 1],
+        [this.rotationAttribute, 1],
+        [this.radianceAttribute, 1],
+      ];
+      staticAttributes.forEach(([attribute, itemSize]) => {
+        attribute.clearUpdateRanges();
+        attribute.addUpdateRange(first * itemSize, count * itemSize);
+        attribute.needsUpdate = true;
+      });
+      this.staticDirtyMin = this.capacity;
+      this.staticDirtyMax = -1;
+    }
     this.points.visible = this.effects.size > 0;
   }
 
@@ -662,10 +736,16 @@ export class BloomParticleSystem {
     this.effects.clear();
     this.alphas.fill(0);
     this.sizes.fill(0);
+    this.slotAlive.fill(0);
     this.freeSlots.length = 0;
     for (let index = this.capacity - 1; index >= 0; index -= 1) {
       this.freeSlots.push(index);
     }
+    this.maxDrawSlot = -1;
+    this.staticDirtyMin = this.capacity;
+    this.staticDirtyMax = -1;
+    this.degradedPatchCount = 0;
+    this.geometry.setDrawRange(0, 0);
     this.alphaAttribute.needsUpdate = true;
     this.sizeAttribute.needsUpdate = true;
     this.points.visible = false;

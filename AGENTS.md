@@ -54,9 +54,9 @@ Local URLs:
 7. A `YOUR MEMORY` glass card appears beside that bloom.
 8. Mouse planting becomes enabled and the status changes to `MOUSE INPUT · READY`.
 9. Dragging creates irregular, clustered BloomEvent patches rather than a linear flower trail.
-10. Each BloomEvent also becomes one BloomPatch. A lightweight subset of its flowers receives particles sampled from the matching PNG alpha silhouette; these points gather from the flower roots into the petals while the flower cards grow.
+10. Each BloomEvent also becomes one BloomPatch. Every flower receives a stable-slot point cloud sampled from the matching PNG alpha silhouette and source colors. The points gather from the flower roots into a persistent particulate flower body; the PNG card remains only a very faint continuity layer.
 11. Cursor proximity within a soft world-space radius refreshes patch attention. Unattended attention decays after a guaranteed visible lifetime.
-12. An unattended patch dims and settles while its attached petal/edge points become more visible, fragment softly upward/outward, and then release with the flower slots for reuse.
+12. An unattended patch dims and settles while the same petal/edge point slots fragment softly upward/outward, edge-first, and then release with the flower slots for reuse.
 13. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
 14. Echo cards are projected from BloomEvent world positions, clamped to the viewport, collision-checked, and always use `pointer-events: none`.
 15. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
@@ -79,7 +79,8 @@ BloomEvent subscription
   → BloomPatchSystem
   → cursor-ground attention field
   → PNG-alpha flower sample library
-  → matrix-bound petal / center / patch glow points
+  → primary stable-slot petal / center / patch glow points
+  → high-threshold full-scene HDR bloom on PNG only
   → patch-level matrix dim / settle
   → renderer slot release / reuse
 
@@ -105,9 +106,10 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/flowers/FlowerSystem.js`: clustered patch creation, growth data, matrices, BloomEvent listeners, reset, capacity.
 - `src/flowers/FlowerSpawner.js`: distance/cooldown sampling along the pointer path.
 - `src/flowers/FlowerAnimation.js`: bloom easing.
-- `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing, and current per-instance matrix access for attached effects.
+- `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing, matrix access for attached points, and the subdued 11%-maximum continuity card.
 - `src/flowers/renderers/PNGFlowerParticleSampler.js`: one precomputed alpha/color sample library per PNG variant, with petal-edge weighting and flower-center detection.
-- `src/effects/BloomParticleSystem.js`: one fixed-capacity pooled `THREE.Points` object for matrix-bound flower-surface particles, center light, patch halo, and edge-led decay drift.
+- `src/effects/BloomParticleSystem.js`: the PNG flower body's primary fixed-capacity stable-slot `THREE.Points` renderer, including matrix-bound surface particles, center light, patch halo, and edge-led decay drift.
+- `src/effects/PNGBloomPipeline.js`: PNG-only `EffectComposer` pipeline with a high-threshold `UnrealBloomPass` and `OutputPass`; the model page remains on the shared direct renderer.
 - `src/flowers/renderers/PNGFlowerConfig.js`: PNG-only renderer and scene tuning.
 - `src/flowers/renderers/ModelFlowerRenderer.js`: preserved GLB renderer.
 - `src/scene/createGrass.js`: procedural InstancedMesh grass with patchy density and edge/distance falloff.
@@ -164,7 +166,7 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - `GROUND_VISUAL_SIZE = 52`; the interaction raycast remains within shared size `32`
 - Fog `0x2b2335`, near `9.5`, far `31`
 - Exposure `1.04`
-- No EffectComposer is currently active.
+- PNG-only full-scene HDR bloom is active through `PNGBloomPipeline`; the model entry still uses direct rendering.
 
 ### Memory UI and rhythm: `src/memory/MemoryExperience.js`
 
@@ -183,13 +185,14 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Attention gain `0.85/s`, unattended decay `0.075/s`, decay threshold `0.2`
 - Recent-attention grace `3.2s`
 - Minimum full patch lifetime `8s`; decay duration `4.6s`
-- Alpha/color sample library `512` points per PNG variant; each enhanced flower uses about `36` of the configured `40` samples
-- About `48%` of a patch's flowers receive the temporary enhanced overlay
-- Gather/hold/settle durations `0.9 / 0.4 / 0.8s`; birth opacity `0.9`; idle/attended opacity `0.16 / 0.44`
-- PNG cards begin their per-instance alpha reveal at `0.5s` and fade in over `0.95s`, after the point cloud has described the flower
-- Center glow intensity/radius `0.16 / 15`; patch halo intensity/duration `0.045 / 1s`
-- Edge-led decay breakup `0.38`, with gentle surface drift `0.01`
-- One reusable particle pool with `12288` slots; hidden when no effects are active
+- Alpha/color sample library `1024` points per PNG variant; every flower uses about `113` body samples plus one center point
+- All flowers in every active patch use the stable particulate renderer; the PNG card has a maximum visibility of `0.11`
+- Gather/hold/settle durations `0.95 / 0.32 / 0.72s`; birth opacity `0.96`; idle/attended opacity `0.76 / 0.94`
+- PNG cards begin their faint per-instance alpha reveal at `0.58s` and fade in over `0.88s`
+- Center glow intensity/radius `0.15 / 6.5`; patch halo intensity/duration `0.006 / 0.85s`
+- Edge-led decay breakup `0.42`, with gentle surface drift `0.003`
+- One reusable particle pool with `262144` stable slots; hidden when no effects are active. Pool pressure reduces samples uniformly per patch rather than dropping a random subset of flowers
+- PNG bloom strength/radius/threshold `0.11 / 0.12 / 1.04`
 
 ## IMPORTANT TECHNICAL RULES
 
@@ -197,8 +200,10 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Preserve `/model.html` and `public/assets/flowers/zijincao.glb`.
 - Preserve clustered, non-linear, lobe-based BloomEvent spawning. Do not revert to a continuous linear trail.
 - Flower cards must remain bottom/root anchored.
-- Preserve InstancedMesh batching and the 20,000 global instance capacity.
-- Keep lifecycle patch-level. Flower-attached points are temporary pooled slots owned by the BloomPatch, not permanent per-flower particle objects.
+- Preserve InstancedMesh batching and the 20,000 global instance capacity; the faint cards remain the matrix and slot continuity layer.
+- Keep lifecycle patch-level. Flower-attached points are stable pooled slots owned by the BloomPatch, not per-particle objects or permanent per-flower allocations.
+- Keep all PNG patch flowers particle-primary. Under pool pressure reduce samples uniformly across the whole patch; do not randomly omit complete flowers.
+- Do not reintroduce a cursor trail, ambient dust layer, or large circular glow discs.
 - Released PNG instance slots must remain reusable through the global and per-variant free lists.
 - Do not duplicate shared scene and input architecture unless there is a strong technical reason.
 - Keep `PointerController` input-neutral so a future MediaPipe HandInput can update the same normalized state.
@@ -222,7 +227,7 @@ When visual or interaction behavior changes, verify both URLs in a browser and c
 
 - Submitted memories are page-local only; reload clears them. There is no backend, database, login, or moderation layer.
 - MediaPipe/HandInput is not implemented yet.
-- There is no real volumetric light, EffectComposer bloom, or DOF. Flower-center light, petal softness, and patch aura are deliberately simulated inside the pooled point system.
+- There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; flower-center and patch aura contributors are still generated inside the pooled point system.
 - Collision avoidance uses four candidate placements and simple rectangle-overlap scoring, not a full layout solver. Extremely dense edge cases may still approach the `0.22` overlap threshold.
 - The production build reports a non-fatal shared-chunk size advisory above 500 kB.
 - `紫金草花田-离线版.html` is an older standalone artifact and is not the source of truth for the current PNG memory experience. Use the Vite URLs for current behavior unless the offline build script is deliberately updated and revalidated.
@@ -253,10 +258,13 @@ These are the exact relevant custom skill names available in the current Codex e
 - `threejs-loaders`
 - `threejs-lights`
 - `threejs-postprocessing`
+- `threejs-particles-trails-and-effects`
+- `threejs-bloom`
 
 Installation sources previously used on this computer:
 
 - `frontend-design`: `https://github.com/dobromirdikov/codex-frontend-design-skill/tree/main/skills/frontend-design`
 - Three.js skills: `full-stack-skills/threejs-skills`
+- Particle/effect and bloom skills: `linegel/threejs-complete-set-of-skill`
 
 The bundled `browser:control-in-app-browser` skill is useful for visual QA but is supplied by the Codex Browser plugin rather than the custom Three.js skill repository.

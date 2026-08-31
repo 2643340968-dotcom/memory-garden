@@ -289,13 +289,16 @@ test("PNG renderer uses five bottom-anchored batches and keeps textures on reset
   pngRenderer.setVitalityAt(0, 1, 0.04, 0.05, 0);
   assert.ok(visualOpacity.getX(visualLocalIndex) < 0.01);
   pngRenderer.setVitalityAt(0, 1, 1, 1.5, 0);
-  assert.ok(visualOpacity.getX(visualLocalIndex) > 0.99);
+  assert.ok(
+    visualOpacity.getX(visualLocalIndex) >= 0.1 &&
+      visualOpacity.getX(visualLocalIndex) <= 0.12,
+  );
   visualMesh.getColorAt(visualLocalIndex, visualColor);
   assert.ok(visualColor.r > 0.95);
   pngRenderer.setVitalityAt(0, 0.26, 1);
   assert.ok(
-    visualOpacity.getX(visualLocalIndex) >= 0.05 &&
-      visualOpacity.getX(visualLocalIndex) <= 0.1,
+    visualOpacity.getX(visualLocalIndex) > 0 &&
+      visualOpacity.getX(visualLocalIndex) < 0.01,
   );
 
   const releasedVariant = pngRenderer.variantAssignments[0];
@@ -370,14 +373,29 @@ test("PNG alpha sampling keeps flower-body particles inside the visible silhouet
 });
 
 test("flower-body particle quality and performance controls remain centralized", () => {
-  assert.equal(BLOOM_PATCH_CONFIG.PARTICLE_POOL_CAPACITY, 12288);
-  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_LIBRARY_SIZE, 512);
-  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_COUNT, 40);
-  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_ACTIVE_RATIO, 0.9);
-  assert.equal(BLOOM_PATCH_CONFIG.ACTIVE_PATCH_ENHANCED_RATIO, 0.48);
-  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_CENTER_EMPHASIS, 1.6);
-  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_IDLE_OPACITY, 0.16);
-  assert.ok(BLOOM_PATCH_CONFIG.PATCH_GLOW_INTENSITY < 0.05);
+  const stableSamplesPerFlower = Math.round(
+    BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_COUNT *
+      BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_ACTIVE_RATIO,
+  );
+  const largestPatchSlotDemand =
+    PNG_FLOWER_CONFIG.FLOWERS_PER_BLOOM_MAX *
+      (stableSamplesPerFlower + 1) +
+    1;
+
+  assert.equal(BLOOM_PATCH_CONFIG.PARTICLE_POOL_CAPACITY, 262144);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_LIBRARY_SIZE, 1024);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_COUNT, 128);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_ACTIVE_RATIO, 0.88);
+  assert.equal(BLOOM_PATCH_CONFIG.ACTIVE_PATCH_ENHANCED_RATIO, 1);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_CENTER_EMPHASIS, 1.8);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_IDLE_OPACITY, 0.76);
+  assert.equal(stableSamplesPerFlower, 113);
+  assert.ok(
+    BLOOM_PATCH_CONFIG.PARTICLE_POOL_CAPACITY > largestPatchSlotDemand * 32,
+  );
+  assert.ok(BLOOM_PATCH_CONFIG.FLOWER_CARD_MAX_VISIBILITY <= 0.12);
+  assert.ok(BLOOM_PATCH_CONFIG.PATCH_GLOW_INTENSITY < 0.01);
+  assert.ok(BLOOM_PATCH_CONFIG.BLOOM_THRESHOLD > 1);
   assert.equal("BLOOM_PARTICLE_COUNT" in BLOOM_PATCH_CONFIG, false);
 });
 

@@ -20,6 +20,7 @@ export async function createFlowerFieldApp({
   interactionEnabled = true,
   counterMode = "flowers",
   createPatchSystem = null,
+  createRenderPipeline = null,
 }) {
   if (typeof createFlowerRenderer !== "function") {
     throw new TypeError("createFlowerFieldApp requires a flower renderer factory.");
@@ -69,6 +70,10 @@ export async function createFlowerFieldApp({
     typeof createPatchSystem === "function"
       ? createPatchSystem({ scene, renderer, flowerSystem })
       : null;
+  const renderPipeline =
+    typeof createRenderPipeline === "function"
+      ? createRenderPipeline({ renderer, scene, camera })
+      : null;
   const maxFlowers = flowerSystem.maxFlowers;
 
   assetMode.textContent = flowerRenderer.assetMode;
@@ -113,6 +118,11 @@ export async function createFlowerFieldApp({
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.MAX_PIXEL_RATIO));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
+    renderPipeline?.resize(
+      window.innerWidth,
+      window.innerHeight,
+      renderer.getPixelRatio(),
+    );
     bloomPatchSystem?.setPixelRatio(renderer.getPixelRatio());
   }
 
@@ -176,7 +186,11 @@ export async function createFlowerFieldApp({
       lastPlantingState = isPlanting;
     }
 
-    renderer.render(scene, camera);
+    if (renderPipeline) {
+      renderPipeline.render(timeSeconds);
+    } else {
+      renderer.render(scene, camera);
+    }
 
     performanceSampleFrames += 1;
     const performanceSampleDuration = timeMilliseconds - performanceSampleStart;
@@ -198,6 +212,13 @@ export async function createFlowerFieldApp({
       canvas.dataset.effectParticles = String(
         bloomPatchSystem?.particleSystem.activeParticleCount ?? 0,
       );
+      canvas.dataset.particleDrawCount = String(
+        bloomPatchSystem?.particleSystem.geometry?.drawRange?.count ?? 0,
+      );
+      canvas.dataset.degradedParticlePatches = String(
+        bloomPatchSystem?.particleSystem.degradedPatchCount ?? 0,
+      );
+      canvas.dataset.renderPipeline = renderPipeline?.type ?? "direct";
       if (bloomPatchSystem) {
         const patchStates = { growing: 0, alive: 0, decaying: 0 };
         let oldestPatchAge = 0;
@@ -244,6 +265,7 @@ export async function createFlowerFieldApp({
     flowerSystem,
     flowerSpawner,
     bloomPatchSystem,
+    renderPipeline,
     resetField,
     setInputEnabled,
     isInputEnabled: () => inputEnabled,

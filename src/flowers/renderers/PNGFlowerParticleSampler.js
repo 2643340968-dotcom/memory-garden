@@ -116,7 +116,7 @@ export function sampleFlowerImageData(
       const edge = clamp01(
         (alpha - nearestNeighborAlpha) * 1.4 + (1 - alpha) * 0.45,
       );
-      const upperFlowerBias = 0.38 + Math.pow(localHeight, 1.45) * 1.35;
+      const upperFlowerBias = 0.62 + Math.pow(localHeight, 1.35) * 1.08;
       const centerAxisBias = 0.76 + (1 - Math.abs(u - 0.5) * 2) * 0.42;
       const violetSignal = clamp01(
         (red + blue) * 0.7 - green * 0.45,
@@ -124,10 +124,14 @@ export function sampleFlowerImageData(
       const centerSignal = clamp01(
         (Math.min(red, green) - blue * 0.55) * alpha,
       );
+      const stemSignal = clamp01(
+        (green - Math.max(red, blue) * 0.58) * alpha,
+      );
       const flowerStructureBias =
         0.55 +
         violetSignal * 1.15 +
-        centerSignal * BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_CENTER_EMPHASIS;
+        centerSignal * BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_CENTER_EMPHASIS +
+        stemSignal * 0.82;
       const weight =
         (0.3 + alpha * 0.7) *
         upperFlowerBias *

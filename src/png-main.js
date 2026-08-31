@@ -4,6 +4,7 @@ import { PNG_SCENE_CONFIG } from "./flowers/renderers/PNGFlowerConfig.js";
 import { createPNGFlowerRenderer } from "./flowers/renderers/PNGFlowerRenderer.js";
 import { MemoryExperience } from "./memory/MemoryExperience.js";
 import { createBloomPatchSystem } from "./flowers/BloomPatchSystem.js";
+import { createPNGBloomPipeline } from "./effects/PNGBloomPipeline.js";
 
 mountFlowerField({
   version: "png",
@@ -12,6 +13,7 @@ mountFlowerField({
   interactionEnabled: false,
   counterMode: "blooms",
   createPatchSystem: createBloomPatchSystem,
+  createRenderPipeline: createPNGBloomPipeline,
 }).then((app) => {
   if (!app) {
     return;

@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本使用五种透明 PNG 紫金草，以 InstancedMesh 批量渲染；访客先留下记忆，再通过鼠标拖拽让记忆以不规则花簇的形式生长。新花簇的部分花朵会由贴附花瓣轮廓的紫色粒子聚合成形，无人关注的旧花簇则从花体边缘重新碎裂并释放实例槽。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -84,7 +84,8 @@ BloomEvent
       ├─ cursor attention field
       ├─ patch-level growth / alive / decay state
       ├─ PNG alpha / color sample library
-      └─ BloomParticleSystem (one pooled, flower-bound Points draw object)
+      ├─ BloomParticleSystem (primary stable-slot flower renderer)
+      └─ PNGBloomPipeline (high-threshold full-scene HDR bloom)
 
 BloomEvent
   → MemoryExperience
@@ -113,7 +114,9 @@ src/
       PNGFlowerRenderer.js
       PNGFlowerParticleSampler.js
       ModelFlowerRenderer.js
-  effects/BloomParticleSystem.js
+  effects/
+    BloomParticleSystem.js
+    PNGBloomPipeline.js
   input/
     PointerController.js
     MouseInput.js
@@ -160,13 +163,13 @@ public/assets/flowers/
 - 注意力半径 `2.65` 世界单位；最低完整寿命 `8s`
 - 无关注时 attention 每秒衰减 `0.075`，阈值 `0.2`
 - 消散持续 `4.6s`
-- 每个 PNG 变体预采样 `512` 个带 alpha、原图颜色、花心与边缘权重的轮廓点；每株被增强的花使用约 `36` 个细点
-- 每个 BloomPatch 约 `48%` 的花朵临时启用粒子覆盖；不是给整个花田创建永久粒子系统
-- 花体点、花心微光和极轻的 patch 光晕共用 `12288` 槽的固定 `THREE.Points` 对象，花体点用旋转微菱形而不是大圆点
-- 粒子聚合 `0.9s`、保持 `0.4s`、沉静 `0.8s`；PNG 卡片延迟 `0.5s` 后用 `0.95s` 淡入，先读到花形粒子、再读到完整花朵
-- 花心 glow 强度/半径 `0.16 / 15`；patch glow 强度/时长 `0.045 / 1s`
-- 消散按花瓣边缘权重逐渐碎裂，breakup `0.38`，轻微表面漂移 `0.01`
-- 未启用 EffectComposer、真正体积光或 DOF
+- 每个 PNG 变体只预采样一次：缓存 `1024` 个带 alpha、原图线性色彩、花心与边缘权重的轮廓点；每株花稳定使用约 `113` 个花体点和 `1` 个花心点
+- 每个 BloomPatch 的全部花朵都使用粒子主体；PNG InstancedMesh 花卡最高只显示 `11%`，不再作为主要花面
+- 花体点、花心微光和极轻的 patch 光晕共用 `262144` 槽的单个稳定槽位 `THREE.Points` 对象；池压力过高时按整簇统一降低每株采样数，不随机丢掉整朵花
+- 粒子从根部附近聚合约 `0.95s`，短暂停留 `0.32s`，再用 `0.72s` 沉静为稳定花面；关注时亮度与凝聚度轻微提高
+- 花心 glow 强度/半径 `0.15 / 6.5`；patch glow 强度/时长 `0.006 / 0.85s`
+- 消散按花瓣边缘权重先后碎裂，breakup `0.42`，轻微表面漂移 `0.003`
+- PNG 页面启用 `EffectComposer + UnrealBloomPass + OutputPass` 的高阈值全场 HDR bloom；普通草地和花卡保持在提取阈值以下。没有体积光或 DOF
 
 ## 测试与构建
 
