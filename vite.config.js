@@ -6,6 +6,9 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
 export default defineConfig({
   appType: "mpa",
+  // This repository is published as https://<owner>.github.io/memory-garden/.
+  // Vite rewrites generated JS/CSS URLs against this project-site base.
+  base: "/memory-garden/",
   build: {
     rolldownOptions: {
       input: {

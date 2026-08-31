@@ -15,8 +15,8 @@ npm run dev
 
 然后打开：
 
-- 当前 PNG 主版本：`http://127.0.0.1:5173/png.html`
-- 保留的 GLB 模型版本：`http://127.0.0.1:5173/model.html`
+- 当前 PNG 主版本：`http://127.0.0.1:5173/memory-garden/png.html`
+- 保留的 GLB 模型版本：`http://127.0.0.1:5173/memory-garden/model.html`
 
 项目同时保留 `package-lock.json` 和 `pnpm-lock.yaml`。如果使用 pnpm，也可以运行：
 
@@ -26,6 +26,12 @@ pnpm run dev
 ```
 
 不要直接双击 `png.html` 或 `model.html`：当前项目使用 ES modules 和 Vite 资源路径，需要本地开发服务器。
+
+## GitHub Pages 部署
+
+仓库按 GitHub project site `memory-garden` 配置，Vite 生产基路径为 `/memory-garden/`。根目录的 `index.html` 只做相对跳转，因此 Pages 根地址会打开 `./png.html`，同时继续保留直接访问 `png.html` 和 `model.html`。
+
+`.github/workflows/deploy.yml` 在 `main` 分支更新时运行 `npm ci`、`npm run build`，上传 `dist` 并通过 GitHub 官方 Pages Actions 发布；也支持手动触发。仓库创建后应在 **Settings → Pages** 中把 Source 设为 **GitHub Actions**。
 
 ## 新 Codex 账号接手步骤
 

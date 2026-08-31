@@ -28,7 +28,7 @@ export const CONFIG = Object.freeze({
   BLOOM_EDGE_REJECTION: 0.16,
   MAX_BLOOMS_PER_FRAME: 3,
 
-  FLOWER_MODEL_PATH: "/assets/flowers/zijincao.glb",
+  FLOWER_MODEL_PATH: "./assets/flowers/zijincao.glb",
   // The loader normalizes the source GLB height to this world-space height.
   FLOWER_BASE_HEIGHT: 0.82,
   FLOWER_SCALE_MIN: 0.78,

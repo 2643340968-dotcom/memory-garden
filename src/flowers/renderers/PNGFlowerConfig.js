@@ -2,11 +2,11 @@ import { CONFIG } from "../../config.js";
 
 export const PNG_FLOWER_CONFIG = Object.freeze({
   PNG_FLOWER_PATHS: Object.freeze([
-    "/assets/flowers/png/zijincao_01.png",
-    "/assets/flowers/png/zijincao_02.png",
-    "/assets/flowers/png/zijincao_03.png",
-    "/assets/flowers/png/zijincao_04.png",
-    "/assets/flowers/png/zijincao_05.png",
+    "./assets/flowers/png/zijincao_01.png",
+    "./assets/flowers/png/zijincao_02.png",
+    "./assets/flowers/png/zijincao_03.png",
+    "./assets/flowers/png/zijincao_04.png",
+    "./assets/flowers/png/zijincao_05.png",
   ]),
 
   FLOWER_CARD_HEIGHT: 0.86,

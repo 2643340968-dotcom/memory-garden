@@ -29,8 +29,10 @@ This repository is an interactive Three.js exhibition prototype about memory and
 
 Local URLs:
 
-- `http://127.0.0.1:5173/png.html`
-- `http://127.0.0.1:5173/model.html`
+- `http://127.0.0.1:5173/memory-garden/png.html`
+- `http://127.0.0.1:5173/memory-garden/model.html`
+
+GitHub Pages production is configured as a project site named `memory-garden` with Vite base `/memory-garden/`. `index.html` redirects relatively to `./png.html`, and `.github/workflows/deploy.yml` builds and deploys `dist` from `main` using the official Pages actions.
 
 ## CURRENT VISUAL DIRECTION
 
@@ -98,6 +100,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/config.js`: shared/model defaults and the global flower capacity.
 - `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, memory experience mount.
 - `src/model-main.js`: preserved GLB entry.
+- `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
 - `src/memory/MemoryExperience.js`: entry flow, gesture sessions, memory triggers, automatic first bloom, projection, card queue, collision avoidance, viewport clamping, reset cleanup.
 - `src/data/memoryPool.js`: generic prototype memories and in-memory `sessionMemories`; do not present prototype text as real survivor testimony or a historical quotation.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
@@ -167,6 +170,7 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Fog `0x2b2335`, near `9.5`, far `31`
 - Exposure `1.04`
 - PNG-only full-scene HDR bloom is active through `PNGBloomPipeline`; the model entry still uses direct rendering.
+- Vite production base is `/memory-garden/`; public PNG and GLB asset URLs are document-relative so both MPA entries resolve inside the GitHub Pages project path.
 
 ### Memory UI and rhythm: `src/memory/MemoryExperience.js`
 
