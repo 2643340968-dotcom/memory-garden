@@ -5,20 +5,11 @@ import { BLOOM_PATCH_CONFIG } from "../flowers/BloomPatchConfig.js";
 
 const POINT_KIND_FLOWER = 0;
 const POINT_KIND_CENTER = 1;
-const POINT_KIND_PATCH_GLOW = 2;
 const PALE_EDGE_COLOR = new THREE.Color(0xded5ff);
 const CENTER_GLOW_COLOR = new THREE.Color(0xd9c6ff);
-const PATCH_GLOW_COLOR = new THREE.Color(0x8265a8);
-
-function smoothstep(value) {
-  const t = clamp01(value);
-  return t * t * (3 - 2 * t);
-}
-
-function easeOutCubic(value) {
-  const t = clamp01(value);
-  return 1 - Math.pow(1 - t, 3);
-}
+const MATRIX_TEXELS_PER_FLOWER = 4;
+const PATCH_STATE_TEXELS = 1;
+const TEXTURE_WIDTH = 256;
 
 function setTriplet(array, index, x, y, z) {
   const offset = index * 3;
@@ -27,39 +18,277 @@ function setTriplet(array, index, x, y, z) {
   array[offset + 2] = z;
 }
 
-function createParticleMaterial(pixelRatio) {
+function createFloatDataTexture(data, width, height, name) {
+  const texture = new THREE.DataTexture(
+    data,
+    width,
+    height,
+    THREE.RGBAFormat,
+    THREE.FloatType,
+  );
+  texture.name = name;
+  texture.minFilter = THREE.NearestFilter;
+  texture.magFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+  texture.flipY = false;
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createParticleMaterial({
+  pixelRatio,
+  config,
+  flowerMatrixTexture,
+  flowerMatrixTextureSize,
+  patchStateTexture,
+  patchStateTextureSize,
+}) {
   return new THREE.ShaderMaterial({
-    name: "MemoryGardenFlowerBodyParticleMaterial",
+    name: "MemoryGardenAnalyticFlowerParticleMaterial",
     uniforms: {
+      uTime: { value: 0 },
       uPixelRatio: { value: pixelRatio },
+      uFlowerMatrices: { value: flowerMatrixTexture },
+      uFlowerMatrixTextureSize: { value: flowerMatrixTextureSize },
+      uPatchStates: { value: patchStateTexture },
+      uPatchStateTextureSize: { value: patchStateTextureSize },
+      uBirthDuration: { value: config.FLOWER_PARTICLE_BIRTH_DURATION },
+      uBirthHoldDuration: {
+        value: config.FLOWER_PARTICLE_BIRTH_HOLD_DURATION,
+      },
+      uSettleDuration: { value: config.FLOWER_PARTICLE_SETTLE_DURATION },
+      uDecayDuration: { value: config.DECAY_DURATION },
+      uDriftAmount: { value: config.FLOWER_PARTICLE_DRIFT_AMOUNT },
+      uEdgeBreakup: { value: config.DECAY_EDGE_BREAKUP_AMOUNT },
+      uBirthOpacity: { value: config.FLOWER_PARTICLE_BIRTH_OPACITY },
+      uIdleOpacity: { value: config.FLOWER_PARTICLE_IDLE_OPACITY },
+      uAttendedOpacity: { value: config.FLOWER_PARTICLE_ATTENDED_OPACITY },
+      uDecayOpacity: { value: config.FLOWER_PARTICLE_DECAY_OPACITY },
+      uCenterGlowIntensity: { value: config.FLOWER_CENTER_GLOW_INTENSITY },
+      uPatchAuraIntensity: { value: config.PATCH_GLOW_INTENSITY },
     },
     vertexShader: `
+      uniform float uTime;
       uniform float uPixelRatio;
-      attribute float aAlpha;
-      attribute float aSize;
-      attribute float aSoftness;
-      attribute float aRotation;
-      attribute float aRadiance;
+      uniform sampler2D uFlowerMatrices;
+      uniform vec2 uFlowerMatrixTextureSize;
+      uniform sampler2D uPatchStates;
+      uniform vec2 uPatchStateTextureSize;
+      uniform float uBirthDuration;
+      uniform float uBirthHoldDuration;
+      uniform float uSettleDuration;
+      uniform float uDecayDuration;
+      uniform float uDriftAmount;
+      uniform float uEdgeBreakup;
+      uniform float uBirthOpacity;
+      uniform float uIdleOpacity;
+      uniform float uAttendedOpacity;
+      uniform float uDecayOpacity;
+      uniform float uCenterGlowIntensity;
+      uniform float uPatchAuraIntensity;
+
+      attribute vec3 aStartPosition;
+      attribute vec3 aDecayPosition;
+      attribute vec3 aDriftDirection;
       attribute vec3 color;
+      attribute vec4 aShape;
+      attribute vec4 aIdentity;
+      attribute vec2 aAppearance;
+
       varying float vAlpha;
       varying float vSoftness;
       varying float vRotation;
       varying float vRadiance;
       varying vec3 vColor;
 
+      vec2 texelUv(float linearIndex, vec2 textureSize) {
+        float x = mod(linearIndex, textureSize.x);
+        float y = floor(linearIndex / textureSize.x);
+        return (vec2(x, y) + 0.5) / textureSize;
+      }
+
+      mat4 readFlowerMatrix(float flowerIndex) {
+        float base = flowerIndex * 4.0;
+        vec4 column0 = texture2D(
+          uFlowerMatrices,
+          texelUv(base, uFlowerMatrixTextureSize)
+        );
+        vec4 column1 = texture2D(
+          uFlowerMatrices,
+          texelUv(base + 1.0, uFlowerMatrixTextureSize)
+        );
+        vec4 column2 = texture2D(
+          uFlowerMatrices,
+          texelUv(base + 2.0, uFlowerMatrixTextureSize)
+        );
+        vec4 column3 = texture2D(
+          uFlowerMatrices,
+          texelUv(base + 3.0, uFlowerMatrixTextureSize)
+        );
+        return mat4(column0, column1, column2, column3);
+      }
+
+      vec4 readPatchState(float patchIndex) {
+        return texture2D(
+          uPatchStates,
+          texelUv(patchIndex, uPatchStateTextureSize)
+        );
+      }
+
+      float saturate(float value) {
+        return clamp(value, 0.0, 1.0);
+      }
+
+      float smoother(float value) {
+        float t = saturate(value);
+        return t * t * (3.0 - 2.0 * t);
+      }
+
+      float easeOutCubic(float value) {
+        float t = saturate(value);
+        float inverse = 1.0 - t;
+        return 1.0 - inverse * inverse * inverse;
+      }
+
+      void hidePoint() {
+        gl_PointSize = 0.0;
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        vAlpha = 0.0;
+        vSoftness = 0.0;
+        vRotation = 0.0;
+        vRadiance = 0.0;
+        vColor = vec3(0.0);
+      }
+
       void main() {
-        vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+        if (aIdentity.w < 0.5) {
+          hidePoint();
+          return;
+        }
+
+        vec4 patchState = readPatchState(aIdentity.z);
+        float birthTime = patchState.x;
+        float decayStartTime = patchState.y;
+        float attentionEmphasis = patchState.z;
+        float attention = patchState.w;
+        float age = max(0.0, uTime - birthTime);
+        float gatherProgress = saturate(age / max(0.001, uBirthDuration));
+        float gatherDelay = aShape.w * 0.16;
+        float gather = smoother(
+          (gatherProgress - gatherDelay) / max(0.001, 1.0 - gatherDelay)
+        );
+        float settleProgress = smoother(
+          (age - uBirthDuration - uBirthHoldDuration) /
+          max(0.001, uSettleDuration)
+        );
+        bool isCenter = aIdentity.x > 0.5;
+
+        mat4 flowerMatrix = readFlowerMatrix(aIdentity.y);
+        vec3 targetPosition = (flowerMatrix * vec4(position, 1.0)).xyz;
+        vec3 worldPosition;
+        float pointAlpha;
+        float pointSize;
+        float radiance = aAppearance.y;
+
+        if (decayStartTime >= 0.0) {
+          float rawDecay = saturate(
+            (uTime - decayStartTime) / max(0.001, uDecayDuration)
+          );
+          float delayedDecay = saturate(
+            (rawDecay - (1.0 - aShape.z) * aShape.w * 0.11) / 0.89
+          );
+          float breakup = easeOutCubic(delayedDecay);
+          float driftScale = breakup * (0.05 + aShape.z * uEdgeBreakup);
+          worldPosition = aDecayPosition + vec3(
+            aDriftDirection.x * driftScale,
+            aDriftDirection.y * driftScale * 0.9 + breakup * 0.12,
+            aDriftDirection.z * driftScale
+          );
+          float stableOpacity = mix(
+            uIdleOpacity,
+            uAttendedOpacity,
+            attentionEmphasis * attention
+          );
+          float fragmentEnvelope = mix(
+            stableOpacity,
+            uDecayOpacity,
+            smoother(rawDecay / 0.18)
+          ) * pow(1.0 - delayedDecay, 0.72);
+          pointAlpha = fragmentEnvelope * aShape.y;
+          pointSize = aShape.x * (1.0 + breakup * 0.26);
+          if (isCenter) {
+            pointAlpha *= 0.42;
+          }
+        } else {
+          worldPosition = mix(aStartPosition, targetPosition, gather);
+          float coherence = mix(
+            1.0,
+            0.54,
+            attentionEmphasis * attention
+          );
+          float surfaceDrift = sin(
+            uTime * 1.1 + aShape.w * 6.28318530718
+          ) * uDriftAmount *
+            (0.35 + aShape.z * 0.65) * gather * coherence;
+          worldPosition.x += surfaceDrift;
+          worldPosition.y += abs(surfaceDrift) * 0.3;
+
+          float stableOpacity = max(
+            uIdleOpacity,
+            mix(
+              uIdleOpacity,
+              uAttendedOpacity,
+              attentionEmphasis * attention
+            )
+          );
+          float birthOpacity = mix(
+            uBirthOpacity,
+            stableOpacity,
+            settleProgress
+          );
+          float fadeIn = smoother(
+            (gatherProgress - gatherDelay * 0.45) / 0.18
+          );
+          float shimmer = 1.0 + sin(
+            uTime * 1.45 + aShape.w * 6.28318530718
+          ) * 0.055;
+          pointAlpha = birthOpacity * fadeIn * shimmer * aShape.y;
+          pointSize = aShape.x * (0.82 + gather * 0.18);
+
+          if (isCenter) {
+            float birthProgress = saturate(age / max(0.001, uBirthDuration));
+            float calmBase = uCenterGlowIntensity * 0.28;
+            float attentionGlow = mix(
+              calmBase,
+              uCenterGlowIntensity,
+              attentionEmphasis * attention
+            );
+            float distributedPatchAura =
+              sin(birthProgress * 3.14159265359) * uPatchAuraIntensity;
+            float birthGlow =
+              sin(birthProgress * 3.14159265359) * uCenterGlowIntensity;
+            pointAlpha = max(
+              pointAlpha * 0.2,
+              max(attentionGlow, birthGlow + distributedPatchAura)
+            );
+            pointSize = aShape.x * (0.88 + attention * 0.12);
+            radiance *= 1.0 + distributedPatchAura * 4.0;
+          }
+        }
+
+        vec4 viewPosition = modelViewMatrix * vec4(worldPosition, 1.0);
         float perspectiveScale = clamp(
           8.0 / max(0.01, -viewPosition.z),
           0.55,
           1.35
         );
-        gl_PointSize = max(1.0, aSize * uPixelRatio * perspectiveScale);
+        gl_PointSize = max(1.0, pointSize * uPixelRatio * perspectiveScale);
         gl_Position = projectionMatrix * viewPosition;
-        vAlpha = aAlpha;
-        vSoftness = aSoftness;
-        vRotation = aRotation * 6.28318530718;
-        vRadiance = aRadiance;
+        vAlpha = pointAlpha;
+        vSoftness = aAppearance.x;
+        vRotation = aShape.w * 6.28318530718;
+        vRadiance = radiance;
         vColor = color;
       }
     `,
@@ -86,8 +315,8 @@ function createParticleMaterial(pixelRatio) {
         float radius = length(point) * 2.0;
         float softGlow = exp(-radius * radius * 2.8) *
           (1.0 - smoothstep(0.72, 1.0, radius));
-        float glowPoint = step(0.9, vSoftness);
-        float alpha = vAlpha * mix(microPoint, softGlow, glowPoint);
+        float centerGlow = step(0.9, vSoftness);
+        float alpha = vAlpha * mix(microPoint, softGlow, centerGlow);
         if (alpha < 0.002) discard;
         gl_FragColor = vec4(vColor * vRadiance, alpha);
       }
@@ -126,58 +355,105 @@ export class BloomParticleSystem {
     this.effects = new Map();
     this.freeSlots = [];
 
-    this.positions = new Float32Array(this.capacity * 3);
-    this.colors = new Float32Array(this.capacity * 3);
-    this.alphas = new Float32Array(this.capacity);
-    this.sizes = new Float32Array(this.capacity);
-    this.softness = new Float32Array(this.capacity);
-    this.radiances = new Float32Array(this.capacity);
     this.localPositions = new Float32Array(this.capacity * 3);
     this.startPositions = new Float32Array(this.capacity * 3);
+    this.decayPositions = new Float32Array(this.capacity * 3);
     this.driftDirections = new Float32Array(this.capacity * 3);
-    this.baseSizes = new Float32Array(this.capacity);
-    this.sampleIntensities = new Float32Array(this.capacity);
-    this.edgeFactors = new Float32Array(this.capacity);
-    this.phases = new Float32Array(this.capacity);
-    this.pointKinds = new Uint8Array(this.capacity);
-    this.flowerIndices = new Uint32Array(this.capacity);
+    this.colors = new Float32Array(this.capacity * 3);
+    // shape = base size, sample intensity, petal-edge factor, random phase.
+    this.shapeData = new Float32Array(this.capacity * 4);
+    // identity = point kind, flower index, patch-state index, alive flag.
+    this.identityData = new Float32Array(this.capacity * 4);
+    // appearance = point softness, scene-linear radiance gain.
+    this.appearanceData = new Float32Array(this.capacity * 2);
     this.slotAlive = new Uint8Array(this.capacity);
+    this.slotGenerations = new Uint32Array(this.capacity);
     this.maxDrawSlot = -1;
     this.staticDirtyMin = this.capacity;
     this.staticDirtyMax = -1;
     this.degradedPatchCount = 0;
+    this.matrixUpdatesThisFrame = 0;
+    this.patchStateUpdatesThisFrame = 0;
+    this.particleCpuUpdatesThisFrame = 0;
 
     for (let index = this.capacity - 1; index >= 0; index -= 1) {
       this.freeSlots.push(index);
     }
 
+    const flowerTexelCount =
+      flowerSystem.maxFlowers * MATRIX_TEXELS_PER_FLOWER;
+    this.flowerMatrixTextureWidth = Math.min(TEXTURE_WIDTH, flowerTexelCount);
+    this.flowerMatrixTextureHeight = Math.ceil(
+      flowerTexelCount / this.flowerMatrixTextureWidth,
+    );
+    this.flowerMatrixData = new Float32Array(
+      this.flowerMatrixTextureWidth * this.flowerMatrixTextureHeight * 4,
+    );
+    this.flowerMatrixTexture = createFloatDataTexture(
+      this.flowerMatrixData,
+      this.flowerMatrixTextureWidth,
+      this.flowerMatrixTextureHeight,
+      "MemoryGardenFlowerMatrixTexture",
+    );
+
+    this.patchCapacity = Math.max(
+      32,
+      Math.ceil(
+        flowerSystem.maxFlowers /
+          Math.max(1, flowerSystem.flowersPerBloomMin),
+      ) + 16,
+    );
+    const patchTexelCount = this.patchCapacity * PATCH_STATE_TEXELS;
+    this.patchStateTextureWidth = Math.min(TEXTURE_WIDTH, patchTexelCount);
+    this.patchStateTextureHeight = Math.ceil(
+      patchTexelCount / this.patchStateTextureWidth,
+    );
+    this.patchStateData = new Float32Array(
+      this.patchStateTextureWidth * this.patchStateTextureHeight * 4,
+    );
+    this.patchStateTexture = createFloatDataTexture(
+      this.patchStateData,
+      this.patchStateTextureWidth,
+      this.patchStateTextureHeight,
+      "MemoryGardenPatchStateTexture",
+    );
+    this.freePatchSlots = [];
+    for (let index = this.patchCapacity - 1; index >= 0; index -= 1) {
+      this.freePatchSlots.push(index);
+    }
+
     this.geometry = new THREE.BufferGeometry();
-    this.positionAttribute = new THREE.BufferAttribute(this.positions, 3);
-    this.colorAttribute = new THREE.BufferAttribute(this.colors, 3);
-    this.alphaAttribute = new THREE.BufferAttribute(this.alphas, 1);
-    this.sizeAttribute = new THREE.BufferAttribute(this.sizes, 1);
-    this.softnessAttribute = new THREE.BufferAttribute(this.softness, 1);
-    this.rotationAttribute = new THREE.BufferAttribute(this.phases, 1);
-    this.radianceAttribute = new THREE.BufferAttribute(this.radiances, 1);
-    [
-      this.positionAttribute,
-      this.colorAttribute,
-      this.alphaAttribute,
-      this.sizeAttribute,
-      this.softnessAttribute,
-      this.rotationAttribute,
-      this.radianceAttribute,
-    ].forEach((attribute) => attribute.setUsage(THREE.DynamicDrawUsage));
-    this.geometry.setAttribute("position", this.positionAttribute);
-    this.geometry.setAttribute("color", this.colorAttribute);
-    this.geometry.setAttribute("aAlpha", this.alphaAttribute);
-    this.geometry.setAttribute("aSize", this.sizeAttribute);
-    this.geometry.setAttribute("aSoftness", this.softnessAttribute);
-    this.geometry.setAttribute("aRotation", this.rotationAttribute);
-    this.geometry.setAttribute("aRadiance", this.radianceAttribute);
+    this.staticAttributes = [
+      ["position", this.localPositions, 3],
+      ["aStartPosition", this.startPositions, 3],
+      ["aDecayPosition", this.decayPositions, 3],
+      ["aDriftDirection", this.driftDirections, 3],
+      ["color", this.colors, 3],
+      ["aShape", this.shapeData, 4],
+      ["aIdentity", this.identityData, 4],
+      ["aAppearance", this.appearanceData, 2],
+    ].map(([name, array, itemSize]) => {
+      const attribute = new THREE.BufferAttribute(array, itemSize);
+      attribute.setUsage(THREE.DynamicDrawUsage);
+      this.geometry.setAttribute(name, attribute);
+      return { name, attribute, itemSize };
+    });
     this.geometry.setDrawRange(0, 0);
 
-    this.material = createParticleMaterial(renderer.getPixelRatio());
+    this.material = createParticleMaterial({
+      pixelRatio: renderer.getPixelRatio(),
+      config,
+      flowerMatrixTexture: this.flowerMatrixTexture,
+      flowerMatrixTextureSize: new THREE.Vector2(
+        this.flowerMatrixTextureWidth,
+        this.flowerMatrixTextureHeight,
+      ),
+      patchStateTexture: this.patchStateTexture,
+      patchStateTextureSize: new THREE.Vector2(
+        this.patchStateTextureWidth,
+        this.patchStateTextureHeight,
+      ),
+    });
     this.points = new THREE.Points(this.geometry, this.material);
     this.points.name = "MemoryGardenFlowerBodyParticlePool";
     this.points.frustumCulled = false;
@@ -185,6 +461,8 @@ export class BloomParticleSystem {
     this.points.visible = false;
     this.points.userData.particleCapacity = this.capacity;
     this.points.userData.source = "png-alpha-silhouette";
+    this.points.userData.motion = "analytic-vertex-shader";
+    this.points.userData.patchAura = "distributed-center-bloom";
     scene.add(this.points);
 
     this.matrix = new THREE.Matrix4();
@@ -197,9 +475,10 @@ export class BloomParticleSystem {
     }
     const slot = this.freeSlots.pop();
     this.slotAlive[slot] = 1;
+    this.identityData[slot * 4 + 3] = 1;
+    this.slotGenerations[slot] += 1;
     this.maxDrawSlot = Math.max(this.maxDrawSlot, slot);
-    this.staticDirtyMin = Math.min(this.staticDirtyMin, slot);
-    this.staticDirtyMax = Math.max(this.staticDirtyMax, slot);
+    this.markStaticDirty(slot);
     return slot;
   }
 
@@ -208,9 +487,9 @@ export class BloomParticleSystem {
       return;
     }
     this.slotAlive[slot] = 0;
-    this.alphas[slot] = 0;
-    this.sizes[slot] = 0;
+    this.identityData[slot * 4 + 3] = 0;
     this.freeSlots.push(slot);
+    this.markStaticDirty(slot);
     if (slot === this.maxDrawSlot) {
       while (
         this.maxDrawSlot >= 0 &&
@@ -219,6 +498,28 @@ export class BloomParticleSystem {
         this.maxDrawSlot -= 1;
       }
     }
+  }
+
+  markStaticDirty(slot) {
+    this.staticDirtyMin = Math.min(this.staticDirtyMin, slot);
+    this.staticDirtyMax = Math.max(this.staticDirtyMax, slot);
+  }
+
+  allocatePatchSlot() {
+    return this.freePatchSlots.length > 0 ? this.freePatchSlots.pop() : -1;
+  }
+
+  releasePatchSlot(slot) {
+    if (slot < 0) {
+      return;
+    }
+    const offset = slot * 4;
+    this.patchStateData[offset] = 0;
+    this.patchStateData[offset + 1] = -1;
+    this.patchStateData[offset + 2] = 0;
+    this.patchStateData[offset + 3] = 0;
+    this.patchStateTexture.needsUpdate = true;
+    this.freePatchSlots.push(slot);
   }
 
   setSlotColor(slot, color, edge = 0, variance = 0) {
@@ -246,20 +547,12 @@ export class BloomParticleSystem {
     setTriplet(this.colors, slot, color.r, color.g, color.b);
   }
 
-  createFlowerPoint(effect, flowerIndex, sample, random) {
-    const slot = this.allocateSlot();
-    if (slot < 0) {
-      return false;
-    }
-
-    this.pointKinds[slot] = POINT_KIND_FLOWER;
-    this.flowerIndices[slot] = flowerIndex;
-    this.edgeFactors[slot] = sample.edge;
-    this.phases[slot] = random();
-    this.sampleIntensities[slot] = clamp01(
-      0.48 + sample.alpha * 0.36 + sample.center * 0.16,
-    );
-    setTriplet(this.localPositions, slot, sample.x, sample.y, sample.z);
+  setCommonPointState(effect, slot, flowerIndex, random) {
+    const shapeOffset = slot * 4;
+    const identityOffset = slot * 4;
+    this.identityData[identityOffset + 1] = flowerIndex;
+    this.identityData[identityOffset + 2] = effect.patchSlot;
+    this.shapeData[shapeOffset + 3] = random();
     setTriplet(
       this.startPositions,
       slot,
@@ -275,13 +568,32 @@ export class BloomParticleSystem {
       randomRange(random, 0.55, 1),
       Math.sin(angle),
     );
-    this.baseSizes[slot] = randomRange(
+  }
+
+  createFlowerPoint(effect, flowerIndex, sample, random) {
+    const slot = this.allocateSlot();
+    if (slot < 0) {
+      return false;
+    }
+
+    const shapeOffset = slot * 4;
+    const identityOffset = slot * 4;
+    const appearanceOffset = slot * 2;
+    this.identityData[identityOffset] = POINT_KIND_FLOWER;
+    this.shapeData[shapeOffset + 2] = sample.edge;
+    this.shapeData[shapeOffset + 1] = clamp01(
+      0.48 + sample.alpha * 0.36 + sample.center * 0.16,
+    );
+    setTriplet(this.localPositions, slot, sample.x, sample.y, sample.z);
+    this.setCommonPointState(effect, slot, flowerIndex, random);
+    this.shapeData[shapeOffset] = randomRange(
       random,
       this.config.FLOWER_PARTICLE_SIZE_MIN,
       this.config.FLOWER_PARTICLE_SIZE_MAX,
     ) * (0.88 + sample.alpha * 0.12 + sample.edge * 0.1);
-    this.softness[slot] = 0.08 + sample.edge * 0.38;
-    this.radiances[slot] = this.config.FLOWER_PARTICLE_HDR_GAIN;
+    this.appearanceData[appearanceOffset] = 0.08 + sample.edge * 0.38;
+    this.appearanceData[appearanceOffset + 1] =
+      this.config.FLOWER_PARTICLE_HDR_GAIN;
     this.setSlotColor(
       slot,
       sample.color,
@@ -301,11 +613,13 @@ export class BloomParticleSystem {
     if (slot < 0) {
       return false;
     }
-    this.pointKinds[slot] = POINT_KIND_CENTER;
-    this.flowerIndices[slot] = flowerIndex;
-    this.edgeFactors[slot] = 0;
-    this.phases[slot] = random();
-    this.sampleIntensities[slot] = 1;
+
+    const shapeOffset = slot * 4;
+    const identityOffset = slot * 4;
+    const appearanceOffset = slot * 2;
+    this.identityData[identityOffset] = POINT_KIND_CENTER;
+    this.shapeData[shapeOffset + 2] = 0;
+    this.shapeData[shapeOffset + 1] = 1;
     setTriplet(
       this.localPositions,
       slot,
@@ -313,44 +627,14 @@ export class BloomParticleSystem {
       centerSample.y,
       centerSample.z + 0.006,
     );
-    setTriplet(
-      this.startPositions,
-      slot,
-      this.flowerSystem.positionsX[flowerIndex],
-      0.02,
-      this.flowerSystem.positionsZ[flowerIndex],
-    );
-    setTriplet(this.driftDirections, slot, 0, 1, 0);
-    this.baseSizes[slot] = this.config.FLOWER_CENTER_GLOW_RADIUS;
-    this.softness[slot] = 1;
-    this.radiances[slot] = this.config.FLOWER_CENTER_HDR_GAIN;
+    this.setCommonPointState(effect, slot, flowerIndex, random);
+    this.shapeData[shapeOffset] = this.config.FLOWER_CENTER_GLOW_RADIUS;
+    this.appearanceData[appearanceOffset] = 1;
+    this.appearanceData[appearanceOffset + 1] =
+      this.config.FLOWER_CENTER_HDR_GAIN;
     this.setSolidSlotColor(slot, CENTER_GLOW_COLOR);
     effect.slots.push(slot);
     return true;
-  }
-
-  createPatchGlow(effect, patch, random) {
-    const slot = this.allocateSlot();
-    if (slot < 0) {
-      return;
-    }
-    this.pointKinds[slot] = POINT_KIND_PATCH_GLOW;
-    this.edgeFactors[slot] = 0;
-    this.phases[slot] = random();
-    this.sampleIntensities[slot] = 1;
-    setTriplet(this.localPositions, slot, patch.center.x, 0.13, patch.center.z);
-    setTriplet(this.startPositions, slot, patch.center.x, 0.08, patch.center.z);
-    setTriplet(this.driftDirections, slot, 0, 1, 0);
-    this.baseSizes[slot] = randomRange(
-      random,
-      this.config.PATCH_GLOW_RADIUS_MIN,
-      this.config.PATCH_GLOW_RADIUS_MAX,
-    );
-    this.softness[slot] = 1;
-    this.radiances[slot] = 1;
-    this.setSolidSlotColor(slot, PATCH_GLOW_COLOR);
-    effect.slots.push(slot);
-    effect.patchGlowSlot = slot;
   }
 
   spawnBirth(patch) {
@@ -358,23 +642,24 @@ export class BloomParticleSystem {
       return;
     }
 
+    const patchSlot = this.allocatePatchSlot();
+    if (patchSlot < 0) {
+      this.degradedPatchCount += 1;
+      return;
+    }
     const random = createSeededRandom(
       (patch.bloomEvent.randomSeed ^ 0xf10a6e11) >>> 0,
     );
     const effect = {
       patch,
+      patchSlot,
       slots: [],
-      patchGlowSlot: -1,
       startTime: patch.birthTime,
       decayStartTime: null,
       attentionEmphasis: 1,
       lastSyncTime: patch.birthTime,
-      flowerMatrices: null,
+      flowerIndices: [...patch.flowerIndices],
     };
-    const enhancedFlowers = [...patch.flowerIndices];
-    effect.flowerMatrices = new Map(
-      enhancedFlowers.map((flowerIndex) => [flowerIndex, new THREE.Matrix4()]),
-    );
     const desiredSampleCount = Math.max(
       1,
       Math.round(
@@ -382,14 +667,14 @@ export class BloomParticleSystem {
           this.config.FLOWER_PARTICLE_ACTIVE_RATIO,
       ),
     );
-    const reservedNonBodySlots = enhancedFlowers.length + 1;
+    const reservedCenterSlots = effect.flowerIndices.length;
     const availableBodySlots = Math.max(
       0,
-      this.freeSlots.length - reservedNonBodySlots,
+      this.freeSlots.length - reservedCenterSlots,
     );
     const sampleCount = Math.min(
       desiredSampleCount,
-      Math.floor(availableBodySlots / Math.max(1, enhancedFlowers.length)),
+      Math.floor(availableBodySlots / Math.max(1, effect.flowerIndices.length)),
     );
     effect.samplesPerFlower = sampleCount;
     effect.degraded = sampleCount < desiredSampleCount;
@@ -397,10 +682,11 @@ export class BloomParticleSystem {
       this.degradedPatchCount += 1;
     }
     if (sampleCount <= 0) {
+      this.releasePatchSlot(patchSlot);
       return;
     }
 
-    for (const flowerIndex of enhancedFlowers) {
+    for (const flowerIndex of effect.flowerIndices) {
       const variantIndex = this.flowerRenderer.getVariantIndex(flowerIndex);
       const sampleSet = this.flowerRenderer.getParticleSampleSet(variantIndex);
       if (!sampleSet?.samples?.length) {
@@ -421,17 +707,33 @@ export class BloomParticleSystem {
       }
     }
 
-    this.createPatchGlow(effect, patch, random);
     if (effect.slots.length === 0) {
+      this.releasePatchSlot(patchSlot);
       return;
     }
     this.effects.set(patch.id, effect);
+    this.writePatchState(effect);
     this.points.visible = true;
     this.geometry.setDrawRange(0, this.maxDrawSlot + 1);
   }
 
+  writePatchState(effect) {
+    const offset = effect.patchSlot * 4;
+    this.patchStateData[offset] = effect.patch.birthTime;
+    this.patchStateData[offset + 1] = effect.decayStartTime ?? -1;
+    this.patchStateData[offset + 2] = effect.attentionEmphasis;
+    this.patchStateData[offset + 3] = effect.patch.attention;
+    this.patchStateUpdatesThisFrame += 1;
+  }
+
+  writeFlowerMatrix(flowerIndex, matrix) {
+    const offset = flowerIndex * 16;
+    this.flowerMatrixData.set(matrix.elements, offset);
+    this.matrixUpdatesThisFrame += 1;
+  }
+
   captureAttachedPosition(slot) {
-    const flowerIndex = this.flowerIndices[slot];
+    const flowerIndex = this.identityData[slot * 4 + 1];
     if (!this.flowerRenderer.getMatrixAt(flowerIndex, this.matrix)) {
       return false;
     }
@@ -444,12 +746,13 @@ export class BloomParticleSystem {
       )
       .applyMatrix4(this.matrix);
     setTriplet(
-      this.startPositions,
+      this.decayPositions,
       slot,
       this.localPoint.x,
       this.localPoint.y,
       this.localPoint.z,
     );
+    this.markStaticDirty(slot);
     return true;
   }
 
@@ -460,187 +763,9 @@ export class BloomParticleSystem {
     }
     effect.decayStartTime = startTime;
     for (const slot of effect.slots) {
-      if (this.pointKinds[slot] !== POINT_KIND_PATCH_GLOW) {
-        this.captureAttachedPosition(slot);
-      }
+      this.captureAttachedPosition(slot);
     }
-  }
-
-  updateFlowerPoint(effect, slot, timeSeconds) {
-    const patch = effect.patch;
-    const offset = slot * 3;
-    const flowerIndex = this.flowerIndices[slot];
-    const flowerMatrix = effect.flowerMatrices.get(flowerIndex);
-    if (!flowerMatrix) {
-      this.alphas[slot] = 0;
-      return;
-    }
-
-    this.localPoint
-      .set(
-        this.localPositions[offset],
-        this.localPositions[offset + 1],
-        this.localPositions[offset + 2],
-      )
-      .applyMatrix4(flowerMatrix);
-    const age = Math.max(0, timeSeconds - patch.birthTime);
-    const gatherProgress = clamp01(
-      age / this.config.FLOWER_PARTICLE_BIRTH_DURATION,
-    );
-    const gatherDelay = this.phases[slot] * 0.16;
-    const gather = smoothstep(
-      clamp01((gatherProgress - gatherDelay) / (1 - gatherDelay)),
-    );
-    const settleProgress = smoothstep(
-      clamp01(
-        (age -
-          this.config.FLOWER_PARTICLE_BIRTH_DURATION -
-          this.config.FLOWER_PARTICLE_BIRTH_HOLD_DURATION) /
-          this.config.FLOWER_PARTICLE_SETTLE_DURATION,
-      ),
-    );
-    const sampleIntensity = this.sampleIntensities[slot];
-    const shimmer =
-      1 + Math.sin(timeSeconds * 1.45 + this.phases[slot] * Math.PI * 2) * 0.055;
-
-    if (patch.state === "decaying" && effect.decayStartTime !== null) {
-      const rawDecay = clamp01(
-        (timeSeconds - effect.decayStartTime) / this.config.DECAY_DURATION,
-      );
-      const edge = this.edgeFactors[slot];
-      const delayedDecay = clamp01(
-        (rawDecay - (1 - edge) * this.phases[slot] * 0.11) / 0.89,
-      );
-      const breakup = easeOutCubic(delayedDecay);
-      const driftScale =
-        breakup *
-        (0.05 + edge * this.config.DECAY_EDGE_BREAKUP_AMOUNT);
-      this.positions[offset] =
-        this.localPoint.x + this.driftDirections[offset] * driftScale;
-      this.positions[offset + 1] =
-        this.localPoint.y +
-        this.driftDirections[offset + 1] * driftScale * 0.9 +
-        breakup * 0.12;
-      this.positions[offset + 2] =
-        this.localPoint.z + this.driftDirections[offset + 2] * driftScale;
-      const stableOpacity = THREE.MathUtils.lerp(
-        this.config.FLOWER_PARTICLE_IDLE_OPACITY,
-        this.config.FLOWER_PARTICLE_ATTENDED_OPACITY,
-        effect.attentionEmphasis * patch.attention,
-      );
-      const fragmentEnvelope =
-        THREE.MathUtils.lerp(
-          stableOpacity,
-          this.config.FLOWER_PARTICLE_DECAY_OPACITY,
-          smoothstep(rawDecay / 0.18),
-        ) * Math.pow(1 - delayedDecay, 0.72);
-      this.alphas[slot] =
-        fragmentEnvelope * sampleIntensity;
-      this.sizes[slot] = this.baseSizes[slot] * (1 + breakup * 0.26);
-      return;
-    }
-
-    const idleOpacity = this.config.FLOWER_PARTICLE_IDLE_OPACITY;
-    const attendedOpacity = THREE.MathUtils.lerp(
-      idleOpacity,
-      this.config.FLOWER_PARTICLE_ATTENDED_OPACITY,
-      effect.attentionEmphasis * patch.attention,
-    );
-    const stableOpacity = Math.max(idleOpacity, attendedOpacity);
-    const birthOpacity = THREE.MathUtils.lerp(
-      this.config.FLOWER_PARTICLE_BIRTH_OPACITY,
-      stableOpacity,
-      settleProgress,
-    );
-    const fadeIn = smoothstep(
-      clamp01((gatherProgress - gatherDelay * 0.45) / 0.18),
-    );
-    this.positions[offset] = THREE.MathUtils.lerp(
-      this.startPositions[offset],
-      this.localPoint.x,
-      gather,
-    );
-    this.positions[offset + 1] = THREE.MathUtils.lerp(
-      this.startPositions[offset + 1],
-      this.localPoint.y,
-      gather,
-    );
-    this.positions[offset + 2] = THREE.MathUtils.lerp(
-      this.startPositions[offset + 2],
-      this.localPoint.z,
-      gather,
-    );
-    const coherence = THREE.MathUtils.lerp(
-      1,
-      0.54,
-      effect.attentionEmphasis * patch.attention,
-    );
-    const surfaceDrift =
-      Math.sin(timeSeconds * 1.1 + this.phases[slot] * Math.PI * 2) *
-      this.config.FLOWER_PARTICLE_DRIFT_AMOUNT *
-      (0.35 + this.edgeFactors[slot] * 0.65) *
-      gather *
-      coherence;
-    this.positions[offset] += surfaceDrift;
-    this.positions[offset + 1] += Math.abs(surfaceDrift) * 0.3;
-    this.alphas[slot] =
-      birthOpacity * fadeIn * shimmer * sampleIntensity;
-    this.sizes[slot] = this.baseSizes[slot] * (0.82 + gather * 0.18);
-  }
-
-  updateCenterPoint(effect, slot, timeSeconds) {
-    this.updateFlowerPoint(effect, slot, timeSeconds);
-    const patch = effect.patch;
-    const age = Math.max(0, timeSeconds - patch.birthTime);
-    const birthProgress = clamp01(
-      age / this.config.FLOWER_PARTICLE_BIRTH_DURATION,
-    );
-    if (patch.state === "decaying") {
-      this.alphas[slot] *= 0.42;
-      return;
-    }
-    const calmBase = this.config.FLOWER_CENTER_GLOW_INTENSITY * 0.28;
-    const attentionGlow = THREE.MathUtils.lerp(
-      calmBase,
-      this.config.FLOWER_CENTER_GLOW_INTENSITY,
-      effect.attentionEmphasis * patch.attention,
-    );
-    const birthGlow =
-      Math.sin(birthProgress * Math.PI) *
-      this.config.FLOWER_CENTER_GLOW_INTENSITY;
-    this.alphas[slot] = Math.max(this.alphas[slot] * 0.2, attentionGlow, birthGlow);
-    this.sizes[slot] = this.baseSizes[slot] * (0.88 + patch.attention * 0.12);
-  }
-
-  updatePatchGlow(effect, slot, timeSeconds) {
-    const patch = effect.patch;
-    const offset = slot * 3;
-    const age = Math.max(0, timeSeconds - patch.birthTime);
-    const birthProgress = clamp01(age / this.config.PATCH_GLOW_DURATION);
-    this.positions[offset] = this.localPositions[offset];
-    this.positions[offset + 1] = this.localPositions[offset + 1];
-    this.positions[offset + 2] = this.localPositions[offset + 2];
-    this.sizes[slot] = this.baseSizes[slot] * (0.76 + birthProgress * 0.24);
-
-    if (patch.state === "decaying" && effect.decayStartTime !== null) {
-      const decayProgress = clamp01(
-        (timeSeconds - effect.decayStartTime) / this.config.DECAY_DURATION,
-      );
-      this.alphas[slot] =
-        this.config.PATCH_GLOW_INTENSITY *
-        0.52 *
-        Math.pow(1 - decayProgress, 1.8);
-      return;
-    }
-
-    const birthGlow =
-      Math.sin(birthProgress * Math.PI) * this.config.PATCH_GLOW_INTENSITY;
-    const attentionGlow =
-      this.config.PATCH_GLOW_INTENSITY *
-      0.42 *
-      effect.attentionEmphasis *
-      patch.attention;
-    this.alphas[slot] = Math.max(birthGlow, attentionGlow);
+    this.writePatchState(effect);
   }
 
   syncPatch(patch, flowerSystem, timeSeconds) {
@@ -662,17 +787,11 @@ export class BloomParticleSystem {
       emphasisResponse,
     );
     effect.lastSyncTime = timeSeconds;
-    for (const [flowerIndex, matrix] of effect.flowerMatrices) {
-      this.flowerRenderer.getMatrixAt(flowerIndex, matrix);
-    }
-    for (const slot of effect.slots) {
-      const kind = this.pointKinds[slot];
-      if (kind === POINT_KIND_FLOWER) {
-        this.updateFlowerPoint(effect, slot, timeSeconds);
-      } else if (kind === POINT_KIND_CENTER) {
-        this.updateCenterPoint(effect, slot, timeSeconds);
-      } else {
-        this.updatePatchGlow(effect, slot, timeSeconds);
+    this.writePatchState(effect);
+
+    for (const flowerIndex of effect.flowerIndices) {
+      if (this.flowerRenderer.getMatrixAt(flowerIndex, this.matrix)) {
+        this.writeFlowerMatrix(flowerIndex, this.matrix);
       }
     }
   }
@@ -685,43 +804,36 @@ export class BloomParticleSystem {
     for (const slot of effect.slots) {
       this.releaseSlot(slot);
     }
+    this.releasePatchSlot(effect.patchSlot);
     this.effects.delete(patchId);
     this.geometry.setDrawRange(0, this.maxDrawSlot + 1);
   }
 
-  update() {
-    const drawCount = this.maxDrawSlot + 1;
-    this.geometry.setDrawRange(0, drawCount);
-    if (drawCount > 0) {
-      const dynamicAttributes = [
-        [this.positionAttribute, 3],
-        [this.alphaAttribute, 1],
-        [this.sizeAttribute, 1],
-      ];
-      dynamicAttributes.forEach(([attribute, itemSize]) => {
-        attribute.clearUpdateRanges();
-        attribute.addUpdateRange(0, drawCount * itemSize);
-        attribute.needsUpdate = true;
-      });
+  uploadStaticAttributes() {
+    if (this.staticDirtyMax < this.staticDirtyMin) {
+      return;
     }
-    if (this.staticDirtyMax >= this.staticDirtyMin) {
-      const first = this.staticDirtyMin;
-      const count = this.staticDirtyMax - first + 1;
-      const staticAttributes = [
-        [this.colorAttribute, 3],
-        [this.softnessAttribute, 1],
-        [this.rotationAttribute, 1],
-        [this.radianceAttribute, 1],
-      ];
-      staticAttributes.forEach(([attribute, itemSize]) => {
-        attribute.clearUpdateRanges();
-        attribute.addUpdateRange(first * itemSize, count * itemSize);
-        attribute.needsUpdate = true;
-      });
-      this.staticDirtyMin = this.capacity;
-      this.staticDirtyMax = -1;
+    const first = this.staticDirtyMin;
+    const count = this.staticDirtyMax - first + 1;
+    this.staticAttributes.forEach(({ attribute, itemSize }) => {
+      attribute.clearUpdateRanges();
+      attribute.addUpdateRange(first * itemSize, count * itemSize);
+      attribute.needsUpdate = true;
+    });
+    this.staticDirtyMin = this.capacity;
+    this.staticDirtyMax = -1;
+  }
+
+  update(timeSeconds = 0) {
+    this.material.uniforms.uTime.value = timeSeconds;
+    this.geometry.setDrawRange(0, this.maxDrawSlot + 1);
+    this.uploadStaticAttributes();
+    if (this.effects.size > 0) {
+      this.flowerMatrixTexture.needsUpdate = true;
+      this.patchStateTexture.needsUpdate = true;
     }
     this.points.visible = this.effects.size > 0;
+    this.particleCpuUpdatesThisFrame = 0;
   }
 
   setPixelRatio(pixelRatio) {
@@ -732,29 +844,69 @@ export class BloomParticleSystem {
     return this.capacity - this.freeSlots.length;
   }
 
+  get diagnostics() {
+    const staticStrideBytes = this.staticAttributes.reduce(
+      (sum, { itemSize }) => sum + itemSize * 4,
+      0,
+    );
+    return {
+      mode: "analytic-vertex-shader",
+      activeParticles: this.activeParticleCount,
+      submittedSlots: this.maxDrawSlot + 1,
+      holeCount: Math.max(0, this.maxDrawSlot + 1 - this.activeParticleCount),
+      particleCpuUpdatesPerFrame: this.particleCpuUpdatesThisFrame,
+      flowerMatrixUpdatesPerFrame: this.matrixUpdatesThisFrame,
+      patchStateUpdatesPerFrame: this.patchStateUpdatesThisFrame,
+      staticStrideBytes,
+      staticCapacityBytes: staticStrideBytes * this.capacity,
+      vertexAttributeCount: this.staticAttributes.length,
+      dynamicTextureBytes:
+        this.flowerMatrixData.byteLength + this.patchStateData.byteLength,
+      drawClasses: 1,
+      depthTest: this.material.depthTest,
+      depthWrite: this.material.depthWrite,
+      blending: "normal-alpha",
+    };
+  }
+
+  resetFrameDiagnostics() {
+    this.matrixUpdatesThisFrame = 0;
+    this.patchStateUpdatesThisFrame = 0;
+    this.particleCpuUpdatesThisFrame = 0;
+  }
+
   reset() {
     this.effects.clear();
-    this.alphas.fill(0);
-    this.sizes.fill(0);
     this.slotAlive.fill(0);
+    for (let index = 0; index < this.capacity; index += 1) {
+      this.identityData[index * 4 + 3] = 0;
+    }
     this.freeSlots.length = 0;
     for (let index = this.capacity - 1; index >= 0; index -= 1) {
       this.freeSlots.push(index);
     }
+    this.patchStateData.fill(0);
+    this.freePatchSlots.length = 0;
+    for (let index = this.patchCapacity - 1; index >= 0; index -= 1) {
+      this.freePatchSlots.push(index);
+    }
     this.maxDrawSlot = -1;
-    this.staticDirtyMin = this.capacity;
-    this.staticDirtyMax = -1;
+    this.staticDirtyMin = 0;
+    this.staticDirtyMax = this.capacity - 1;
     this.degradedPatchCount = 0;
     this.geometry.setDrawRange(0, 0);
-    this.alphaAttribute.needsUpdate = true;
-    this.sizeAttribute.needsUpdate = true;
+    this.uploadStaticAttributes();
+    this.patchStateTexture.needsUpdate = true;
     this.points.visible = false;
+    this.resetFrameDiagnostics();
   }
 
   dispose() {
     this.scene.remove(this.points);
     this.geometry.dispose();
     this.material.dispose();
+    this.flowerMatrixTexture.dispose();
+    this.patchStateTexture.dispose();
     this.effects.clear();
   }
 }

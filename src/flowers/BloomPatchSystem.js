@@ -99,6 +99,7 @@ export class BloomPatchSystem {
 
   update(timeSeconds, deltaSeconds, pointerGroundPosition = null) {
     const safeDelta = THREE.MathUtils.clamp(deltaSeconds, 0, 1);
+    this.particleSystem.resetFrameDiagnostics?.();
 
     for (let index = this.patches.length - 1; index >= 0; index -= 1) {
       const patch = this.patches[index];

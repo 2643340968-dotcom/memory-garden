@@ -17,6 +17,8 @@ import { createGrass } from "../src/scene/createGrass.js";
 import { createLights } from "../src/scene/createLights.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
 import { MEMORY_UI_CONFIG } from "../src/memory/MemoryExperience.js";
+import { BloomParticleSystem } from "../src/effects/BloomParticleSystem.js";
+import { estimatePNGBloomWork } from "../src/effects/PNGBloomPipeline.js";
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 720;
@@ -108,6 +110,79 @@ function createPNGTextureRecords(disposeCounts) {
       textureHeight: 1774,
     };
   });
+}
+
+function createParticleHarness(particleConfigOverrides = {}) {
+  const camera = new THREE.PerspectiveCamera(
+    CONFIG.CAMERA_FOV,
+    VIEWPORT_WIDTH / VIEWPORT_HEIGHT,
+    CONFIG.CAMERA_NEAR,
+    CONFIG.CAMERA_FAR,
+  );
+  camera.position.set(
+    CONFIG.CAMERA_POSITION.x,
+    CONFIG.CAMERA_POSITION.y,
+    CONFIG.CAMERA_POSITION.z,
+  );
+  camera.lookAt(
+    CONFIG.CAMERA_LOOK_AT.x,
+    CONFIG.CAMERA_LOOK_AT.y,
+    CONFIG.CAMERA_LOOK_AT.z,
+  );
+  camera.updateMatrixWorld(true);
+
+  const scene = new THREE.Scene();
+  const disposeCounts = Array(5).fill(0);
+  const flowerRenderer = new PNGFlowerRenderer(
+    createPNGTextureRecords(disposeCounts),
+  );
+  const groundRaycaster = new GroundRaycaster(camera, CONFIG.GROUND_SIZE);
+  const flowerSystem = new FlowerSystem(
+    scene,
+    camera,
+    flowerRenderer,
+    groundRaycaster,
+    { clientWidth: VIEWPORT_WIDTH, clientHeight: VIEWPORT_HEIGHT },
+  );
+  const particleSystem = new BloomParticleSystem(
+    scene,
+    { getPixelRatio: () => 1 },
+    flowerSystem,
+    {
+      ...BLOOM_PATCH_CONFIG,
+      PARTICLE_POOL_CAPACITY: 8192,
+      FLOWER_PARTICLE_SAMPLE_COUNT: 16,
+      FLOWER_PARTICLE_ACTIVE_RATIO: 1,
+      ...particleConfigOverrides,
+    },
+  );
+
+  return {
+    camera,
+    scene,
+    flowerRenderer,
+    flowerSystem,
+    groundRaycaster,
+    particleSystem,
+    dispose() {
+      particleSystem.dispose();
+      flowerRenderer.dispose();
+    },
+  };
+}
+
+function createPatchFromBloom(bloomEvent, id = "particle-test-patch") {
+  return {
+    id,
+    center: bloomEvent.anchorPosition.clone(),
+    flowerIndices: bloomEvent.flowerIndices,
+    birthTime: bloomEvent.startTime,
+    attention: 1,
+    attended: false,
+    state: "alive",
+    decayStartTime: null,
+    bloomEvent,
+  };
 }
 
 function groundPointAt(groundRaycaster, pixelX, pixelY) {
@@ -397,6 +472,139 @@ test("flower-body particle quality and performance controls remain centralized",
   assert.ok(BLOOM_PATCH_CONFIG.PATCH_GLOW_INTENSITY < 0.01);
   assert.ok(BLOOM_PATCH_CONFIG.BLOOM_THRESHOLD > 1);
   assert.equal("BLOOM_PARTICLE_COUNT" in BLOOM_PATCH_CONFIG, false);
+});
+
+test("flower particles animate analytically without per-particle CPU frame updates", () => {
+  const harness = createParticleHarness();
+  const {
+    flowerSystem,
+    groundRaycaster,
+    particleSystem,
+  } = harness;
+
+  try {
+    const center = groundPointAt(groundRaycaster, 640, 430);
+    const bloomEvent = flowerSystem.createBloom(center, 0);
+    flowerSystem.update(1);
+    const patch = createPatchFromBloom(bloomEvent);
+
+    particleSystem.spawnBirth(patch);
+    particleSystem.resetFrameDiagnostics();
+    particleSystem.syncPatch(patch, flowerSystem, 1);
+    particleSystem.update(1);
+
+    const effect = particleSystem.effects.get(patch.id);
+    const expectedPointCount =
+      bloomEvent.flowerCount * (effect.samplesPerFlower + 1);
+    assert.equal(particleSystem.activeParticleCount, expectedPointCount);
+    assert.equal(
+      effect.slots.every(
+        (slot) => {
+          const pointKind = particleSystem.identityData[slot * 4];
+          return pointKind === 0 || pointKind === 1;
+        },
+      ),
+      true,
+    );
+    assert.equal(
+      particleSystem.points.userData.motion,
+      "analytic-vertex-shader",
+    );
+    assert.equal(
+      particleSystem.points.userData.patchAura,
+      "distributed-center-bloom",
+    );
+    assert.match(particleSystem.material.vertexShader, /uFlowerMatrices/);
+    assert.match(particleSystem.material.vertexShader, /uPatchStates/);
+    assert.match(particleSystem.material.vertexShader, /aDecayPosition/);
+    assert.ok(particleSystem.staticAttributes.length <= 8);
+    assert.equal(particleSystem.geometry.getAttribute("aAlpha"), undefined);
+    assert.equal(particleSystem.geometry.getAttribute("aSize"), undefined);
+
+    const staticVersions = new Map(
+      particleSystem.staticAttributes.map(({ name, attribute }) => [
+        name,
+        attribute.version,
+      ]),
+    );
+    particleSystem.resetFrameDiagnostics();
+    patch.attention = 0.62;
+    patch.attended = true;
+    particleSystem.syncPatch(patch, flowerSystem, 2);
+    particleSystem.update(2);
+
+    assert.equal(particleSystem.material.uniforms.uTime.value, 2);
+    assert.equal(
+      particleSystem.diagnostics.particleCpuUpdatesPerFrame,
+      0,
+    );
+    assert.equal(
+      particleSystem.diagnostics.flowerMatrixUpdatesPerFrame,
+      bloomEvent.flowerCount,
+    );
+    assert.equal(particleSystem.diagnostics.patchStateUpdatesPerFrame, 1);
+    particleSystem.staticAttributes.forEach(({ name, attribute }) => {
+      assert.equal(attribute.version, staticVersions.get(name));
+    });
+
+    patch.state = "decaying";
+    patch.decayStartTime = 3;
+    particleSystem.spawnDecay(patch, flowerSystem, 3);
+    particleSystem.update(3);
+    const decayVersion = particleSystem.geometry.getAttribute(
+      "aDecayPosition",
+    ).version;
+    particleSystem.resetFrameDiagnostics();
+    particleSystem.syncPatch(patch, flowerSystem, 3.5);
+    particleSystem.update(3.5);
+    assert.equal(
+      particleSystem.geometry.getAttribute("aDecayPosition").version,
+      decayVersion,
+    );
+
+    const previousSlots = new Set(effect.slots);
+    const previousGenerations = new Map(
+      effect.slots.map((slot) => [slot, particleSystem.slotGenerations[slot]]),
+    );
+    particleSystem.releasePatch(patch.id);
+    particleSystem.update(4);
+    assert.equal(particleSystem.activeParticleCount, 0);
+
+    const reusedPatch = createPatchFromBloom(
+      bloomEvent,
+      "particle-test-patch-reused",
+    );
+    reusedPatch.birthTime = 5;
+    particleSystem.spawnBirth(reusedPatch);
+    const reusedEffect = particleSystem.effects.get(reusedPatch.id);
+    const reusedSlots = reusedEffect.slots.filter((slot) =>
+      previousSlots.has(slot),
+    );
+    assert.ok(reusedSlots.length > 0);
+    assert.equal(
+      reusedSlots.every(
+        (slot) =>
+          particleSystem.slotGenerations[slot] >
+          previousGenerations.get(slot),
+      ),
+      true,
+    );
+  } finally {
+    harness.dispose();
+  }
+});
+
+test("PNG bloom budget exposes the full-scene HDR cost and viewport gate", () => {
+  const desktopBudget = estimatePNGBloomWork(1280, 720, 1);
+  assert.equal(desktopBudget.eligible, true);
+  assert.equal(desktopBudget.levels.length, 5);
+  assert.equal(desktopBudget.fullscreenDraws, 12);
+  assert.ok(desktopBudget.internalBytes > 0);
+  assert.ok(desktopBudget.deepestMinimumDimension >= 16);
+
+  const tinyBudget = estimatePNGBloomWork(20, 20, 1);
+  assert.equal(tinyBudget.eligible, false);
+  assert.ok(tinyBudget.deepestMinimumDimension < 16);
 });
 
 test("camera-facing cards keep their root fixed and limit yaw and tilt", () => {

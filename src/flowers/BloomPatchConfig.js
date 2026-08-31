@@ -39,10 +39,9 @@ export const BLOOM_PATCH_CONFIG = Object.freeze({
   FLOWER_CENTER_HDR_GAIN: 2.35,
   FLOWER_CENTER_GLOW_INTENSITY: 0.15,
   FLOWER_CENTER_GLOW_RADIUS: 6.5,
+  // The patch aura is distributed across the existing flower-center points;
+  // there is deliberately no separate large circular glow sprite.
   PATCH_GLOW_INTENSITY: 0.006,
-  PATCH_GLOW_DURATION: 0.85,
-  PATCH_GLOW_RADIUS_MIN: 46,
-  PATCH_GLOW_RADIUS_MAX: 66,
   DECAY_EDGE_BREAKUP_AMOUNT: 0.42,
 
   // The card stays subdued until the sampled point cloud has described the

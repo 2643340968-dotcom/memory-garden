@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is the preserved GLB demo and must remain independently usable.
 - `/` still opens the preserved model entry through `src/main.js`.
-- The last verified automated suite has 12 passing tests.
+- The last verified automated suite has 14 passing tests.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -81,7 +81,9 @@ BloomEvent subscription
   → BloomPatchSystem
   → cursor-ground attention field
   → PNG-alpha flower sample library
-  → primary stable-slot petal / center / patch glow points
+  → primary stable-slot petal / center points
+  → flower-matrix and patch-state data textures
+  → analytic gather / attention / breakup in the vertex shader
   → high-threshold full-scene HDR bloom on PNG only
   → patch-level matrix dim / settle
   → renderer slot release / reuse
@@ -111,8 +113,8 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/flowers/FlowerAnimation.js`: bloom easing.
 - `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing, matrix access for attached points, and the subdued 11%-maximum continuity card.
 - `src/flowers/renderers/PNGFlowerParticleSampler.js`: one precomputed alpha/color sample library per PNG variant, with petal-edge weighting and flower-center detection.
-- `src/effects/BloomParticleSystem.js`: the PNG flower body's primary fixed-capacity stable-slot `THREE.Points` renderer, including matrix-bound surface particles, center light, patch halo, and edge-led decay drift.
-- `src/effects/PNGBloomPipeline.js`: PNG-only `EffectComposer` pipeline with a high-threshold `UnrealBloomPass` and `OutputPass`; the model page remains on the shared direct renderer.
+- `src/effects/BloomParticleSystem.js`: the PNG flower body's primary fixed-capacity stable-slot `THREE.Points` renderer. Immutable flower samples are uploaded once; flower matrices and patch state use compact float data textures, while gather, attention drift, center light, and edge-led breakup are evaluated analytically in the vertex shader. The patch aura is distributed across flower-center contributors rather than drawn as a large glow disc.
+- `src/effects/PNGBloomPipeline.js`: PNG-only `EffectComposer` pipeline with a high-threshold `UnrealBloomPass` and `OutputPass`; includes an explicit bloom-off control and viewport/resource-budget diagnostics. The model page remains on the shared direct renderer.
 - `src/flowers/renderers/PNGFlowerConfig.js`: PNG-only renderer and scene tuning.
 - `src/flowers/renderers/ModelFlowerRenderer.js`: preserved GLB renderer.
 - `src/scene/createGrass.js`: procedural InstancedMesh grass with patchy density and edge/distance falloff.
@@ -121,7 +123,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/input/PointerController.js`: input-neutral normalized pointer state; future HandInput should target this API.
 - `src/interaction/GroundRaycaster.js`: screen/NDC to ground-plane world positions.
 - `src/styles.css`: both page themes plus the PNG-only modal and Memory Echo glass system.
-- `tests/flower-capacity.test.mjs`: capacity, renderer, PNG-alpha sampling, model isolation, BloomEvent memory ID, patch lifecycle, memory-pool, and rhythm-config regression tests.
+- `tests/flower-capacity.test.mjs`: capacity, renderer, PNG-alpha sampling, analytic particle updates, stable-slot generations, bloom budget gates, model isolation, BloomEvent memory ID, patch lifecycle, memory-pool, and rhythm-config regression tests.
 
 ## ASSET PATHS
 
@@ -193,9 +195,9 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - All flowers in every active patch use the stable particulate renderer; the PNG card has a maximum visibility of `0.11`
 - Gather/hold/settle durations `0.95 / 0.32 / 0.72s`; birth opacity `0.96`; idle/attended opacity `0.76 / 0.94`
 - PNG cards begin their faint per-instance alpha reveal at `0.58s` and fade in over `0.88s`
-- Center glow intensity/radius `0.15 / 6.5`; patch halo intensity/duration `0.006 / 0.85s`
+- Center glow intensity/radius `0.15 / 6.5`; distributed patch-aura intensity `0.006`
 - Edge-led decay breakup `0.42`, with gentle surface drift `0.003`
-- One reusable particle pool with `262144` stable slots; hidden when no effects are active. Pool pressure reduces samples uniformly per patch rather than dropping a random subset of flowers
+- One reusable particle pool with `262144` stable slots; hidden when no effects are active. Stable particle attributes are written only at birth/decay/release, and the steady frame updates flower matrices plus one four-float state record per patch rather than every particle. Pool pressure reduces samples uniformly per patch rather than dropping a random subset of flowers
 - PNG bloom strength/radius/threshold `0.11 / 0.12 / 1.04`
 
 ## IMPORTANT TECHNICAL RULES
@@ -231,7 +233,7 @@ When visual or interaction behavior changes, verify both URLs in a browser and c
 
 - Submitted memories are page-local only; reload clears them. There is no backend, database, login, or moderation layer.
 - MediaPipe/HandInput is not implemented yet.
-- There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; flower-center and patch aura contributors are still generated inside the pooled point system.
+- There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; the patch aura comes from the combined HDR flower-center contributors, with no separate large circular glow sprite.
 - Collision avoidance uses four candidate placements and simple rectangle-overlap scoring, not a full layout solver. Extremely dense edge cases may still approach the `0.22` overlap threshold.
 - The production build reports a non-fatal shared-chunk size advisory above 500 kB.
 - `紫金草花田-离线版.html` is an older standalone artifact and is not the source of truth for the current PNG memory experience. Use the Vite URLs for current behavior unless the offline build script is deliberately updated and revalidated.

@@ -218,7 +218,29 @@ export async function createFlowerFieldApp({
       canvas.dataset.degradedParticlePatches = String(
         bloomPatchSystem?.particleSystem.degradedPatchCount ?? 0,
       );
+      const particleDiagnostics =
+        bloomPatchSystem?.particleSystem.diagnostics ?? null;
+      canvas.dataset.particleMotion =
+        particleDiagnostics?.mode ?? "not-applicable";
+      canvas.dataset.particleCpuUpdates = String(
+        particleDiagnostics?.particleCpuUpdatesPerFrame ?? 0,
+      );
+      canvas.dataset.particleMatrixUpdates = String(
+        particleDiagnostics?.flowerMatrixUpdatesPerFrame ?? 0,
+      );
+      canvas.dataset.particlePatchUpdates = String(
+        particleDiagnostics?.patchStateUpdatesPerFrame ?? 0,
+      );
+      canvas.dataset.particleDynamicBytes = String(
+        particleDiagnostics?.dynamicTextureBytes ?? 0,
+      );
       canvas.dataset.renderPipeline = renderPipeline?.type ?? "direct";
+      canvas.dataset.bloomEnabled = String(
+        renderPipeline?.diagnostics?.enabled ?? false,
+      );
+      canvas.dataset.bloomInternalBytes = String(
+        renderPipeline?.diagnostics?.internalBytes ?? 0,
+      );
       if (bloomPatchSystem) {
         const patchStates = { growing: 0, alive: 0, decaying: 0 };
         let oldestPatchAge = 0;
