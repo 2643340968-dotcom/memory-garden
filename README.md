@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本使用五种透明 PNG 紫金草，以 InstancedMesh 批量渲染；访客先留下记忆，再通过鼠标拖拽让记忆以不规则花簇的形式生长。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本使用五种透明 PNG 紫金草，以 InstancedMesh 批量渲染；访客先留下记忆，再通过鼠标拖拽让记忆以不规则花簇的形式生长。新花簇伴随克制的紫色粒子和柔光出现，无人关注的旧花簇则缓慢消散并释放实例槽。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -59,6 +59,8 @@ pnpm run dev
   → YOUR MEMORY 卡片出现在花簇附近
   → 鼠标种植解锁
   → 每次拖拽可产生约 1–3 个 Memory Echo
+  → 光标附近花簇刷新 attention
+  → 无人关注的旧花簇缓慢变暗、下沉、散出粒子并消失
   → 卡片淡出；Reset 不重开入口
 ```
 
@@ -78,6 +80,12 @@ MouseInput
       └─ ModelFlowerRenderer
 
 BloomEvent
+  → BloomPatchSystem
+      ├─ cursor attention field
+      ├─ patch-level growth / alive / decay state
+      └─ BloomParticleSystem (one pooled Points draw object)
+
+BloomEvent
   → MemoryExperience
   → Memory Echo DOM UI
 ```
@@ -93,6 +101,8 @@ src/
   memory/MemoryExperience.js
   flowers/
     BloomEvent.js
+    BloomPatchConfig.js
+    BloomPatchSystem.js
     FlowerSystem.js
     FlowerSpawner.js
     FlowerAnimation.js
@@ -101,6 +111,7 @@ src/
       PNGFlowerConfig.js
       PNGFlowerRenderer.js
       ModelFlowerRenderer.js
+  effects/BloomParticleSystem.js
   input/
     PointerController.js
     MouseInput.js
@@ -125,6 +136,7 @@ public/assets/flowers/
 - 全局容量：`src/config.js` → `MAX_FLOWERS = 20000`
 - PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
 - 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
+- 花簇注意力、消散和粒子：`src/flowers/BloomPatchConfig.js` → `BLOOM_PATCH_CONFIG`
 - Vite 多入口：`vite.config.js`
 
 当前记忆节奏：
@@ -143,6 +155,11 @@ public/assets/flowers/
 - 可视草场 `44`，视觉地面 `52`，射线交互范围仍为 `32`
 - 雾色 `0x2b2335`，范围 `9.5–31`
 - PNG 花朵色调 `0xececf5`，透明度 `0.96`
+- 注意力半径 `2.65` 世界单位；最低完整寿命 `8s`
+- 无关注时 attention 每秒衰减 `0.075`，阈值 `0.2`
+- 消散持续 `4.6s`
+- 出生粒子 `96`、消散粒子 `26`，共用 `4096` 槽的固定粒子池
+- 柔光、出生粒子和消散粒子共用一个短时可见的 `THREE.Points` draw object
 - 未启用 EffectComposer、真正体积光或 DOF
 
 ## 测试与构建
@@ -160,6 +177,8 @@ npm run build
 - 底部锚点与相机朝向
 - PNG 场景配置与 GLB 默认值隔离
 - BloomEvent `memoryId` 和订阅
+- BloomPatch 最低寿命、注意力维持、消散清理与实例槽复用
+- PNG renderer 的局部实例槽回收
 - 本地 memoryPool
 - 记忆手势配置上限
 
@@ -173,8 +192,7 @@ npm run build
 
 ## 下一步
 
-1. 按需要继续微调 Memory Echo UI。
-2. 加入数字粒子形成过程：地面粒子 → 扩散 → 聚拢 → PNG 紫金草出现。
-3. 接入 MediaPipe 手部识别。
-4. 保留 MouseInput 作为 fallback。
-5. 每次大改前保留当前稳定 PNG 版本的 Git checkpoint。
+1. 按真实展览节奏微调 attention 半径、寿命和粒子密度，不改现有花簇形状。
+2. 接入 MediaPipe 手部识别，并让手部地面投影驱动同一个 attention field。
+3. 保留 MouseInput 作为 fallback。
+4. 每次大改前保留当前稳定 PNG 版本的 Git checkpoint。

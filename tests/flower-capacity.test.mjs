@@ -4,6 +4,8 @@ import * as THREE from "three";
 
 import { CONFIG } from "../src/config.js";
 import { FlowerSystem } from "../src/flowers/FlowerSystem.js";
+import { BloomPatchSystem } from "../src/flowers/BloomPatchSystem.js";
+import { BLOOM_PATCH_CONFIG } from "../src/flowers/BloomPatchConfig.js";
 import { PNGFlowerRenderer } from "../src/flowers/renderers/PNGFlowerRenderer.js";
 import {
   PNG_FLOWER_CONFIG,
@@ -260,6 +262,16 @@ test("PNG renderer uses five bottom-anchored batches and keeps textures on reset
     [...pngRenderer.batchCounts],
   );
 
+  const releasedVariant = pngRenderer.variantAssignments[0];
+  const releasedLocalIndex = pngRenderer.localIndices[0];
+  assert.equal(pngRenderer.releaseInstance(0), true);
+  const selectReleasedVariant = () =>
+    (releasedVariant + 0.25) / pngRenderer.variantBatches.length;
+  pngRenderer.allocateInstance(1001, selectReleasedVariant);
+  assert.equal(pngRenderer.variantAssignments[1001], releasedVariant);
+  assert.equal(pngRenderer.localIndices[1001], releasedLocalIndex);
+  assert.equal(pngRenderer.releaseInstance(0), false);
+
   pngRenderer.reset();
   assert.equal(pngRenderer.globalCount, 0);
   assert.deepEqual([...pngRenderer.batchCounts], [0, 0, 0, 0, 0]);
@@ -358,11 +370,119 @@ test("BloomEvents can carry a memory id and notify one lightweight listener", ()
     memoryId: "session-memory-1",
   });
   assert.equal(bloomEvent.memoryId, "session-memory-1");
+  assert.equal(bloomEvent.flowerIndices.length, bloomEvent.flowerCount);
+  assert.equal(bloomEvent.flowerIndices[0], bloomEvent.firstFlowerIndex);
   assert.deepEqual(observed, [bloomEvent]);
 
   unsubscribe();
   flowerSystem.createBloom(center, 1);
   assert.equal(observed.length, 1);
+});
+
+test("BloomPatch lifecycle respects minimum age and recycles released flower slots", () => {
+  const releasedIndices = [];
+  const { flowerSystem, flowerRenderer, groundRaycaster } = createHarness({
+    releaseInstance(index) {
+      releasedIndices.push(index);
+      return true;
+    },
+  });
+  const particleEvents = { births: 0, decays: 0, updates: 0 };
+  const particleSystem = {
+    activeParticleCount: 0,
+    spawnBirth() {
+      particleEvents.births += 1;
+    },
+    spawnDecay() {
+      particleEvents.decays += 1;
+    },
+    update() {
+      particleEvents.updates += 1;
+    },
+    setPixelRatio() {},
+    reset() {},
+    dispose() {},
+  };
+  const lifecycleConfig = {
+    ...BLOOM_PATCH_CONFIG,
+    ATTENTION_DECAY_RATE: 1,
+    ATTENTION_GRACE_DURATION: 1,
+    DECAY_DURATION: 2,
+  };
+  const patchSystem = new BloomPatchSystem({
+    scene: flowerSystem.scene,
+    renderer: flowerRenderer,
+    flowerSystem,
+    config: lifecycleConfig,
+    particleSystem,
+  });
+  const center = groundPointAt(groundRaycaster, 640, 430);
+  const firstBloom = flowerSystem.createBloom(center, 0);
+  const originalIndices = new Set(firstBloom.flowerIndices);
+
+  assert.equal(patchSystem.patches.length, 1);
+  assert.equal(patchSystem.patches[0].state, "growing");
+  assert.equal(particleEvents.births, 1);
+
+  patchSystem.update(BLOOM_PATCH_CONFIG.MIN_PATCH_LIFETIME - 0.1, 1, null);
+  assert.notEqual(patchSystem.patches[0].state, "decaying");
+
+  patchSystem.update(BLOOM_PATCH_CONFIG.MIN_PATCH_LIFETIME + 0.1, 1, null);
+  assert.equal(patchSystem.patches[0].state, "decaying");
+  assert.equal(particleEvents.decays, 1);
+
+  patchSystem.update(
+    BLOOM_PATCH_CONFIG.MIN_PATCH_LIFETIME + lifecycleConfig.DECAY_DURATION + 0.2,
+    lifecycleConfig.DECAY_DURATION,
+    null,
+  );
+  assert.equal(patchSystem.patches.length, 0);
+  assert.equal(flowerSystem.count, 0);
+  assert.equal(flowerSystem.blooms.length, 0);
+  assert.equal(releasedIndices.length, firstBloom.flowerCount);
+
+  const secondBloom = flowerSystem.createBloom(center, 20);
+  assert.ok(secondBloom.flowerIndices.some((index) => originalIndices.has(index)));
+  assert.ok(particleEvents.updates >= 3);
+  patchSystem.dispose();
+});
+
+test("soft cursor attention keeps an old BloomPatch alive", () => {
+  const { flowerSystem, flowerRenderer, groundRaycaster } = createHarness({
+    releaseInstance() {
+      return true;
+    },
+  });
+  const particleSystem = {
+    activeParticleCount: 0,
+    spawnBirth() {},
+    spawnDecay() {
+      assert.fail("An attended patch should not begin decay.");
+    },
+    update() {},
+    setPixelRatio() {},
+    reset() {},
+    dispose() {},
+  };
+  const patchSystem = new BloomPatchSystem({
+    scene: flowerSystem.scene,
+    renderer: flowerRenderer,
+    flowerSystem,
+    config: {
+      ...BLOOM_PATCH_CONFIG,
+      ATTENTION_DECAY_RATE: 1,
+      ATTENTION_GRACE_DURATION: 1,
+    },
+    particleSystem,
+  });
+  const center = groundPointAt(groundRaycaster, 640, 430);
+  flowerSystem.createBloom(center, 0);
+
+  patchSystem.update(20, 20, center.clone().add(new THREE.Vector3(0.5, 0, 0)));
+  assert.equal(patchSystem.patches[0].state, "alive");
+  assert.equal(patchSystem.patches[0].attention, 1);
+  assert.equal(patchSystem.patches[0].lastAttentionTime, 20);
+  patchSystem.dispose();
 });
 
 test("memory pool stores session input and avoids immediate echo repetition", () => {

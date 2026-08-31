@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is the preserved GLB demo and must remain independently usable.
 - `/` still opens the preserved model entry through `src/main.js`.
-- The last verified automated suite has 8 passing tests.
+- The last verified automated suite has 10 passing tests.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -54,10 +54,13 @@ Local URLs:
 7. A `YOUR MEMORY` glass card appears beside that bloom.
 8. Mouse planting becomes enabled and the status changes to `MOUSE INPUT · READY`.
 9. Dragging creates irregular, clustered BloomEvent patches rather than a linear flower trail.
-10. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
-11. Echo cards are projected from BloomEvent world positions, clamped to the viewport, collision-checked, and always use `pointer-events: none`.
-12. `RESET FIELD` clears flowers, BloomEvents, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
-13. A full reload restarts the entry flow and clears page-local submitted memories.
+10. Each BloomEvent also becomes one BloomPatch. A pooled lavender birth effect expands, gathers into the flower region, and fades while the flowers grow.
+11. Cursor proximity within a soft world-space radius refreshes patch attention. Unattended attention decays after a guaranteed visible lifetime.
+12. An unattended patch dims, settles, emits sparse decay particles, then releases its flower slots for reuse.
+13. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
+14. Echo cards are projected from BloomEvent world positions, clamped to the viewport, collision-checked, and always use `pointer-events: none`.
+15. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
+16. A full reload restarts the entry flow and clears page-local submitted memories.
 
 ## ARCHITECTURE
 
@@ -71,6 +74,13 @@ MouseInput (future: HandInput)
   → FlowerRenderer interface
       ├─ PNGFlowerRenderer (main)
       └─ ModelFlowerRenderer (preserved)
+
+BloomEvent subscription
+  → BloomPatchSystem
+  → cursor-ground attention field
+  → pooled birth / glow / decay particle system
+  → patch-level matrix dim / settle
+  → renderer slot release / reuse
 
 BloomEvent subscription
   → MemoryExperience
@@ -89,10 +99,13 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/memory/MemoryExperience.js`: entry flow, gesture sessions, memory triggers, automatic first bloom, projection, card queue, collision avoidance, viewport clamping, reset cleanup.
 - `src/data/memoryPool.js`: generic prototype memories and in-memory `sessionMemories`; do not present prototype text as real survivor testimony or a historical quotation.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
+- `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
+- `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.
 - `src/flowers/FlowerSystem.js`: clustered patch creation, growth data, matrices, BloomEvent listeners, reset, capacity.
 - `src/flowers/FlowerSpawner.js`: distance/cooldown sampling along the pointer path.
 - `src/flowers/FlowerAnimation.js`: bloom easing.
 - `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing.
+- `src/effects/BloomParticleSystem.js`: one fixed-capacity pooled `THREE.Points` object for birth dots, soft glow, and decay drift.
 - `src/flowers/renderers/PNGFlowerConfig.js`: PNG-only renderer and scene tuning.
 - `src/flowers/renderers/ModelFlowerRenderer.js`: preserved GLB renderer.
 - `src/scene/createGrass.js`: procedural InstancedMesh grass with patchy density and edge/distance falloff.
@@ -162,6 +175,16 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Card width `330px`; viewport margin `30px`; acceptable overlap target `0.22`
 - Modal exit `850ms`
 
+### BloomPatch lifecycle: `src/flowers/BloomPatchConfig.js`
+
+- Attention radius `2.65` world units
+- Attention gain `0.85/s`, unattended decay `0.075/s`, decay threshold `0.2`
+- Recent-attention grace `3.2s`
+- Minimum full patch lifetime `8s`; decay duration `4.6s`
+- Birth particles `96` for `1.25s`; soft glow `1.05s`
+- Decay particles `26` for `1.9s`
+- One reusable particle pool with `4096` slots; hidden when no effects are active
+
 ## IMPORTANT TECHNICAL RULES
 
 - The PNG version is the current main demo. Do not replace it with GLB flowers.
@@ -169,6 +192,8 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Preserve clustered, non-linear, lobe-based BloomEvent spawning. Do not revert to a continuous linear trail.
 - Flower cards must remain bottom/root anchored.
 - Preserve InstancedMesh batching and the 20,000 global instance capacity.
+- Keep lifecycle patch-level. Do not replace it with permanent per-flower particle or object lifecycles.
+- Released PNG instance slots must remain reusable through the global and per-variant free lists.
 - Do not duplicate shared scene and input architecture unless there is a strong technical reason.
 - Keep `PointerController` input-neutral so a future MediaPipe HandInput can update the same normalized state.
 - Keep `MouseInput` as the fallback after hand tracking is introduced.
@@ -191,7 +216,7 @@ When visual or interaction behavior changes, verify both URLs in a browser and c
 
 - Submitted memories are page-local only; reload clears them. There is no backend, database, login, or moderation layer.
 - MediaPipe/HandInput is not implemented yet.
-- There is no real volumetric light, EffectComposer bloom, DOF, or particle-formation transition yet.
+- There is no real volumetric light, EffectComposer bloom, or DOF. The current glow is deliberately simulated inside the pooled point system.
 - Collision avoidance uses four candidate placements and simple rectangle-overlap scoring, not a full layout solver. Extremely dense edge cases may still approach the `0.22` overlap threshold.
 - The production build reports a non-fatal shared-chunk size advisory above 500 kB.
 - `紫金草花田-离线版.html` is an older standalone artifact and is not the source of truth for the current PNG memory experience. Use the Vite URLs for current behavior unless the offline build script is deliberately updated and revalidated.
@@ -199,11 +224,10 @@ When visual or interaction behavior changes, verify both URLs in a browser and c
 
 ## CURRENT NEXT TASKS
 
-1. Continue refining Memory Echo UI only if visual QA identifies a real issue.
-2. Later add digital particle formation: ground particles → expansion → gathering → PNG Zijincao appearance.
-3. Later replace primary mouse control with MediaPipe hand tracking.
-4. Preserve mouse mode as fallback.
-5. Keep this stable PNG version recoverable with Git checkpoints before major refactors.
+1. Tune attention radius, lifetime, and particle density only from real exhibition QA; preserve the present cluster shapes.
+2. Later replace primary mouse control with MediaPipe hand tracking and route its ground projection into the same attention field.
+3. Preserve mouse mode as fallback.
+4. Keep this stable PNG version recoverable with Git checkpoints before major refactors.
 
 ## DEVELOPMENT SKILLS
 

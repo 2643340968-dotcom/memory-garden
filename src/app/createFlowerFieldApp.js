@@ -19,6 +19,7 @@ export async function createFlowerFieldApp({
   sceneConfig,
   interactionEnabled = true,
   counterMode = "flowers",
+  createPatchSystem = null,
 }) {
   if (typeof createFlowerRenderer !== "function") {
     throw new TypeError("createFlowerFieldApp requires a flower renderer factory.");
@@ -64,6 +65,10 @@ export async function createFlowerFieldApp({
     canvas,
   );
   const flowerSpawner = new FlowerSpawner(flowerSystem);
+  const bloomPatchSystem =
+    typeof createPatchSystem === "function"
+      ? createPatchSystem({ scene, renderer, flowerSystem })
+      : null;
   const maxFlowers = flowerSystem.maxFlowers;
 
   assetMode.textContent = flowerRenderer.assetMode;
@@ -76,6 +81,8 @@ export async function createFlowerFieldApp({
   let lastPlantingState = false;
   let performanceSampleStart = performance.now();
   let performanceSampleFrames = 0;
+  let previousFrameTimeSeconds = null;
+  let resetCount = 0;
   const flowerCountDigits = String(maxFlowers).length;
 
   function getDisplayedCount() {
@@ -106,9 +113,12 @@ export async function createFlowerFieldApp({
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.MAX_PIXEL_RATIO));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
+    bloomPatchSystem?.setPixelRatio(renderer.getPixelRatio());
   }
 
   function resetField() {
+    resetCount += 1;
+    bloomPatchSystem?.reset();
     flowerSystem.reset();
     flowerSpawner.reset();
     flowerCount.textContent = formatFlowerCount(0);
@@ -122,6 +132,11 @@ export async function createFlowerFieldApp({
 
   function render(timeMilliseconds) {
     const timeSeconds = timeMilliseconds * 0.001;
+    const deltaSeconds =
+      previousFrameTimeSeconds === null
+        ? 0
+        : Math.max(0, timeSeconds - previousFrameTimeSeconds);
+    previousFrameTimeSeconds = timeSeconds;
     const pointer = pointerController.getState();
     const hasGroundHit =
       pointer.hasPosition &&
@@ -137,6 +152,11 @@ export async function createFlowerFieldApp({
 
     flowerSpawner.update(hasGroundHit ? hitPoint : null, isPlanting, timeSeconds);
     flowerSystem.update(timeSeconds);
+    bloomPatchSystem?.update(
+      timeSeconds,
+      deltaSeconds,
+      hasGroundHit ? hitPoint : null,
+    );
 
     const displayedCount = getDisplayedCount();
     if (displayedCount !== lastDisplayedCount) {
@@ -171,6 +191,34 @@ export async function createFlowerFieldApp({
       canvas.dataset.memoryTextures = String(renderer.info.memory.textures);
       canvas.dataset.flowerInstances = String(flowerSystem.count);
       canvas.dataset.bloomEvents = String(flowerSystem.blooms.length);
+      canvas.dataset.resetCount = String(resetCount);
+      canvas.dataset.activePatches = String(
+        bloomPatchSystem?.patches.length ?? 0,
+      );
+      canvas.dataset.effectParticles = String(
+        bloomPatchSystem?.particleSystem.activeParticleCount ?? 0,
+      );
+      if (bloomPatchSystem) {
+        const patchStates = { growing: 0, alive: 0, decaying: 0 };
+        let oldestPatchAge = 0;
+        let minimumAttention = 1;
+        bloomPatchSystem.patches.forEach((patch) => {
+          patchStates[patch.state] = (patchStates[patch.state] ?? 0) + 1;
+          oldestPatchAge = Math.max(oldestPatchAge, patch.age);
+          minimumAttention = Math.min(minimumAttention, patch.attention);
+        });
+        canvas.dataset.patchStates = [
+          patchStates.growing,
+          patchStates.alive,
+          patchStates.decaying,
+        ].join("/");
+        canvas.dataset.oldestPatchAge = oldestPatchAge.toFixed(2);
+        canvas.dataset.minimumPatchAttention = minimumAttention.toFixed(3);
+        canvas.dataset.decayStartedCount = String(
+          bloomPatchSystem.decayStartedCount,
+        );
+        canvas.dataset.deadPatchCount = String(bloomPatchSystem.deadPatchCount);
+      }
       performanceSampleStart = timeMilliseconds;
       performanceSampleFrames = 0;
     }
@@ -195,6 +243,7 @@ export async function createFlowerFieldApp({
     flowerVisual: flowerRenderer,
     flowerSystem,
     flowerSpawner,
+    bloomPatchSystem,
     resetField,
     setInputEnabled,
     isInputEnabled: () => inputEnabled,

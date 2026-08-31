@@ -6,6 +6,7 @@ export class BloomEvent {
     radius,
     flowerCount,
     firstFlowerIndex,
+    flowerIndices,
     randomSeed,
     lobeCentersScreen,
     memoryId = null,
@@ -16,6 +17,7 @@ export class BloomEvent {
     this.radius = radius;
     this.flowerCount = flowerCount;
     this.firstFlowerIndex = firstFlowerIndex;
+    this.flowerIndices = new Uint32Array(flowerIndices);
     this.randomSeed = randomSeed;
     this.lobeCentersScreen = lobeCentersScreen;
     this.memoryId = memoryId;

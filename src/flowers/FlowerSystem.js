@@ -32,6 +32,8 @@ export class FlowerSystem {
     this.flowersPerBloomMax =
       fieldConfig.flowersPerBloomMax ?? CONFIG.FLOWERS_PER_BLOOM_MAX;
     this.count = 0;
+    this.nextUnusedIndex = 0;
+    this.freeFlowerIndices = [];
     this.blooms = [];
     this.bloomListeners = new Set();
     this.random = createSeededRandom((Date.now() ^ 0x71f20ca) >>> 0);
@@ -50,6 +52,7 @@ export class FlowerSystem {
     this.swayAmounts = new Float32Array(this.maxFlowers);
     this.activeFlowerIndices = new Uint32Array(this.maxFlowers);
     this.settledFlowers = new Uint8Array(this.maxFlowers);
+    this.aliveFlowers = new Uint8Array(this.maxFlowers);
     this.activeFlowerCount = 0;
     this.settledUpdateCursor = 0;
     this.capacityReachedLogged = false;
@@ -181,7 +184,7 @@ export class FlowerSystem {
     const exclusionY = bloomScreenY + Math.sin(exclusionAngle) * exclusionDistance;
     const exclusionRadius = bloomRadiusPx * randomRange(bloomRandom, 0.1, 0.2);
     const exclusionRadiusSquared = exclusionRadius * exclusionRadius;
-    const firstFlowerIndex = this.count;
+    const flowerIndices = [];
 
     for (let lobe = 0; lobe < lobeCount; lobe += 1) {
       const ellipseCos = Math.cos(this.lobeRotation[lobe]);
@@ -264,7 +267,7 @@ export class FlowerSystem {
             ),
         );
 
-        const didSpawn = this.spawnFlower(
+        const flowerIndex = this.spawnFlowerIndex(
           this.projectedGroundPoint.x,
           this.projectedGroundPoint.z,
           startTime,
@@ -272,14 +275,15 @@ export class FlowerSystem {
           waveDelay,
           bloomRandom,
         );
-        if (!didSpawn) {
+        if (flowerIndex < 0) {
           break;
         }
+        flowerIndices.push(flowerIndex);
         accepted += 1;
       }
     }
 
-    const flowerCount = this.count - firstFlowerIndex;
+    const flowerCount = flowerIndices.length;
     if (flowerCount === 0) {
       return null;
     }
@@ -296,7 +300,8 @@ export class FlowerSystem {
       duration: bloomDuration,
       radius: bloomRadius,
       flowerCount,
-      firstFlowerIndex,
+      firstFlowerIndex: flowerIndices[0],
+      flowerIndices,
       randomSeed,
       lobeCentersScreen,
       memoryId,
@@ -316,11 +321,27 @@ export class FlowerSystem {
   }
 
   spawnFlower(x, z, bloomStartTime, duration, waveDelay, random) {
+    return (
+      this.spawnFlowerIndex(
+        x,
+        z,
+        bloomStartTime,
+        duration,
+        waveDelay,
+        random,
+      ) >= 0
+    );
+  }
+
+  spawnFlowerIndex(x, z, bloomStartTime, duration, waveDelay, random) {
     if (this.count >= this.maxFlowers) {
-      return false;
+      return -1;
     }
 
-    const index = this.count;
+    const index =
+      this.freeFlowerIndices.length > 0
+        ? this.freeFlowerIndices.pop()
+        : this.nextUnusedIndex++;
     this.positionsX[index] = x + randomRange(
       random,
       -CONFIG.FLOWER_POSITION_JITTER,
@@ -371,26 +392,33 @@ export class FlowerSystem {
     );
 
     this.settledFlowers[index] = 0;
+    this.aliveFlowers[index] = 1;
     this.activeFlowerIndices[this.activeFlowerCount] = index;
     this.activeFlowerCount += 1;
 
     this.count += 1;
-    this.flowerRenderer.setCount(this.count);
+    this.flowerRenderer.setCount(this.nextUnusedIndex);
     if (this.count >= this.maxFlowers && !this.capacityReachedLogged) {
       console.info(`Flower capacity reached: ${this.maxFlowers}`);
       this.capacityReachedLogged = true;
     }
-    return true;
+    return index;
   }
 
-  writeFlowerMatrix(index, timeSeconds, growth, windStrength) {
+  writeFlowerMatrix(
+    index,
+    timeSeconds,
+    growth,
+    windStrength,
+    { yOffset = 0, vitality = 1 } = {},
+  ) {
     const emergence = clamp01(growth);
     const sway =
       Math.sin(timeSeconds * this.swaySpeeds[index] + this.swayPhases[index]) *
       this.swayAmounts[index] *
       windStrength;
     const scale = this.scales[index] * growth;
-    const y = 0.012 - this.startYOffset * (1 - emergence);
+    const y = 0.012 - this.startYOffset * (1 - emergence) + yOffset;
 
     this.dummy.position.set(this.positionsX[index], y, this.positionsZ[index]);
     this.dummy.rotation.set(
@@ -401,6 +429,7 @@ export class FlowerSystem {
     this.dummy.scale.set(scale * this.mirrorsX[index], scale, scale);
     this.dummy.updateMatrix();
     this.flowerRenderer.setMatrixAt(index, this.dummy.matrix);
+    this.flowerRenderer.setVitalityAt?.(index, vitality);
     this.matricesDirty = true;
   }
 
@@ -414,6 +443,12 @@ export class FlowerSystem {
     let activeSlot = 0;
     while (activeSlot < this.activeFlowerCount) {
       const index = this.activeFlowerIndices[activeSlot];
+      if (this.aliveFlowers[index] === 0) {
+        this.activeFlowerCount -= 1;
+        this.activeFlowerIndices[activeSlot] =
+          this.activeFlowerIndices[this.activeFlowerCount];
+        continue;
+      }
       const growthTime = (timeSeconds - this.startTimes[index]) / this.durations[index];
       const growth =
         growthTime <= 0
@@ -445,14 +480,18 @@ export class FlowerSystem {
     let updatedSettledFlowers = 0;
 
     while (
-      checkedFlowers < this.count &&
+      checkedFlowers < this.nextUnusedIndex &&
       updatedSettledFlowers < settledUpdateBudget
     ) {
       const index = this.settledUpdateCursor;
-      this.settledUpdateCursor = (this.settledUpdateCursor + 1) % this.count;
+      this.settledUpdateCursor =
+        (this.settledUpdateCursor + 1) % Math.max(1, this.nextUnusedIndex);
       checkedFlowers += 1;
 
-      if (this.settledFlowers[index] === 0) {
+      if (
+        this.aliveFlowers[index] === 0 ||
+        this.settledFlowers[index] === 0
+      ) {
         continue;
       }
 
@@ -465,13 +504,72 @@ export class FlowerSystem {
     }
   }
 
+  beginBloomDecay(bloomEvent) {
+    for (const index of bloomEvent.flowerIndices) {
+      if (this.aliveFlowers[index] !== 0) {
+        this.settledFlowers[index] = 0;
+      }
+    }
+  }
+
+  updateBloomDecay(bloomEvent, progress, timeSeconds) {
+    const decay = clamp01(progress);
+    const easedDecay = decay * decay * (3 - 2 * decay);
+    const scale = 1 - easedDecay * 0.24;
+    const windStrength = 1 - easedDecay * 0.82;
+    const vitality = 1 - easedDecay * 0.74;
+    const yOffset = -easedDecay * 0.095;
+    let wroteMatrix = false;
+
+    for (const index of bloomEvent.flowerIndices) {
+      if (this.aliveFlowers[index] === 0) {
+        continue;
+      }
+      this.writeFlowerMatrix(index, timeSeconds, scale, windStrength, {
+        yOffset,
+        vitality,
+      });
+      wroteMatrix = true;
+    }
+
+    if (wroteMatrix) {
+      this.flowerRenderer.commit();
+    }
+  }
+
+  releaseBloom(bloomEvent) {
+    const bloomIndex = this.blooms.indexOf(bloomEvent);
+    if (bloomIndex < 0) {
+      return false;
+    }
+
+    for (const index of bloomEvent.flowerIndices) {
+      if (this.aliveFlowers[index] === 0) {
+        continue;
+      }
+      this.flowerRenderer.releaseInstance?.(index);
+      this.aliveFlowers[index] = 0;
+      this.settledFlowers[index] = 0;
+      this.freeFlowerIndices.push(index);
+      this.count -= 1;
+    }
+
+    this.blooms.splice(bloomIndex, 1);
+    this.flowerRenderer.setCount(this.nextUnusedIndex);
+    this.flowerRenderer.commit();
+    return true;
+  }
+
   reset() {
     this.count = 0;
+    this.nextUnusedIndex = 0;
+    this.freeFlowerIndices.length = 0;
     this.blooms.length = 0;
     this.activeFlowerCount = 0;
     this.settledUpdateCursor = 0;
     this.capacityReachedLogged = false;
     this.settledFlowers.fill(0);
+    this.aliveFlowers.fill(0);
     this.mirrorsX.fill(1);
     this.flowerRenderer.reset();
   }

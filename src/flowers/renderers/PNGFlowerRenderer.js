@@ -94,6 +94,12 @@ export class PNGFlowerRenderer {
     this.variantAssignments.fill(UNASSIGNED_VARIANT);
     this.localIndices = new Uint32Array(this.maxFlowers);
     this.batchCounts = new Uint32Array(textureRecords.length);
+    this.freeLocalIndices = Array.from(
+      { length: textureRecords.length },
+      () => [],
+    );
+    this.hiddenMatrix = new THREE.Matrix4().makeScale(0, 0, 0);
+    this.vitalityColor = new THREE.Color(1, 1, 1);
     this.textures = textureRecords.map((record) => record.texture);
     this.materials = [];
     this.geometries = [];
@@ -126,6 +132,11 @@ export class PNGFlowerRenderer {
         mesh.userData.instanceCapacity = this.maxFlowers;
         mesh.userData.variantIndex = variantIndex;
         mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        mesh.instanceColor = new THREE.InstancedBufferAttribute(
+          new Float32Array(this.maxFlowers * 3).fill(1),
+          3,
+        );
+        mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
         return mesh;
       });
 
@@ -182,12 +193,16 @@ export class PNGFlowerRenderer {
       this.variantBatches.length - 1,
       Math.floor(random() * this.variantBatches.length),
     );
-    const localIndex = this.batchCounts[variantIndex];
+    const freeLocalIndices = this.freeLocalIndices[variantIndex];
+    const localIndex =
+      freeLocalIndices.length > 0
+        ? freeLocalIndices.pop()
+        : this.batchCounts[variantIndex]++;
     this.variantAssignments[globalIndex] = variantIndex;
     this.localIndices[globalIndex] = localIndex;
-    this.batchCounts[variantIndex] += 1;
     this.variantBatches[variantIndex].meshes.forEach((mesh) => {
       mesh.count = this.batchCounts[variantIndex];
+      mesh.setColorAt(localIndex, this.vitalityColor.setRGB(1, 1, 1));
     });
   }
 
@@ -207,10 +222,42 @@ export class PNGFlowerRenderer {
     });
   }
 
+  setVitalityAt(globalIndex, vitality) {
+    const variantIndex = this.variantAssignments[globalIndex];
+    if (variantIndex === UNASSIGNED_VARIANT) {
+      return;
+    }
+
+    const localIndex = this.localIndices[globalIndex];
+    const value = THREE.MathUtils.clamp(vitality, 0, 1);
+    this.vitalityColor.setRGB(value, value * 0.94, value);
+    this.variantBatches[variantIndex].meshes.forEach((mesh) => {
+      mesh.setColorAt(localIndex, this.vitalityColor);
+    });
+  }
+
+  releaseInstance(globalIndex) {
+    const variantIndex = this.variantAssignments[globalIndex];
+    if (variantIndex === UNASSIGNED_VARIANT) {
+      return false;
+    }
+
+    const localIndex = this.localIndices[globalIndex];
+    this.variantBatches[variantIndex].meshes.forEach((mesh) => {
+      mesh.setMatrixAt(localIndex, this.hiddenMatrix);
+      mesh.setColorAt(localIndex, this.vitalityColor.setRGB(0, 0, 0));
+    });
+    this.freeLocalIndices[variantIndex].push(localIndex);
+    this.variantAssignments[globalIndex] = UNASSIGNED_VARIANT;
+    this.localIndices[globalIndex] = 0;
+    return true;
+  }
+
   commit() {
     this.meshes.forEach((mesh) => {
       if (mesh.count > 0) {
         mesh.instanceMatrix.needsUpdate = true;
+        mesh.instanceColor.needsUpdate = true;
       }
     });
   }
@@ -219,9 +266,15 @@ export class PNGFlowerRenderer {
     this.globalCount = 0;
     this.batchCounts.fill(0);
     this.variantAssignments.fill(UNASSIGNED_VARIANT);
+    this.localIndices.fill(0);
+    this.freeLocalIndices.forEach((indices) => {
+      indices.length = 0;
+    });
     this.meshes.forEach((mesh) => {
       mesh.count = 0;
+      mesh.instanceColor.array.fill(1);
       mesh.instanceMatrix.needsUpdate = true;
+      mesh.instanceColor.needsUpdate = true;
     });
   }
 
