@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。上半幅使用缩小后的“记忆之场”标题与少量缓慢漂浮的断花切片平衡构图。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -121,6 +121,7 @@ src/
       PNGFlowerParticleSampler.js
       ModelFlowerRenderer.js
   effects/
+    AirborneFlowerSystem.js
     BloomParticleSystem.js
     PNGBloomPipeline.js
   input/
@@ -148,6 +149,7 @@ public/assets/flowers/
 - PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
 - 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
 - 花簇注意力、消散和粒子：`src/flowers/BloomPatchConfig.js` → `BLOOM_PATCH_CONFIG`
+- 上半幅漂浮断花：`src/effects/AirborneFlowerSystem.js` → `AIRBORNE_FLOWER_CONFIG`
 - Vite 多入口：`vite.config.js`
 
 当前记忆节奏：
@@ -177,6 +179,7 @@ public/assets/flowers/
 - 花心 glow 强度/半径 `0.15 / 6.5`；patch glow 强度/时长 `0.006 / 0.85s`
 - 消散按花瓣边缘权重先后碎裂，breakup `0.42`，轻微表面漂移 `0.003`
 - PNG 页面启用 `EffectComposer + UnrealBloomPass + OutputPass` 的高阈值全场 HDR bloom；普通草地和花卡保持在提取阈值以下。没有体积光或 DOF
+- 上半幅漂浮断花共 `5` 个，窄屏显示 `3` 个；最大透明度 `0.20`，运动速度不超过 `0.22`，使用原 PNG 顶部花冠裁切并做缓慢位移和轻微摆动
 
 ## 测试与构建
 
@@ -198,8 +201,9 @@ npm run build
 - PNG renderer 的局部实例槽回收
 - 本地 memoryPool
 - 记忆手势配置上限
+- 漂浮断花的数量、窄屏降级、透明度与运动上限
 
-当前自动化套件共 `14` 项，并额外覆盖解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `15` 项，并额外覆盖解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

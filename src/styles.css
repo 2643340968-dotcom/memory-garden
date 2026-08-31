@@ -169,6 +169,7 @@ canvas {
 }
 
 .memory-entry-overlay {
+  --memory-entry-shift-y: clamp(-86px, -8vh, -48px);
   position: fixed;
   inset: 0;
   z-index: 6;
@@ -220,6 +221,7 @@ canvas {
     0 24px 72px rgba(0, 0, 0, 0.28),
     0 0 36px var(--memory-glass-glow),
     inset 0 1px 0 rgba(232, 219, 242, 0.08);
+  transform: translateY(var(--memory-entry-shift-y));
   transition:
     opacity 540ms ease,
     transform var(--memory-modal-exit-duration, 850ms)
@@ -250,7 +252,7 @@ canvas {
 
 .memory-entry-overlay.is-submitting .memory-entry-panel {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(calc(var(--memory-entry-shift-y) - 8px));
 }
 
 .memory-entry-index,
@@ -453,6 +455,11 @@ canvas {
   width: min(90vw, 720px);
   text-align: center;
   transform: translateX(-50%);
+}
+
+.png-page .brand-block h1 {
+  font-size: clamp(36px, 4.5vw, 64px);
+  line-height: 0.98;
 }
 
 .png-page .brand-block .eyebrow,
@@ -688,7 +695,8 @@ canvas {
   }
 
   .memory-entry-overlay {
-    place-items: end center;
+    --memory-entry-shift-y: clamp(-48px, -6vh, -30px);
+    place-items: center;
     padding: 20px;
   }
 

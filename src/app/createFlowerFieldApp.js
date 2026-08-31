@@ -21,6 +21,7 @@ export async function createFlowerFieldApp({
   counterMode = "flowers",
   createPatchSystem = null,
   createRenderPipeline = null,
+  createAtmosphereSystem = null,
 }) {
   if (typeof createFlowerRenderer !== "function") {
     throw new TypeError("createFlowerFieldApp requires a flower renderer factory.");
@@ -74,6 +75,15 @@ export async function createFlowerFieldApp({
     typeof createRenderPipeline === "function"
       ? createRenderPipeline({ renderer, scene, camera })
       : null;
+  const atmosphereSystem =
+    typeof createAtmosphereSystem === "function"
+      ? createAtmosphereSystem({
+          scene,
+          camera,
+          renderer,
+          flowerRenderer,
+        })
+      : null;
   const maxFlowers = flowerSystem.maxFlowers;
 
   assetMode.textContent = flowerRenderer.assetMode;
@@ -124,6 +134,11 @@ export async function createFlowerFieldApp({
       renderer.getPixelRatio(),
     );
     bloomPatchSystem?.setPixelRatio(renderer.getPixelRatio());
+    atmosphereSystem?.resize?.(
+      window.innerWidth,
+      window.innerHeight,
+      renderer.getPixelRatio(),
+    );
   }
 
   function resetField() {
@@ -167,6 +182,7 @@ export async function createFlowerFieldApp({
       deltaSeconds,
       hasGroundHit ? hitPoint : null,
     );
+    atmosphereSystem?.update?.(timeSeconds, deltaSeconds);
 
     const displayedCount = getDisplayedCount();
     if (displayedCount !== lastDisplayedCount) {
@@ -288,6 +304,7 @@ export async function createFlowerFieldApp({
     flowerSpawner,
     bloomPatchSystem,
     renderPipeline,
+    atmosphereSystem,
     resetField,
     setInputEnabled,
     isInputEnabled: () => inputEnabled,

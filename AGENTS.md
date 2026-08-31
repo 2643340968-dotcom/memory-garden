@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is the preserved GLB demo and must remain independently usable.
 - `/` still opens the preserved model entry through `src/main.js`.
-- The last verified automated suite has 14 passing tests.
+- The last verified automated suite has 15 passing tests.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -40,7 +40,8 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
-- Centered title: `INTERACTIVE MEMORY GARDEN / 记忆花园 / MEMORY BLOOMS`.
+- Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
+- Five soft detached-flower accents drift in the upper air on desktop; narrow screens show three. They are decorative PNG-crown sprites, not BloomEvent flowers.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow.
 - Avoid cyberpunk neon, bright blue/cyan accents, heavy app-style cards, and bright daytime botanical styling.
 - Do not change the Three.js scene merely to adjust the memory UI.
@@ -114,6 +115,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing, matrix access for attached points, and the subdued 11%-maximum continuity card.
 - `src/flowers/renderers/PNGFlowerParticleSampler.js`: one precomputed alpha/color sample library per PNG variant, with petal-edge weighting and flower-center detection.
 - `src/effects/BloomParticleSystem.js`: the PNG flower body's primary fixed-capacity stable-slot `THREE.Points` renderer. Immutable flower samples are uploaded once; flower matrices and patch state use compact float data textures, while gather, attention drift, center light, and edge-led breakup are evaluated analytically in the vertex shader. The patch aura is distributed across flower-center contributors rather than drawn as a large glow disc.
+- `src/effects/AirborneFlowerSystem.js`: PNG-only upper-air composition accents. It crops detached flower crowns from the five already-loaded PNG textures, projects a sparse set of sprites from NDC into camera space, and applies very slow analytic drift/rotation. It is independent from BloomEvents and hidden down to three accents on narrow screens.
 - `src/effects/PNGBloomPipeline.js`: PNG-only `EffectComposer` pipeline with a high-threshold `UnrealBloomPass` and `OutputPass`; includes an explicit bloom-off control and viewport/resource-budget diagnostics. The model page remains on the shared direct renderer.
 - `src/flowers/renderers/PNGFlowerConfig.js`: PNG-only renderer and scene tuning.
 - `src/flowers/renderers/ModelFlowerRenderer.js`: preserved GLB renderer.
@@ -172,6 +174,13 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Fog `0x2b2335`, near `9.5`, far `31`
 - Exposure `1.04`
 - PNG-only full-scene HDR bloom is active through `PNGBloomPipeline`; the model entry still uses direct rendering.
+
+### Upper-air composition: `src/effects/AirborneFlowerSystem.js`
+
+- `5` detached-flower accents on desktop; `3` remain on narrow screens
+- Maximum opacity `0.20`, maximum drift speed `0.22`
+- Maximum NDC drift `0.018 / 0.019`, maximum rotation amplitude `0.035`
+- Uses cropped flower crowns from the active PNG textures; no new asset files and no BloomEvent or particle-pool participation
 - Vite production base is `/memory-garden/`; public PNG and GLB asset URLs are document-relative so both MPA entries resolve inside the GitHub Pages project path.
 
 ### Memory UI and rhythm: `src/memory/MemoryExperience.js`

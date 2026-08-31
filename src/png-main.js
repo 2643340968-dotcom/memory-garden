@@ -5,6 +5,7 @@ import { createPNGFlowerRenderer } from "./flowers/renderers/PNGFlowerRenderer.j
 import { MemoryExperience } from "./memory/MemoryExperience.js";
 import { createBloomPatchSystem } from "./flowers/BloomPatchSystem.js";
 import { createPNGBloomPipeline } from "./effects/PNGBloomPipeline.js";
+import { createAirborneFlowerSystem } from "./effects/AirborneFlowerSystem.js";
 
 mountFlowerField({
   version: "png",
@@ -14,6 +15,7 @@ mountFlowerField({
   counterMode: "blooms",
   createPatchSystem: createBloomPatchSystem,
   createRenderPipeline: createPNGBloomPipeline,
+  createAtmosphereSystem: createAirborneFlowerSystem,
 }).then((app) => {
   if (!app) {
     return;
