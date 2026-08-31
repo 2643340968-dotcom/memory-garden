@@ -8,6 +8,7 @@ export class BloomEvent {
     firstFlowerIndex,
     randomSeed,
     lobeCentersScreen,
+    memoryId = null,
   }) {
     this.anchorPosition = anchorPosition.clone();
     this.startTime = startTime;
@@ -17,5 +18,6 @@ export class BloomEvent {
     this.firstFlowerIndex = firstFlowerIndex;
     this.randomSeed = randomSeed;
     this.lobeCentersScreen = lobeCentersScreen;
+    this.memoryId = memoryId;
   }
 }

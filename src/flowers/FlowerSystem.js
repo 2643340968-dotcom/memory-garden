@@ -3,24 +3,43 @@ import { CONFIG } from "../config.js";
 import { BloomEvent } from "./BloomEvent.js";
 import { clamp01, easeOutBloom } from "./FlowerAnimation.js";
 import { createSeededRandom, randomIntInclusive, randomRange } from "../utils/random.js";
+import { assertFlowerRenderer } from "./renderers/FlowerRenderer.js";
 
 export class FlowerSystem {
-  constructor(scene, camera, visual, groundRaycaster, viewportElement) {
+  constructor(scene, camera, flowerRenderer, groundRaycaster, viewportElement) {
     this.scene = scene;
     this.camera = camera;
-    this.visual = visual;
-    this.meshes = visual.meshes;
+    const fieldConfig = flowerRenderer.fieldConfig ?? {};
+    this.flowerRenderer = assertFlowerRenderer(
+      flowerRenderer,
+      fieldConfig.maxFlowers ?? CONFIG.MAX_FLOWERS,
+    );
     this.groundRaycaster = groundRaycaster;
     this.viewportElement = viewportElement;
-    this.normalizationScale = visual.normalizationScale ?? 1;
-    this.maxFlowers = CONFIG.MAX_FLOWERS;
+    this.normalizationScale = this.flowerRenderer.normalizationScale;
+    const transformConfig = this.flowerRenderer.transformConfig ?? {};
+    this.orientationMode = transformConfig.orientationMode ?? "random-yaw";
+    this.scaleMin = transformConfig.scaleMin ?? CONFIG.FLOWER_SCALE_MIN;
+    this.scaleMax = transformConfig.scaleMax ?? CONFIG.FLOWER_SCALE_MAX;
+    this.yawMax = transformConfig.yawMax ?? Math.PI;
+    this.tiltMax = transformConfig.tiltMax ?? CONFIG.FLOWER_TILT_MAX;
+    this.mirrorProbability = transformConfig.mirrorProbability ?? 0;
+    this.startYOffset =
+      transformConfig.startYOffset ?? CONFIG.BLOOM_START_Y_OFFSET;
+    this.maxFlowers = fieldConfig.maxFlowers ?? CONFIG.MAX_FLOWERS;
+    this.flowersPerBloomMin =
+      fieldConfig.flowersPerBloomMin ?? CONFIG.FLOWERS_PER_BLOOM_MIN;
+    this.flowersPerBloomMax =
+      fieldConfig.flowersPerBloomMax ?? CONFIG.FLOWERS_PER_BLOOM_MAX;
     this.count = 0;
     this.blooms = [];
+    this.bloomListeners = new Set();
     this.random = createSeededRandom((Date.now() ^ 0x71f20ca) >>> 0);
 
     this.positionsX = new Float32Array(this.maxFlowers);
     this.positionsZ = new Float32Array(this.maxFlowers);
     this.scales = new Float32Array(this.maxFlowers);
+    this.mirrorsX = new Int8Array(this.maxFlowers);
     this.rotationsY = new Float32Array(this.maxFlowers);
     this.tiltsX = new Float32Array(this.maxFlowers);
     this.tiltsZ = new Float32Array(this.maxFlowers);
@@ -36,19 +55,6 @@ export class FlowerSystem {
     this.capacityReachedLogged = false;
     this.matricesDirty = false;
 
-    for (const mesh of this.meshes) {
-      const capacity =
-        mesh.userData?.instanceCapacity ??
-        mesh.instanceMatrix?.count ??
-        0;
-      if (capacity < this.maxFlowers) {
-        throw new Error(
-          `Flower instance batch "${mesh.name}" has ${capacity} slots; ` +
-            `${this.maxFlowers} are required.`,
-        );
-      }
-    }
-
     // Bloom patch construction reuses these buffers. Only one lightweight
     // BloomEvent descriptor is allocated per large vegetation burst.
     this.lobeScreenX = new Float32Array(CONFIG.BLOOM_LOBE_MAX);
@@ -63,10 +69,10 @@ export class FlowerSystem {
     this.anchorNdc = new THREE.Vector3();
 
     this.dummy = new THREE.Object3D();
-    scene.add(...this.meshes);
+    this.flowerRenderer.addToScene(scene);
   }
 
-  createBloom(anchorWorld, startTime) {
+  createBloom(anchorWorld, startTime, { memoryId = null } = {}) {
     if (this.count >= this.maxFlowers) {
       return null;
     }
@@ -100,8 +106,8 @@ export class FlowerSystem {
     const targetFlowerCount = Math.min(
       randomIntInclusive(
         bloomRandom,
-        CONFIG.FLOWERS_PER_BLOOM_MIN,
-        CONFIG.FLOWERS_PER_BLOOM_MAX,
+        this.flowersPerBloomMin,
+        this.flowersPerBloomMax,
       ),
       this.maxFlowers - this.count,
     );
@@ -293,9 +299,20 @@ export class FlowerSystem {
       firstFlowerIndex,
       randomSeed,
       lobeCentersScreen,
+      memoryId,
     });
     this.blooms.push(bloomEvent);
+    this.bloomListeners.forEach((listener) => listener(bloomEvent));
     return bloomEvent;
+  }
+
+  onBloomCreated(listener) {
+    if (typeof listener !== "function") {
+      throw new TypeError("Bloom listener must be a function.");
+    }
+
+    this.bloomListeners.add(listener);
+    return () => this.bloomListeners.delete(listener);
   }
 
   spawnFlower(x, z, bloomStartTime, duration, waveDelay, random) {
@@ -314,20 +331,31 @@ export class FlowerSystem {
       -CONFIG.FLOWER_POSITION_JITTER,
       CONFIG.FLOWER_POSITION_JITTER,
     );
+    this.flowerRenderer.allocateInstance?.(index, random);
     this.scales[index] =
       this.normalizationScale *
-      randomRange(random, CONFIG.FLOWER_SCALE_MIN, CONFIG.FLOWER_SCALE_MAX);
-    this.rotationsY[index] = randomRange(random, 0, Math.PI * 2);
+      randomRange(random, this.scaleMin, this.scaleMax);
+    if (this.orientationMode === "camera-facing") {
+      const cameraDirectionX = this.camera.position.x - this.positionsX[index];
+      const cameraDirectionZ = this.camera.position.z - this.positionsZ[index];
+      const cameraFacingYaw = Math.atan2(cameraDirectionX, cameraDirectionZ);
+      this.rotationsY[index] =
+        cameraFacingYaw + randomRange(random, -this.yawMax, this.yawMax);
+    } else {
+      this.rotationsY[index] = randomRange(random, 0, Math.PI * 2);
+    }
     this.tiltsX[index] = randomRange(
       random,
-      -CONFIG.FLOWER_TILT_MAX,
-      CONFIG.FLOWER_TILT_MAX,
+      -this.tiltMax,
+      this.tiltMax,
     );
     this.tiltsZ[index] = randomRange(
       random,
-      -CONFIG.FLOWER_TILT_MAX,
-      CONFIG.FLOWER_TILT_MAX,
+      -this.tiltMax,
+      this.tiltMax,
     );
+    this.mirrorsX[index] =
+      this.mirrorProbability > 0 && random() < this.mirrorProbability ? -1 : 1;
     this.startTimes[index] = bloomStartTime + waveDelay;
     this.durations[index] = duration;
     this.swayPhases[index] = randomRange(random, 0, Math.PI * 2);
@@ -347,9 +375,7 @@ export class FlowerSystem {
     this.activeFlowerCount += 1;
 
     this.count += 1;
-    for (let batch = 0; batch < this.meshes.length; batch += 1) {
-      this.meshes[batch].count = this.count;
-    }
+    this.flowerRenderer.setCount(this.count);
     if (this.count >= this.maxFlowers && !this.capacityReachedLogged) {
       console.info(`Flower capacity reached: ${this.maxFlowers}`);
       this.capacityReachedLogged = true;
@@ -364,7 +390,7 @@ export class FlowerSystem {
       this.swayAmounts[index] *
       windStrength;
     const scale = this.scales[index] * growth;
-    const y = 0.012 - CONFIG.BLOOM_START_Y_OFFSET * (1 - emergence);
+    const y = 0.012 - this.startYOffset * (1 - emergence);
 
     this.dummy.position.set(this.positionsX[index], y, this.positionsZ[index]);
     this.dummy.rotation.set(
@@ -372,11 +398,9 @@ export class FlowerSystem {
       this.rotationsY[index],
       this.tiltsZ[index] + sway,
     );
-    this.dummy.scale.setScalar(scale);
+    this.dummy.scale.set(scale * this.mirrorsX[index], scale, scale);
     this.dummy.updateMatrix();
-    for (let batch = 0; batch < this.meshes.length; batch += 1) {
-      this.meshes[batch].setMatrixAt(index, this.dummy.matrix);
-    }
+    this.flowerRenderer.setMatrixAt(index, this.dummy.matrix);
     this.matricesDirty = true;
   }
 
@@ -437,9 +461,7 @@ export class FlowerSystem {
     }
 
     if (this.matricesDirty) {
-      for (let batch = 0; batch < this.meshes.length; batch += 1) {
-        this.meshes[batch].instanceMatrix.needsUpdate = true;
-      }
+      this.flowerRenderer.commit();
     }
   }
 
@@ -450,10 +472,8 @@ export class FlowerSystem {
     this.settledUpdateCursor = 0;
     this.capacityReachedLogged = false;
     this.settledFlowers.fill(0);
-    this.meshes.forEach((mesh) => {
-      mesh.count = 0;
-      mesh.instanceMatrix.needsUpdate = true;
-    });
+    this.mirrorsX.fill(1);
+    this.flowerRenderer.reset();
   }
 
   isFull() {

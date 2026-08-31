@@ -4,12 +4,21 @@ import * as THREE from "three";
 
 import { CONFIG } from "../src/config.js";
 import { FlowerSystem } from "../src/flowers/FlowerSystem.js";
+import { PNGFlowerRenderer } from "../src/flowers/renderers/PNGFlowerRenderer.js";
+import {
+  PNG_FLOWER_CONFIG,
+  PNG_SCENE_CONFIG,
+} from "../src/flowers/renderers/PNGFlowerConfig.js";
 import { GroundRaycaster } from "../src/interaction/GroundRaycaster.js";
+import { createGrass } from "../src/scene/createGrass.js";
+import { createLights } from "../src/scene/createLights.js";
+import { createMemoryPool } from "../src/data/memoryPool.js";
+import { MEMORY_UI_CONFIG } from "../src/memory/MemoryExperience.js";
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 720;
 
-function createHarness() {
+function createHarness(flowerRendererOverrides = {}) {
   const camera = new THREE.PerspectiveCamera(
     CONFIG.CAMERA_FOV,
     VIEWPORT_WIDTH / VIEWPORT_HEIGHT,
@@ -40,6 +49,33 @@ function createHarness() {
     mesh.userData.instanceCapacity = CONFIG.MAX_FLOWERS;
     return mesh;
   });
+  const flowerRenderer = {
+    assetMode: "TEST · 2 BATCH",
+    maxFlowers: CONFIG.MAX_FLOWERS,
+    normalizationScale: CONFIG.FLOWER_BASE_HEIGHT / 0.998046875,
+    addToScene(targetScene) {
+      targetScene.add(...meshes);
+    },
+    setCount(count) {
+      meshes.forEach((mesh) => {
+        mesh.count = count;
+      });
+    },
+    setMatrixAt(index, matrix) {
+      meshes.forEach((mesh) => mesh.setMatrixAt(index, matrix));
+    },
+    commit() {
+      meshes.forEach((mesh) => {
+        mesh.instanceMatrix.needsUpdate = true;
+      });
+    },
+    reset() {
+      this.setCount(0);
+      this.commit();
+    },
+    dispose() {},
+    ...flowerRendererOverrides,
+  };
   const groundRaycaster = new GroundRaycaster(camera, CONFIG.GROUND_SIZE);
   const viewport = {
     clientWidth: VIEWPORT_WIDTH,
@@ -48,12 +84,27 @@ function createHarness() {
   const flowerSystem = new FlowerSystem(
     scene,
     camera,
-    { meshes, normalizationScale: CONFIG.FLOWER_BASE_HEIGHT / 0.998046875 },
+    flowerRenderer,
     groundRaycaster,
     viewport,
   );
 
-  return { flowerSystem, groundRaycaster, meshes };
+  return { flowerSystem, flowerRenderer, groundRaycaster, meshes };
+}
+
+function createPNGTextureRecords(disposeCounts) {
+  return PNG_FLOWER_CONFIG.PNG_FLOWER_PATHS.map((path, index) => {
+    const texture = new THREE.Texture();
+    texture.addEventListener("dispose", () => {
+      disposeCounts[index] += 1;
+    });
+    return {
+      path,
+      texture,
+      textureWidth: 887,
+      textureHeight: 1774,
+    };
+  });
 }
 
 function groundPointAt(groundRaycaster, pixelX, pixelY) {
@@ -142,4 +193,209 @@ test("fills exactly 20,000 slots, logs once, and resets cleanly", () => {
   } finally {
     console.info = originalInfo;
   }
+});
+
+test("PNG renderer uses five bottom-anchored batches and keeps textures on reset", () => {
+  const disposeCounts = Array(5).fill(0);
+  const pngRenderer = new PNGFlowerRenderer(
+    createPNGTextureRecords(disposeCounts),
+  );
+  const matrix = new THREE.Matrix4();
+  let seed = 0x7f4a7c15;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+
+  assert.equal(pngRenderer.summary.variantCount, 5);
+  assert.equal(pngRenderer.summary.batchCount, 5);
+  assert.equal(pngRenderer.summary.drawCalls, 5);
+  assert.equal(pngRenderer.summary.cardMode, "single");
+  assert.equal(pngRenderer.fieldConfig.maxFlowers, PNG_FLOWER_CONFIG.MAX_FLOWERS);
+  assert.equal(
+    pngRenderer.fieldConfig.flowersPerBloomMin,
+    PNG_FLOWER_CONFIG.FLOWERS_PER_BLOOM_MIN,
+  );
+  assert.equal(
+    pngRenderer.fieldConfig.flowersPerBloomMax,
+    PNG_FLOWER_CONFIG.FLOWERS_PER_BLOOM_MAX,
+  );
+  assert.equal(pngRenderer.meshes.every((mesh) => mesh.isInstancedMesh), true);
+  assert.equal(pngRenderer.materials.every((material) => material.transparent), true);
+  assert.equal(
+    pngRenderer.materials.every(
+      (material) => material.alphaTest === PNG_FLOWER_CONFIG.FLOWER_ALPHA_TEST,
+    ),
+    true,
+  );
+  assert.equal(
+    pngRenderer.materials.every(
+      (material) => material.color.getHex() === PNG_FLOWER_CONFIG.FLOWER_TINT,
+    ),
+    true,
+  );
+
+  pngRenderer.geometries.forEach((geometry) => {
+    const size = geometry.boundingBox.getSize(new THREE.Vector3());
+    assert.ok(Math.abs(geometry.boundingBox.min.y) < 1e-7);
+    assert.ok(
+      Math.abs(geometry.boundingBox.max.y - PNG_FLOWER_CONFIG.FLOWER_CARD_HEIGHT) <
+        1e-7,
+    );
+    assert.ok(Math.abs(size.x / size.y - 0.5) < 1e-7);
+  });
+
+  for (let index = 0; index < 1000; index += 1) {
+    pngRenderer.allocateInstance(index, random);
+    pngRenderer.setMatrixAt(index, matrix);
+    pngRenderer.setCount(index + 1);
+  }
+  assert.equal(
+    pngRenderer.batchCounts.reduce((sum, count) => sum + count, 0),
+    1000,
+  );
+  assert.equal(pngRenderer.batchCounts.every((count) => count > 0), true);
+  assert.deepEqual(
+    pngRenderer.meshes.map((mesh) => mesh.count),
+    [...pngRenderer.batchCounts],
+  );
+
+  pngRenderer.reset();
+  assert.equal(pngRenderer.globalCount, 0);
+  assert.deepEqual([...pngRenderer.batchCounts], [0, 0, 0, 0, 0]);
+  assert.deepEqual(pngRenderer.meshes.map((mesh) => mesh.count), [0, 0, 0, 0, 0]);
+  assert.deepEqual(disposeCounts, [0, 0, 0, 0, 0]);
+
+  pngRenderer.dispose();
+  assert.deepEqual(disposeCounts, [1, 1, 1, 1, 1]);
+});
+
+test("camera-facing cards keep their root fixed and limit yaw and tilt", () => {
+  const transformConfig = {
+    orientationMode: "camera-facing",
+    scaleMin: PNG_FLOWER_CONFIG.FLOWER_SCALE_MIN,
+    scaleMax: PNG_FLOWER_CONFIG.FLOWER_SCALE_MAX,
+    yawMax: PNG_FLOWER_CONFIG.FLOWER_YAW_MAX,
+    tiltMax: PNG_FLOWER_CONFIG.FLOWER_TILT_MAX,
+    mirrorProbability: 0,
+    startYOffset: 0,
+  };
+  const { flowerSystem, meshes } = createHarness({ transformConfig });
+  const centeredRandom = () => 0.5;
+
+  assert.equal(
+    flowerSystem.spawnFlower(0, 0, 0, 1, 0, centeredRandom),
+    true,
+  );
+  flowerSystem.update(0);
+
+  assert.ok(Math.abs(flowerSystem.rotationsY[0]) <= transformConfig.yawMax);
+  assert.ok(Math.abs(flowerSystem.tiltsX[0]) <= transformConfig.tiltMax);
+  assert.ok(Math.abs(flowerSystem.tiltsZ[0]) <= transformConfig.tiltMax);
+
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  meshes[0].getMatrixAt(0, matrix);
+  matrix.decompose(position, quaternion, scale);
+  assert.ok(Math.abs(position.y - 0.012) < 1e-7);
+});
+
+test("PNG visual tuning remains isolated from the model defaults", () => {
+  assert.deepEqual(
+    [PNG_FLOWER_CONFIG.FLOWERS_PER_BLOOM_MIN, PNG_FLOWER_CONFIG.FLOWERS_PER_BLOOM_MAX],
+    [22, 34],
+  );
+  assert.deepEqual(
+    [CONFIG.FLOWERS_PER_BLOOM_MIN, CONFIG.FLOWERS_PER_BLOOM_MAX],
+    [32, 48],
+  );
+
+  const pngSceneConfig = {
+    ...CONFIG,
+    ...PNG_SCENE_CONFIG,
+    FOG: { ...CONFIG.FOG, ...PNG_SCENE_CONFIG.FOG },
+  };
+  const pngScene = new THREE.Scene();
+  const pngGrass = createGrass(pngScene, pngSceneConfig);
+  const modelScene = new THREE.Scene();
+  const modelGrass = createGrass(modelScene);
+  const pngLights = createLights(pngScene, pngSceneConfig);
+  const modelLights = createLights(modelScene);
+
+  assert.equal(pngGrass.count, PNG_SCENE_CONFIG.GRASS_COUNT);
+  assert.equal(pngGrass.geometry.getAttribute("position").count, 5);
+  assert.equal(pngGrass.material.opacity, PNG_SCENE_CONFIG.GRASS_OPACITY);
+  assert.equal(modelGrass.count, CONFIG.GRASS_COUNT);
+  assert.equal(modelGrass.geometry.getAttribute("position").count, 4);
+  assert.equal(modelGrass.material.opacity, 1);
+  assert.equal(pngLights.overheadGlow.isSpotLight, true);
+  assert.equal(pngLights.overheadGlow.castShadow, false);
+  assert.equal(
+    pngLights.overheadGlow.intensity,
+    PNG_SCENE_CONFIG.LIGHTING.overheadGlow.intensity,
+  );
+  assert.equal(modelLights.overheadGlow, null);
+  assert.equal(modelLights.hemisphere.intensity, 2.45);
+  assert.equal(modelLights.sunlight.intensity, 2.2);
+
+  pngGrass.geometry.dispose();
+  pngGrass.material.dispose();
+  modelGrass.geometry.dispose();
+  modelGrass.material.dispose();
+});
+
+test("BloomEvents can carry a memory id and notify one lightweight listener", () => {
+  const { flowerSystem, groundRaycaster } = createHarness();
+  const center = groundPointAt(groundRaycaster, 640, 430);
+  const observed = [];
+  const unsubscribe = flowerSystem.onBloomCreated((bloomEvent) => {
+    observed.push(bloomEvent);
+  });
+
+  const bloomEvent = flowerSystem.createBloom(center, 0, {
+    memoryId: "session-memory-1",
+  });
+  assert.equal(bloomEvent.memoryId, "session-memory-1");
+  assert.deepEqual(observed, [bloomEvent]);
+
+  unsubscribe();
+  flowerSystem.createBloom(center, 1);
+  assert.equal(observed.length, 1);
+});
+
+test("memory pool stores session input and avoids immediate echo repetition", () => {
+  const memoryPool = createMemoryPool();
+  const visitorMemory = memoryPool.addSessionMemory("  一段被保留的记忆。  ");
+
+  assert.equal(visitorMemory.text, "一段被保留的记忆。");
+  assert.equal(visitorMemory.label, "YOUR MEMORY");
+  assert.deepEqual(memoryPool.sessionMemories, [visitorMemory]);
+  assert.equal(memoryPool.getById(visitorMemory.id), visitorMemory);
+
+  const firstEcho = memoryPool.selectEcho(() => 0);
+  const secondEcho = memoryPool.selectEcho(() => 0);
+  assert.notEqual(secondEcho.id, firstEcho.id);
+});
+
+test("memory gesture rhythm keeps its public tuning limits centralized", () => {
+  assert.equal(MEMORY_UI_CONFIG.MAX_MEMORIES_PER_GESTURE, 3);
+  assert.equal(MEMORY_UI_CONFIG.MAX_ACTIVE_MEMORY_CARDS, 3);
+  assert.deepEqual(
+    [
+      MEMORY_UI_CONFIG.FIRST_MEMORY_ECHO_BLOOMS_MIN,
+      MEMORY_UI_CONFIG.FIRST_MEMORY_ECHO_BLOOMS_MAX,
+    ],
+    [1, 1],
+  );
+  assert.deepEqual(
+    [
+      MEMORY_UI_CONFIG.MEMORY_ECHO_BLOOMS_MIN,
+      MEMORY_UI_CONFIG.MEMORY_ECHO_BLOOMS_MAX,
+    ],
+    [2, 3],
+  );
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION, 4200);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_FADE_DURATION, 700);
 });

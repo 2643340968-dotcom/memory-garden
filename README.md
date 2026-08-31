@@ -1,61 +1,110 @@
-# 紫金草 · Flower Trace
+# 记忆花园 / Memory Garden
 
-一个使用 Vite、Vanilla JavaScript 和 Three.js 搭建的可运行鼠标交互花田 Demo。按住鼠标左键拖动，屏幕坐标会通过 `GroundRaycaster` 转成地面世界坐标，再沿连续路径生成带多个不规则子簇的花丛。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本使用五种透明 PNG 紫金草，以 InstancedMesh 批量渲染；访客先留下记忆，再通过鼠标拖拽让记忆以不规则花簇的形式生长。
 
-## 启动
+完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
+
+## 新电脑 / 新会话启动
+
+需要 Node.js `20.19+` 或 `22.12+`。
 
 ```bash
 npm install
 npm run dev
 ```
 
-生产构建：
+然后打开：
+
+- 当前 PNG 主版本：`http://127.0.0.1:5173/png.html`
+- 保留的 GLB 模型版本：`http://127.0.0.1:5173/model.html`
+
+项目同时保留 `package-lock.json` 和 `pnpm-lock.yaml`。如果使用 pnpm，也可以运行：
 
 ```bash
-npm run build
+pnpm install
+pnpm run dev
 ```
 
-## 无需服务器的离线版
+不要直接双击 `png.html` 或 `model.html`：当前项目使用 ES modules 和 Vite 资源路径，需要本地开发服务器。
 
-直接双击项目根目录中的 `紫金草花田-离线版.html` 即可打开。该文件已经内联 Three.js 程序、页面样式和当前所需资源，不依赖 `node_modules`，也不需要运行任何命令。
+## 新 Codex 账号接手步骤
 
-源码发生修改后，可用下面的命令重新生成离线文件：
+1. 打开项目根目录 `D:\记忆花园`。
+2. 先完整阅读 `AGENTS.md`。
+3. 运行 `git status`，确认没有未说明的修改。
+4. 运行 `npm install`。
+5. 运行 `npm test`。
+6. 运行 `npm run dev`。
+7. 分别打开 `/png.html` 和 `/model.html`，检查控制台。
+8. 修改前先保留 Git checkpoint，尤其是粒子、MediaPipe 或渲染架构重构。
 
-```bash
-npm run build:offline
+## 页面入口
+
+| 页面 | 入口模块 | 用途 |
+| --- | --- | --- |
+| `/png.html` | `src/png-main.js` | 当前主版本；PNG 花朵、记忆入口、自动首次开花、Memory Echo |
+| `/model.html` | `src/model-main.js` | 保留的 GLB 花朵版本 |
+| `/` | `src/main.js` | 继续加载保留的 GLB 行为 |
+
+两个页面分别创建自己的场景和运行时状态，种花与 Reset 不会互相影响。
+
+## 当前 PNG 体验
+
+```text
+进入 /png.html
+  → 记忆输入弹窗；种植锁定
+  → 提交文字；记忆保存在本页 sessionMemories
+  → 弹窗淡出
+  → 自动触发一个真实 BloomEvent
+  → YOUR MEMORY 卡片出现在花簇附近
+  → 鼠标种植解锁
+  → 每次拖拽可产生约 1–3 个 Memory Echo
+  → 卡片淡出；Reset 不重开入口
 ```
 
-容量与全场种植回归测试：
-
-```bash
-npm test
-```
+Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。卡片通过 BloomEvent 世界坐标投影到屏幕，尝试四个相邻方向并进行简单重叠检测；它们始终使用 `pointer-events: none`。
 
 ## 核心数据流
 
 ```text
 MouseInput
-    ↓ normalized x / y / active
-PointerController
-    ↓
-GroundRaycaster
-    ↓ Three.js world position
-FlowerSpawner
-    ↓ distance threshold + cooldown + capped BloomEvent anchors
-FlowerSystem
-    ↓ precomputed screen-space bloom + wave growth + sway
-InstancedMesh
+  → PointerController
+  → GroundRaycaster
+  → FlowerSpawner
+  → FlowerSystem
+  → BloomEvent
+  → FlowerRenderer
+      ├─ PNGFlowerRenderer
+      └─ ModelFlowerRenderer
+
+BloomEvent
+  → MemoryExperience
+  → Memory Echo DOM UI
 ```
 
-`MouseInput` 只负责把鼠标转成统一指针状态。`FlowerSystem` 不知道输入来自鼠标，因此未来接入 MediaPipe 时不需要重写种花、路径插值或花朵动画。
+输入层与花朵系统解耦。未来的 `HandInput` 应与 `MouseInput` 一样，只更新 `PointerController`；鼠标模式需要继续作为摄像头不可用时的 fallback。
 
-## 目录
+## 重要目录
 
 ```text
 src/
-  main.js
-  config.js
-  styles.css
+  app/createFlowerFieldApp.js
+  data/memoryPool.js
+  memory/MemoryExperience.js
+  flowers/
+    BloomEvent.js
+    FlowerSystem.js
+    FlowerSpawner.js
+    FlowerAnimation.js
+    renderers/
+      FlowerRenderer.js
+      PNGFlowerConfig.js
+      PNGFlowerRenderer.js
+      ModelFlowerRenderer.js
+  input/
+    PointerController.js
+    MouseInput.js
+  interaction/GroundRaycaster.js
   scene/
     createScene.js
     createCamera.js
@@ -64,71 +113,68 @@ src/
     createGround.js
     createGrass.js
     createHitMarker.js
-  input/
-    PointerController.js
-    MouseInput.js
-  interaction/
-    GroundRaycaster.js
-  flowers/
-    BloomEvent.js
-    FlowerAssetLoader.js
-    FlowerSystem.js
-    FlowerSpawner.js
-    FlowerAnimation.js
-  utils/
-    random.js
-public/
-  assets/
-    flowers/
-      zijincao.glb
-    grass/
+  config.js
+  styles.css
+public/assets/flowers/
+  zijincao.glb
+  png/zijincao_01.png … zijincao_05.png
 ```
 
-## 调整参数
+## 关键配置
 
-所有关键参数集中在 `src/config.js`：
+- 全局容量：`src/config.js` → `MAX_FLOWERS = 20000`
+- PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
+- 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
+- Vite 多入口：`vite.config.js`
 
-- 地面、相机、雾：`GROUND_SIZE`、`CAMERA_*`、`FOG`
-- 爆发节奏：`BLOOM_TRIGGER_DISTANCE`、`BLOOM_TRIGGER_COOLDOWN`
-- 爆发面积：`BLOOM_RADIUS_MIN/MAX`、`BLOOM_RADIUS_PX_SCALE`
-- 花量与形状：`FLOWERS_PER_BLOOM_MIN/MAX`、`BLOOM_LOBE_MIN/MAX`
-- 波状生长：`BLOOM_DURATION_*`、`BLOOM_DELAY_MAX`、`BLOOM_OUTWARD_DELAY`
-- 膨出手感：`BLOOM_OVERSHOOT`、`BLOOM_START_SCALE`、`BLOOM_START_Y_OFFSET`
-- 花朵：`MAX_FLOWERS`、`FLOWER_*`
-- 生长和风：`BLOOM_*`、`SWAY_*`、`SETTLED_SWAY_UPDATES_PER_FRAME`
-- 草地：`GRASS_*`
+当前记忆节奏：
 
-当前总容量为 20,000 株。现有 GLB 包含一个网格和一个材质，因此花朵只增加一个 `InstancedMesh` 绘制批次，并为该批次分配 20,000 个实例槽位；成熟花朵的风摆矩阵采用分帧轮询更新，以限制高密度状态下的每帧 CPU 工作量。
+- 单次拖拽最多 `3` 条记忆
+- 同时最多 `3` 张卡片
+- 第一条在本次拖拽的第 `1` 个 BloomEvent
+- 后续每 `2–3` 个 BloomEvent，或移动 `1.75` 世界单位
+- 卡片停留 `4200ms`，退场 `700ms`
+- 卡片宽 `330px`，视口安全边距 `30px`
 
-## 替换正式 GLB
+当前 PNG 场景：
 
-把新模型放到 `public/assets/flowers/zijincao.glb`，或修改 `src/config.js` 中的 `FLOWER_MODEL_PATH`。`FlowerAssetLoader.js` 会在启动时只加载一次模型，并完成：
+- 每个 BloomEvent 生成 `22–34` 个 PNG 实例
+- 草叶 `7600`
+- 可视草场 `44`，视觉地面 `52`，射线交互范围仍为 `32`
+- 雾色 `0x2b2335`，范围 `9.5–31`
+- PNG 花朵色调 `0xececf5`，透明度 `0.96`
+- 未启用 EffectComposer、真正体积光或 DOF
 
-- 遍历真实 Mesh、材质和贴图；
-- 烘焙子节点世界变换；
-- 依据包围盒把最低点校正到地面；
-- 按 `FLOWER_BASE_HEIGHT` 计算统一归一化比例；
-- 为每个源网格建立共享材质的 `InstancedMesh`。
+## 测试与构建
 
-## 未来接入 MediaPipe HandInput
-
-新增 `src/input/HandInput.js`，把 `indexFingerTip.x/y` 转为 Three.js NDC，然后调用：
-
-```js
-pointerController.updatePointer(ndcX, ndcY, isPlanting, true);
+```bash
+npm test
+npm run build
 ```
 
-切换输入模式时只在 `main.js` 中实例化 `MouseInput` 或 `HandInput`。以下模块无需修改：
+测试覆盖：
 
-- `GroundRaycaster`
-- `FlowerSpawner`
-- `FlowerSystem`
-- `FlowerAnimation`
+- 非线性 BloomEvent 花簇生成
+- 20,000 实例容量与 Reset
+- 五批 PNG InstancedMesh
+- 底部锚点与相机朝向
+- PNG 场景配置与 GLB 默认值隔离
+- BloomEvent `memoryId` 和订阅
+- 本地 memoryPool
+- 记忆手势配置上限
 
-鼠标输入应继续保留，作为摄像头不可用时的 fallback。
+生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 
-## 当前临时部分
+## 资产与离线文件
 
-- 草叶是低面数程序化 `InstancedMesh`，无草地贴图和 Shader Wind。
-- 风摆使用 CPU 端轻量正弦旋转，未来可替换成 Shader Wind。
-- 暂无 MediaPipe、摄像头、后端、复杂后期、Bloom 或 DOF。
+运行所需的五张 PNG 和 GLB 都已经保存在 `public/assets/flowers/`。源素材和 Blender 文件也保存在项目中的 `图片素材/`、`模型/`。
+
+根目录的 `紫金草花田-离线版.html` 是较早的独立版本，不代表当前 PNG 记忆交互。当前功能应以 Vite 的 `/png.html` 为准。不要在未重新设计、生成并完整验证离线构建脚本前，把旧离线文件当作主版本。
+
+## 下一步
+
+1. 按需要继续微调 Memory Echo UI。
+2. 加入数字粒子形成过程：地面粒子 → 扩散 → 聚拢 → PNG 紫金草出现。
+3. 接入 MediaPipe 手部识别。
+4. 保留 MouseInput 作为 fallback。
+5. 每次大改前保留当前稳定 PNG 版本的 Git checkpoint。

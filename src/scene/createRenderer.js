@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CONFIG } from "../config.js";
 
-export function createRenderer(canvas) {
+export function createRenderer(canvas, config = CONFIG) {
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -12,9 +12,8 @@ export function createRenderer(canvas) {
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.04;
+  renderer.toneMappingExposure = config.TONE_MAPPING_EXPOSURE ?? 1.04;
   renderer.shadowMap.enabled = false;
 
   return renderer;
 }
-
