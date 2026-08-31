@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本使用五种透明 PNG 紫金草，以 InstancedMesh 批量渲染；访客先留下记忆，再通过鼠标拖拽让记忆以不规则花簇的形式生长。新花簇伴随克制的紫色粒子和柔光出现，无人关注的旧花簇则缓慢消散并释放实例槽。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本使用五种透明 PNG 紫金草，以 InstancedMesh 批量渲染；访客先留下记忆，再通过鼠标拖拽让记忆以不规则花簇的形式生长。新花簇的部分花朵会由贴附花瓣轮廓的紫色粒子聚合成形，无人关注的旧花簇则从花体边缘重新碎裂并释放实例槽。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -60,7 +60,7 @@ pnpm run dev
   → 鼠标种植解锁
   → 每次拖拽可产生约 1–3 个 Memory Echo
   → 光标附近花簇刷新 attention
-  → 无人关注的旧花簇缓慢变暗、下沉、散出粒子并消失
+  → 无人关注的旧花簇缓慢变暗、下沉，花瓣轮廓碎裂成粒子并消失
   → 卡片淡出；Reset 不重开入口
 ```
 
@@ -83,7 +83,8 @@ BloomEvent
   → BloomPatchSystem
       ├─ cursor attention field
       ├─ patch-level growth / alive / decay state
-      └─ BloomParticleSystem (one pooled Points draw object)
+      ├─ PNG alpha / color sample library
+      └─ BloomParticleSystem (one pooled, flower-bound Points draw object)
 
 BloomEvent
   → MemoryExperience
@@ -110,6 +111,7 @@ src/
       FlowerRenderer.js
       PNGFlowerConfig.js
       PNGFlowerRenderer.js
+      PNGFlowerParticleSampler.js
       ModelFlowerRenderer.js
   effects/BloomParticleSystem.js
   input/
@@ -158,8 +160,11 @@ public/assets/flowers/
 - 注意力半径 `2.65` 世界单位；最低完整寿命 `8s`
 - 无关注时 attention 每秒衰减 `0.075`，阈值 `0.2`
 - 消散持续 `4.6s`
-- 出生粒子 `96`、消散粒子 `26`，共用 `4096` 槽的固定粒子池
-- 柔光、出生粒子和消散粒子共用一个短时可见的 `THREE.Points` draw object
+- 每个 PNG 变体预采样 `320` 个透明轮廓点；每株被增强的花使用约 `15` 个花体点
+- 每个 BloomPatch 约 `28%` 的花朵临时启用粒子覆盖；不是给整个花田创建永久粒子系统
+- 花体点、花心微光和 patch 光晕共用 `8192` 槽的固定 `THREE.Points` 对象
+- 粒子出生聚合 `1.45s`；花心 glow 强度/半径 `0.2 / 38`；patch glow 强度/时长 `0.16 / 1.55s`
+- 消散按花瓣边缘权重逐渐碎裂，breakup `0.38`，轻微表面漂移 `0.014`
 - 未启用 EffectComposer、真正体积光或 DOF
 
 ## 测试与构建
@@ -174,6 +179,7 @@ npm run build
 - 非线性 BloomEvent 花簇生成
 - 20,000 实例容量与 Reset
 - 五批 PNG InstancedMesh
+- PNG alpha 轮廓采样、中心检测和实例矩阵读取
 - 底部锚点与相机朝向
 - PNG 场景配置与 GLB 默认值隔离
 - BloomEvent `memoryId` 和订阅
@@ -181,6 +187,8 @@ npm run build
 - PNG renderer 的局部实例槽回收
 - 本地 memoryPool
 - 记忆手势配置上限
+
+当前自动化套件共 `12` 项。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

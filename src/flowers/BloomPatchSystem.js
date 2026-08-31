@@ -19,7 +19,8 @@ export class BloomPatchSystem {
     this.config = config;
     this.flowerSystem = flowerSystem;
     this.particleSystem =
-      particleSystem ?? new BloomParticleSystem(scene, renderer, config);
+      particleSystem ??
+      new BloomParticleSystem(scene, renderer, flowerSystem, config);
     this.patches = [];
     this.nextPatchId = 1;
     this.decayStartedCount = 0;
@@ -40,6 +41,7 @@ export class BloomPatchSystem {
       birthTime: bloomEvent.startTime,
       age: 0,
       attention: 1,
+      attended: false,
       lastAttentionTime: bloomEvent.startTime,
       state: "growing",
       decayStartTime: null,
@@ -53,11 +55,13 @@ export class BloomPatchSystem {
   }
 
   updateAttention(patch, timeSeconds, deltaSeconds, pointerGroundPosition) {
+    patch.attended = false;
     if (
       pointerGroundPosition &&
       pointerGroundPosition.distanceToSquared(patch.center) <=
         this.attentionRadiusSquared
     ) {
+      patch.attended = true;
       const distance = Math.sqrt(
         pointerGroundPosition.distanceToSquared(patch.center),
       );
@@ -121,27 +125,33 @@ export class BloomPatchSystem {
         }
       }
 
-      if (patch.state !== "decaying") {
-        continue;
+      if (patch.state === "decaying") {
+        const decayProgress = clamp01(
+          (timeSeconds - patch.decayStartTime) / this.config.DECAY_DURATION,
+        );
+        patch.vitality = 1 - decayProgress;
+        this.flowerSystem.updateBloomDecay(
+          patch.bloomEvent,
+          decayProgress,
+          timeSeconds,
+        );
+
+        if (decayProgress >= 1) {
+          patch.state = "dead";
+          patch.vitality = 0;
+          this.particleSystem.releasePatch?.(patch.id);
+          this.flowerSystem.releaseBloom(patch.bloomEvent);
+          this.deadPatchCount += 1;
+          this.patches.splice(index, 1);
+          continue;
+        }
       }
 
-      const decayProgress = clamp01(
-        (timeSeconds - patch.decayStartTime) / this.config.DECAY_DURATION,
-      );
-      patch.vitality = 1 - decayProgress;
-      this.flowerSystem.updateBloomDecay(
-        patch.bloomEvent,
-        decayProgress,
+      this.particleSystem.syncPatch?.(
+        patch,
+        this.flowerSystem,
         timeSeconds,
       );
-
-      if (decayProgress >= 1) {
-        patch.state = "dead";
-        patch.vitality = 0;
-        this.flowerSystem.releaseBloom(patch.bloomEvent);
-        this.deadPatchCount += 1;
-        this.patches.splice(index, 1);
-      }
     }
 
     this.particleSystem.update(timeSeconds);

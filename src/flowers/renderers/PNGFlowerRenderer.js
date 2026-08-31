@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { PNG_FLOWER_CONFIG } from "./PNGFlowerConfig.js";
+import {
+  createFallbackFlowerParticleSampleSet,
+  createFlowerParticleSampleSetFromImage,
+} from "./PNGFlowerParticleSampler.js";
 
 const UNASSIGNED_VARIANT = 255;
 
@@ -104,6 +108,7 @@ export class PNGFlowerRenderer {
     this.materials = [];
     this.geometries = [];
     this.variantBatches = [];
+    this.particleSampleSets = [];
 
     textureRecords.forEach((record, variantIndex) => {
       const aspect = record.textureWidth / record.textureHeight;
@@ -115,6 +120,13 @@ export class PNGFlowerRenderer {
       }
 
       const material = createCardMaterial(record.texture, variantIndex);
+      const particleSampleSet =
+        record.particleSampleSet ??
+        createFallbackFlowerParticleSampleSet(
+          aspect,
+          variantIndex,
+          PNG_FLOWER_CONFIG.FLOWER_CARD_HEIGHT,
+        );
       const geometries = createBottomAnchoredGeometry(
         aspect,
         PNG_FLOWER_CONFIG.FLOWER_CARD_MODE,
@@ -142,6 +154,7 @@ export class PNGFlowerRenderer {
 
       this.materials.push(material);
       this.geometries.push(...geometries);
+      this.particleSampleSets.push(particleSampleSet);
       this.variantBatches.push({
         aspect,
         path: record.path,
@@ -220,6 +233,25 @@ export class PNGFlowerRenderer {
     this.variantBatches[variantIndex].meshes.forEach((mesh) => {
       mesh.setMatrixAt(localIndex, matrix);
     });
+  }
+
+  getMatrixAt(globalIndex, target) {
+    const variantIndex = this.variantAssignments[globalIndex];
+    if (variantIndex === UNASSIGNED_VARIANT) {
+      return false;
+    }
+    const localIndex = this.localIndices[globalIndex];
+    this.variantBatches[variantIndex].meshes[0].getMatrixAt(localIndex, target);
+    return true;
+  }
+
+  getVariantIndex(globalIndex) {
+    const variantIndex = this.variantAssignments[globalIndex];
+    return variantIndex === UNASSIGNED_VARIANT ? -1 : variantIndex;
+  }
+
+  getParticleSampleSet(variantIndex) {
+    return this.particleSampleSets[variantIndex] ?? null;
   }
 
   setVitalityAt(globalIndex, vitality) {
@@ -302,6 +334,25 @@ export async function createPNGFlowerRenderer(renderer) {
         texture,
         textureWidth: image?.naturalWidth ?? image?.width ?? 0,
         textureHeight: image?.naturalHeight ?? image?.height ?? 0,
+        particleSampleSet: (() => {
+          const width = image?.naturalWidth ?? image?.width ?? 0;
+          const height = image?.naturalHeight ?? image?.height ?? 0;
+          const aspect = width / height;
+          try {
+            return createFlowerParticleSampleSetFromImage(
+              image,
+              aspect,
+              variantIndex,
+              PNG_FLOWER_CONFIG.FLOWER_CARD_HEIGHT,
+            );
+          } catch {
+            return createFallbackFlowerParticleSampleSet(
+              aspect,
+              variantIndex,
+              PNG_FLOWER_CONFIG.FLOWER_CARD_HEIGHT,
+            );
+          }
+        })(),
       };
     }),
   );

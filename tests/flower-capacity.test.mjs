@@ -7,6 +7,7 @@ import { FlowerSystem } from "../src/flowers/FlowerSystem.js";
 import { BloomPatchSystem } from "../src/flowers/BloomPatchSystem.js";
 import { BLOOM_PATCH_CONFIG } from "../src/flowers/BloomPatchConfig.js";
 import { PNGFlowerRenderer } from "../src/flowers/renderers/PNGFlowerRenderer.js";
+import { sampleFlowerImageData } from "../src/flowers/renderers/PNGFlowerParticleSampler.js";
 import {
   PNG_FLOWER_CONFIG,
   PNG_SCENE_CONFIG,
@@ -213,6 +214,13 @@ test("PNG renderer uses five bottom-anchored batches and keeps textures on reset
   assert.equal(pngRenderer.summary.batchCount, 5);
   assert.equal(pngRenderer.summary.drawCalls, 5);
   assert.equal(pngRenderer.summary.cardMode, "single");
+  assert.equal(pngRenderer.particleSampleSets.length, 5);
+  assert.equal(
+    pngRenderer.particleSampleSets.every(
+      (sampleSet) => sampleSet.source === "fallback",
+    ),
+    true,
+  );
   assert.equal(pngRenderer.fieldConfig.maxFlowers, PNG_FLOWER_CONFIG.MAX_FLOWERS);
   assert.equal(
     pngRenderer.fieldConfig.flowersPerBloomMin,
@@ -262,6 +270,17 @@ test("PNG renderer uses five bottom-anchored batches and keeps textures on reset
     [...pngRenderer.batchCounts],
   );
 
+  const translatedMatrix = new THREE.Matrix4().makeTranslation(2, 3, 4);
+  const retrievedMatrix = new THREE.Matrix4();
+  pngRenderer.setMatrixAt(0, translatedMatrix);
+  assert.equal(pngRenderer.getMatrixAt(0, retrievedMatrix), true);
+  assert.deepEqual(retrievedMatrix.elements, translatedMatrix.elements);
+  assert.ok(pngRenderer.getVariantIndex(0) >= 0);
+  assert.ok(
+    pngRenderer.getParticleSampleSet(pngRenderer.getVariantIndex(0)).samples
+      .length > 0,
+  );
+
   const releasedVariant = pngRenderer.variantAssignments[0];
   const releasedLocalIndex = pngRenderer.localIndices[0];
   assert.equal(pngRenderer.releaseInstance(0), true);
@@ -280,6 +299,63 @@ test("PNG renderer uses five bottom-anchored batches and keeps textures on reset
 
   pngRenderer.dispose();
   assert.deepEqual(disposeCounts, [1, 1, 1, 1, 1]);
+});
+
+test("PNG alpha sampling keeps flower-body particles inside the visible silhouette", () => {
+  const width = 9;
+  const height = 9;
+  const data = new Uint8ClampedArray(width * height * 4);
+  const visiblePixels = new Set();
+  const paint = (x, y, red, green, blue, alpha = 255) => {
+    const offset = (y * width + x) * 4;
+    data[offset] = red;
+    data[offset + 1] = green;
+    data[offset + 2] = blue;
+    data[offset + 3] = alpha;
+    visiblePixels.add(`${x},${y}`);
+  };
+
+  for (let y = 1; y <= 7; y += 1) {
+    paint(4, y, 152, 116, 229);
+  }
+  for (let x = 1; x <= 7; x += 1) {
+    paint(x, 3, 166, 130, 238);
+  }
+  paint(4, 3, 236, 222, 92);
+
+  let seed = 0x514f2a17;
+  const random = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+  const sampleSet = sampleFlowerImageData(
+    { data, width, height },
+    { sampleCount: 80, cardWidth: 0.5, cardHeight: 1, random },
+  );
+
+  assert.equal(sampleSet.source, "png-alpha");
+  assert.equal(sampleSet.samples.length, 80);
+  assert.equal(sampleSet.visiblePixelCount, visiblePixels.size);
+  assert.equal(
+    sampleSet.samples.every((sample) => {
+      const x = Math.floor(sample.u * width);
+      const y = Math.floor(sample.v * height);
+      return visiblePixels.has(`${x},${y}`);
+    }),
+    true,
+  );
+  assert.equal(Math.floor(sampleSet.center.u * width), 4);
+  assert.equal(Math.floor(sampleSet.center.v * height), 3);
+  assert.ok(sampleSet.samples.some((sample) => sample.edge > 0.18));
+});
+
+test("flower-body particle quality and performance controls remain centralized", () => {
+  assert.equal(BLOOM_PATCH_CONFIG.PARTICLE_POOL_CAPACITY, 8192);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_LIBRARY_SIZE, 320);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_SAMPLE_COUNT, 18);
+  assert.equal(BLOOM_PATCH_CONFIG.ACTIVE_PATCH_ENHANCED_RATIO, 0.28);
+  assert.equal(BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_IDLE_OPACITY, 0.09);
+  assert.equal("BLOOM_PARTICLE_COUNT" in BLOOM_PATCH_CONFIG, false);
 });
 
 test("camera-facing cards keep their root fixed and limit yaw and tilt", () => {
