@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { BLOOM_PATCH_CONFIG } from "../BloomPatchConfig.js";
 import { PNG_FLOWER_CONFIG } from "./PNGFlowerConfig.js";
 import {
   createFallbackFlowerParticleSampleSet,
@@ -6,6 +7,15 @@ import {
 } from "./PNGFlowerParticleSampler.js";
 
 const UNASSIGNED_VARIANT = 255;
+
+function smoothstepRange(value, start, end) {
+  const progress = THREE.MathUtils.clamp(
+    (value - start) / Math.max(1e-6, end - start),
+    0,
+    1,
+  );
+  return progress * progress * (3 - 2 * progress);
+}
 
 function createBottomAnchoredGeometry(aspect, cardMode) {
   const height = PNG_FLOWER_CONFIG.FLOWER_CARD_HEIGHT;
@@ -50,6 +60,34 @@ function createCardMaterial(texture, variantIndex) {
   // passes. A vegetation cutout only needs one, keeping the default at five
   // flower draw calls for five variants.
   material.forceSinglePass = true;
+  material.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+        attribute float instanceOpacity;
+        varying float vInstanceOpacity;`,
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+        vInstanceOpacity = instanceOpacity;`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+        varying float vInstanceOpacity;`,
+      )
+      .replace(
+        "#include <alphatest_fragment>",
+        `#include <alphatest_fragment>
+        diffuseColor.a *= vInstanceOpacity;
+        if (vInstanceOpacity < 0.002) discard;`,
+      );
+  };
+  material.customProgramCacheKey = () =>
+    "memory-garden-png-instance-opacity-v2";
   return material;
 }
 
@@ -132,6 +170,12 @@ export class PNGFlowerRenderer {
         PNG_FLOWER_CONFIG.FLOWER_CARD_MODE,
       );
       const meshes = geometries.map((geometry, cardIndex) => {
+        const instanceOpacity = new THREE.InstancedBufferAttribute(
+          new Float32Array(this.maxFlowers).fill(1),
+          1,
+        );
+        instanceOpacity.setUsage(THREE.DynamicDrawUsage);
+        geometry.setAttribute("instanceOpacity", instanceOpacity);
         const mesh = new THREE.InstancedMesh(
           geometry,
           material,
@@ -216,6 +260,7 @@ export class PNGFlowerRenderer {
     this.variantBatches[variantIndex].meshes.forEach((mesh) => {
       mesh.count = this.batchCounts[variantIndex];
       mesh.setColorAt(localIndex, this.vitalityColor.setRGB(1, 1, 1));
+      mesh.geometry.getAttribute("instanceOpacity").setX(localIndex, 1);
     });
   }
 
@@ -254,7 +299,13 @@ export class PNGFlowerRenderer {
     return this.particleSampleSets[variantIndex] ?? null;
   }
 
-  setVitalityAt(globalIndex, vitality) {
+  setVitalityAt(
+    globalIndex,
+    vitality,
+    emergence = 1,
+    timeSeconds = null,
+    startTime = null,
+  ) {
     const variantIndex = this.variantAssignments[globalIndex];
     if (variantIndex === UNASSIGNED_VARIANT) {
       return;
@@ -262,9 +313,36 @@ export class PNGFlowerRenderer {
 
     const localIndex = this.localIndices[globalIndex];
     const value = THREE.MathUtils.clamp(vitality, 0, 1);
-    this.vitalityColor.setRGB(value, value * 0.94, value);
+    const hasFormationTime =
+      Number.isFinite(timeSeconds) && Number.isFinite(startTime);
+    const reveal = hasFormationTime
+      ? smoothstepRange(
+          Math.max(0, timeSeconds - startTime),
+          BLOOM_PATCH_CONFIG.FLOWER_CARD_REVEAL_DELAY,
+          BLOOM_PATCH_CONFIG.FLOWER_CARD_REVEAL_DELAY +
+            BLOOM_PATCH_CONFIG.FLOWER_CARD_REVEAL_DURATION,
+        )
+      : smoothstepRange(emergence, 0.18, 0.78);
+    const decayVisibility = Math.max(
+      BLOOM_PATCH_CONFIG.FLOWER_CARD_DECAY_MIN_VISIBILITY,
+      smoothstepRange(
+        value,
+        BLOOM_PATCH_CONFIG.FLOWER_CARD_DECAY_VITALITY_FLOOR,
+        1,
+      ),
+    );
+    const visibility = reveal * decayVisibility;
+    const brightness = 0.72 + value * 0.28;
+    this.vitalityColor.setRGB(
+      brightness,
+      brightness * 0.96,
+      brightness,
+    );
     this.variantBatches[variantIndex].meshes.forEach((mesh) => {
       mesh.setColorAt(localIndex, this.vitalityColor);
+      mesh.geometry
+        .getAttribute("instanceOpacity")
+        .setX(localIndex, visibility);
     });
   }
 
@@ -278,6 +356,7 @@ export class PNGFlowerRenderer {
     this.variantBatches[variantIndex].meshes.forEach((mesh) => {
       mesh.setMatrixAt(localIndex, this.hiddenMatrix);
       mesh.setColorAt(localIndex, this.vitalityColor.setRGB(0, 0, 0));
+      mesh.geometry.getAttribute("instanceOpacity").setX(localIndex, 0);
     });
     this.freeLocalIndices[variantIndex].push(localIndex);
     this.variantAssignments[globalIndex] = UNASSIGNED_VARIANT;
@@ -290,6 +369,7 @@ export class PNGFlowerRenderer {
       if (mesh.count > 0) {
         mesh.instanceMatrix.needsUpdate = true;
         mesh.instanceColor.needsUpdate = true;
+        mesh.geometry.getAttribute("instanceOpacity").needsUpdate = true;
       }
     });
   }
@@ -305,8 +385,10 @@ export class PNGFlowerRenderer {
     this.meshes.forEach((mesh) => {
       mesh.count = 0;
       mesh.instanceColor.array.fill(1);
+      mesh.geometry.getAttribute("instanceOpacity").array.fill(1);
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;
+      mesh.geometry.getAttribute("instanceOpacity").needsUpdate = true;
     });
   }
 

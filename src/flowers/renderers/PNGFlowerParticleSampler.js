@@ -2,7 +2,6 @@ import { BLOOM_PATCH_CONFIG } from "../BloomPatchConfig.js";
 import { createSeededRandom, randomRange } from "../../utils/random.js";
 
 const SAMPLE_ALPHA_THRESHOLD = 0.16;
-const EDGE_SAMPLE_RATIO = 0.32;
 const SAMPLE_CANVAS_MAX_WIDTH = 112;
 const SAMPLE_CANVAS_MAX_HEIGHT = 256;
 
@@ -23,23 +22,32 @@ function alphaAt(data, width, height, x, y) {
   return data[(y * width + x) * 4 + 3] / 255;
 }
 
-function buildCumulativeWeights(candidates, weightKey = "weight") {
+function buildCumulativeWeights(
+  candidates,
+  weightKey = "weight",
+  cumulativeKey = "cumulativeWeight",
+) {
   let total = 0;
   for (const candidate of candidates) {
     total += candidate[weightKey];
-    candidate.cumulativeWeight = total;
+    candidate[cumulativeKey] = total;
   }
   return total;
 }
 
-function pickWeighted(candidates, totalWeight, random) {
+function pickWeighted(
+  candidates,
+  totalWeight,
+  random,
+  cumulativeKey = "cumulativeWeight",
+) {
   let low = 0;
   let high = candidates.length - 1;
   const target = random() * totalWeight;
 
   while (low < high) {
     const middle = (low + high) >> 1;
-    if (candidates[middle].cumulativeWeight < target) {
+    if (candidates[middle][cumulativeKey] < target) {
       low = middle + 1;
     } else {
       high = middle;
@@ -55,7 +63,9 @@ function freezeSample(candidate, cardWidth, cardHeight) {
     z: 0.008,
     u: candidate.u,
     v: candidate.v,
+    alpha: candidate.alpha,
     edge: candidate.edge,
+    center: candidate.centerSignal,
     color: Object.freeze([
       srgbChannelToLinear(candidate.red),
       srgbChannelToLinear(candidate.green),
@@ -108,8 +118,21 @@ export function sampleFlowerImageData(
       );
       const upperFlowerBias = 0.38 + Math.pow(localHeight, 1.45) * 1.35;
       const centerAxisBias = 0.76 + (1 - Math.abs(u - 0.5) * 2) * 0.42;
+      const violetSignal = clamp01(
+        (red + blue) * 0.7 - green * 0.45,
+      );
+      const centerSignal = clamp01(
+        (Math.min(red, green) - blue * 0.55) * alpha,
+      );
+      const flowerStructureBias =
+        0.55 +
+        violetSignal * 1.15 +
+        centerSignal * BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_CENTER_EMPHASIS;
       const weight =
-        (0.3 + alpha * 0.7) * upperFlowerBias * centerAxisBias;
+        (0.3 + alpha * 0.7) *
+        upperFlowerBias *
+        centerAxisBias *
+        flowerStructureBias;
       const centerScore =
         red * green * (1 - blue * 0.72) * alpha *
         (0.25 + localHeight * 0.75);
@@ -121,9 +144,11 @@ export function sampleFlowerImageData(
         blue,
         alpha,
         edge,
+        centerSignal,
         weight,
         edgeWeight: weight * (0.2 + edge * 1.8),
         cumulativeWeight: 0,
+        cumulativeEdgeWeight: 0,
       };
 
       candidates.push(candidate);
@@ -144,14 +169,25 @@ export function sampleFlowerImageData(
   const totalWeight = buildCumulativeWeights(candidates);
   const edgeTotalWeight =
     edgeCandidates.length > 0
-      ? buildCumulativeWeights(edgeCandidates, "edgeWeight")
+      ? buildCumulativeWeights(
+          edgeCandidates,
+          "edgeWeight",
+          "cumulativeEdgeWeight",
+        )
       : 0;
   const samples = [];
 
   for (let index = 0; index < sampleCount; index += 1) {
-    const useEdge = edgeTotalWeight > 0 && random() < EDGE_SAMPLE_RATIO;
+    const useEdge =
+      edgeTotalWeight > 0 &&
+      random() < BLOOM_PATCH_CONFIG.FLOWER_PARTICLE_EDGE_SAMPLE_RATIO;
     const candidate = useEdge
-      ? pickWeighted(edgeCandidates, edgeTotalWeight, random)
+      ? pickWeighted(
+          edgeCandidates,
+          edgeTotalWeight,
+          random,
+          "cumulativeEdgeWeight",
+        )
       : pickWeighted(candidates, totalWeight, random);
     samples.push(freezeSample(candidate, cardWidth, cardHeight));
   }
@@ -193,7 +229,9 @@ export function createFallbackFlowerParticleSampleSet(
         z: 0.008,
         u,
         v,
+        alpha: 1,
         edge: clamp01((radius - 0.62) / 0.38),
+        center: clamp01(1 - radius * 1.35),
         color: Object.freeze([0.48, 0.34, 0.78]),
       }),
     );
@@ -208,7 +246,9 @@ export function createFallbackFlowerParticleSampleSet(
       z: 0.008,
       u: 0.5,
       v: 0.4,
+      alpha: 1,
       edge: 0,
+      center: 1,
       color: Object.freeze([0.8, 0.72, 0.94]),
     }),
     visiblePixelCount: 0,

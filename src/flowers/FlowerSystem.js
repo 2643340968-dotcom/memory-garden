@@ -429,7 +429,13 @@ export class FlowerSystem {
     this.dummy.scale.set(scale * this.mirrorsX[index], scale, scale);
     this.dummy.updateMatrix();
     this.flowerRenderer.setMatrixAt(index, this.dummy.matrix);
-    this.flowerRenderer.setVitalityAt?.(index, vitality);
+    this.flowerRenderer.setVitalityAt?.(
+      index,
+      vitality,
+      emergence,
+      timeSeconds,
+      this.startTimes[index],
+    );
     this.matricesDirty = true;
   }
 

@@ -183,12 +183,13 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Attention gain `0.85/s`, unattended decay `0.075/s`, decay threshold `0.2`
 - Recent-attention grace `3.2s`
 - Minimum full patch lifetime `8s`; decay duration `4.6s`
-- Alpha-sample library `320` points per PNG variant; each enhanced flower uses about `15` of the configured `18` samples
-- About `28%` of a patch's flowers receive the temporary enhanced overlay
-- Gather duration `1.45s`; birth opacity `0.78`; idle/attended opacity `0.09 / 0.34`
-- Center glow intensity/radius `0.2 / 38`; patch halo intensity/duration `0.16 / 1.55s`
-- Edge-led decay breakup `0.38`, with gentle surface drift `0.014`
-- One reusable particle pool with `8192` slots; hidden when no effects are active
+- Alpha/color sample library `512` points per PNG variant; each enhanced flower uses about `36` of the configured `40` samples
+- About `48%` of a patch's flowers receive the temporary enhanced overlay
+- Gather/hold/settle durations `0.9 / 0.4 / 0.8s`; birth opacity `0.9`; idle/attended opacity `0.16 / 0.44`
+- PNG cards begin their per-instance alpha reveal at `0.5s` and fade in over `0.95s`, after the point cloud has described the flower
+- Center glow intensity/radius `0.16 / 15`; patch halo intensity/duration `0.045 / 1s`
+- Edge-led decay breakup `0.38`, with gentle surface drift `0.01`
+- One reusable particle pool with `12288` slots; hidden when no effects are active
 
 ## IMPORTANT TECHNICAL RULES
 

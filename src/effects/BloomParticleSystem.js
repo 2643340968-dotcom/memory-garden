@@ -38,9 +38,11 @@ function createParticleMaterial(pixelRatio) {
       attribute float aAlpha;
       attribute float aSize;
       attribute float aSoftness;
+      attribute float aRotation;
       attribute vec3 color;
       varying float vAlpha;
       varying float vSoftness;
+      varying float vRotation;
       varying vec3 vColor;
 
       void main() {
@@ -54,20 +56,34 @@ function createParticleMaterial(pixelRatio) {
         gl_Position = projectionMatrix * viewPosition;
         vAlpha = aAlpha;
         vSoftness = aSoftness;
+        vRotation = aRotation * 6.28318530718;
         vColor = color;
       }
     `,
     fragmentShader: `
       varying float vAlpha;
       varying float vSoftness;
+      varying float vRotation;
       varying vec3 vColor;
 
       void main() {
-        float radius = length(gl_PointCoord - vec2(0.5)) * 2.0;
-        float edge = mix(0.24, 0.7, vSoftness);
-        float softDisc = 1.0 - smoothstep(edge, 1.0, radius);
-        float core = 1.0 - smoothstep(0.0, 0.55, radius);
-        float alpha = vAlpha * mix(softDisc, max(softDisc, core), 0.18);
+        vec2 point = gl_PointCoord - vec2(0.5);
+        float cosine = cos(vRotation);
+        float sine = sin(vRotation);
+        vec2 grain = mat2(cosine, -sine, sine, cosine) * point;
+        grain *= vec2(1.45, 0.82);
+
+        float diamond = abs(grain.x) + abs(grain.y);
+        float microPoint = 1.0 - smoothstep(
+          mix(0.28, 0.22, vSoftness),
+          0.5,
+          diamond
+        );
+        float radius = length(point) * 2.0;
+        float softGlow = exp(-radius * radius * 2.8) *
+          (1.0 - smoothstep(0.72, 1.0, radius));
+        float glowPoint = step(0.9, vSoftness);
+        float alpha = vAlpha * mix(microPoint, softGlow, glowPoint);
         if (alpha < 0.002) discard;
         gl_FragColor = vec4(vColor, alpha);
       }
@@ -115,6 +131,7 @@ export class BloomParticleSystem {
     this.startPositions = new Float32Array(this.capacity * 3);
     this.driftDirections = new Float32Array(this.capacity * 3);
     this.baseSizes = new Float32Array(this.capacity);
+    this.sampleIntensities = new Float32Array(this.capacity);
     this.edgeFactors = new Float32Array(this.capacity);
     this.phases = new Float32Array(this.capacity);
     this.pointKinds = new Uint8Array(this.capacity);
@@ -130,18 +147,21 @@ export class BloomParticleSystem {
     this.alphaAttribute = new THREE.BufferAttribute(this.alphas, 1);
     this.sizeAttribute = new THREE.BufferAttribute(this.sizes, 1);
     this.softnessAttribute = new THREE.BufferAttribute(this.softness, 1);
+    this.rotationAttribute = new THREE.BufferAttribute(this.phases, 1);
     [
       this.positionAttribute,
       this.colorAttribute,
       this.alphaAttribute,
       this.sizeAttribute,
       this.softnessAttribute,
+      this.rotationAttribute,
     ].forEach((attribute) => attribute.setUsage(THREE.DynamicDrawUsage));
     this.geometry.setAttribute("position", this.positionAttribute);
     this.geometry.setAttribute("color", this.colorAttribute);
     this.geometry.setAttribute("aAlpha", this.alphaAttribute);
     this.geometry.setAttribute("aSize", this.sizeAttribute);
     this.geometry.setAttribute("aSoftness", this.softnessAttribute);
+    this.geometry.setAttribute("aRotation", this.rotationAttribute);
     this.geometry.setDrawRange(0, this.capacity);
 
     this.material = createParticleMaterial(renderer.getPixelRatio());
@@ -156,8 +176,6 @@ export class BloomParticleSystem {
 
     this.matrix = new THREE.Matrix4();
     this.localPoint = new THREE.Vector3();
-    this.worldPoint = new THREE.Vector3();
-    this.rootPoint = new THREE.Vector3();
   }
 
   allocateSlot() {
@@ -166,7 +184,7 @@ export class BloomParticleSystem {
 
   setSlotColor(slot, color, edge = 0, variance = 0) {
     const offset = slot * 3;
-    const mixture = clamp01(edge * 0.52);
+    const mixture = clamp01(edge * 0.26);
     const multiplier = 1 + variance;
     this.colors[offset] = THREE.MathUtils.lerp(
       color[0],
@@ -215,6 +233,9 @@ export class BloomParticleSystem {
     this.flowerIndices[slot] = flowerIndex;
     this.edgeFactors[slot] = sample.edge;
     this.phases[slot] = random();
+    this.sampleIntensities[slot] = clamp01(
+      0.48 + sample.alpha * 0.36 + sample.center * 0.16,
+    );
     setTriplet(this.localPositions, slot, sample.x, sample.y, sample.z);
     setTriplet(
       this.startPositions,
@@ -235,8 +256,8 @@ export class BloomParticleSystem {
       random,
       this.config.FLOWER_PARTICLE_SIZE_MIN,
       this.config.FLOWER_PARTICLE_SIZE_MAX,
-    ) * (1 + sample.edge * 0.22);
-    this.softness[slot] = 0.22 + sample.edge * 0.54;
+    ) * (0.88 + sample.alpha * 0.12 + sample.edge * 0.1);
+    this.softness[slot] = 0.08 + sample.edge * 0.38;
     this.setSlotColor(
       slot,
       sample.color,
@@ -260,6 +281,7 @@ export class BloomParticleSystem {
     this.flowerIndices[slot] = flowerIndex;
     this.edgeFactors[slot] = 0;
     this.phases[slot] = random();
+    this.sampleIntensities[slot] = 1;
     setTriplet(
       this.localPositions,
       slot,
@@ -290,6 +312,7 @@ export class BloomParticleSystem {
     this.pointKinds[slot] = POINT_KIND_PATCH_GLOW;
     this.edgeFactors[slot] = 0;
     this.phases[slot] = random();
+    this.sampleIntensities[slot] = 1;
     setTriplet(this.localPositions, slot, patch.center.x, 0.13, patch.center.z);
     setTriplet(this.startPositions, slot, patch.center.x, 0.08, patch.center.z);
     setTriplet(this.driftDirections, slot, 0, 1, 0);
@@ -363,6 +386,7 @@ export class BloomParticleSystem {
     this.points.visible = true;
     this.colorAttribute.needsUpdate = true;
     this.softnessAttribute.needsUpdate = true;
+    this.rotationAttribute.needsUpdate = true;
   }
 
   captureAttachedPosition(slot) {
@@ -419,10 +443,22 @@ export class BloomParticleSystem {
       )
       .applyMatrix4(flowerMatrix);
     const age = Math.max(0, timeSeconds - patch.birthTime);
-    const birthProgress = clamp01(
+    const gatherProgress = clamp01(
       age / this.config.FLOWER_PARTICLE_BIRTH_DURATION,
     );
-    const gather = smoothstep(birthProgress);
+    const gatherDelay = this.phases[slot] * 0.16;
+    const gather = smoothstep(
+      clamp01((gatherProgress - gatherDelay) / (1 - gatherDelay)),
+    );
+    const settleProgress = smoothstep(
+      clamp01(
+        (age -
+          this.config.FLOWER_PARTICLE_BIRTH_DURATION -
+          this.config.FLOWER_PARTICLE_BIRTH_HOLD_DURATION) /
+          this.config.FLOWER_PARTICLE_SETTLE_DURATION,
+      ),
+    );
+    const sampleIntensity = this.sampleIntensities[slot];
     const shimmer =
       1 + Math.sin(timeSeconds * 1.45 + this.phases[slot] * Math.PI * 2) * 0.055;
 
@@ -446,10 +482,19 @@ export class BloomParticleSystem {
         breakup * 0.12;
       this.positions[offset + 2] =
         this.localPoint.z + this.driftDirections[offset + 2] * driftScale;
+      const stableOpacity = THREE.MathUtils.lerp(
+        this.config.FLOWER_PARTICLE_IDLE_OPACITY,
+        this.config.FLOWER_PARTICLE_ATTENDED_OPACITY,
+        effect.attentionEmphasis * patch.attention,
+      );
       const fragmentEnvelope =
-        smoothstep(delayedDecay / 0.16) * Math.pow(1 - delayedDecay, 0.72);
+        THREE.MathUtils.lerp(
+          stableOpacity,
+          this.config.FLOWER_PARTICLE_DECAY_OPACITY,
+          smoothstep(rawDecay / 0.18),
+        ) * Math.pow(1 - delayedDecay, 0.72);
       this.alphas[slot] =
-        fragmentEnvelope * this.config.FLOWER_PARTICLE_DECAY_OPACITY;
+        fragmentEnvelope * sampleIntensity;
       this.sizes[slot] = this.baseSizes[slot] * (1 + breakup * 0.26);
       return;
     }
@@ -464,9 +509,11 @@ export class BloomParticleSystem {
     const birthOpacity = THREE.MathUtils.lerp(
       this.config.FLOWER_PARTICLE_BIRTH_OPACITY,
       stableOpacity,
-      smoothstep(birthProgress),
+      settleProgress,
     );
-    const fadeIn = smoothstep(age / 0.18);
+    const fadeIn = smoothstep(
+      clamp01((gatherProgress - gatherDelay * 0.45) / 0.18),
+    );
     this.positions[offset] = THREE.MathUtils.lerp(
       this.startPositions[offset],
       this.localPoint.x,
@@ -489,7 +536,8 @@ export class BloomParticleSystem {
       gather;
     this.positions[offset] += surfaceDrift;
     this.positions[offset + 1] += Math.abs(surfaceDrift) * 0.3;
-    this.alphas[slot] = birthOpacity * fadeIn * shimmer;
+    this.alphas[slot] =
+      birthOpacity * fadeIn * shimmer * sampleIntensity;
     this.sizes[slot] = this.baseSizes[slot] * (0.82 + gather * 0.18);
   }
 
