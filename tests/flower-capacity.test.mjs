@@ -15,11 +15,16 @@ import {
 import { GroundRaycaster } from "../src/interaction/GroundRaycaster.js";
 import { createGrass } from "../src/scene/createGrass.js";
 import { createLights } from "../src/scene/createLights.js";
-import { createMemoryPool } from "../src/data/memoryPool.js";
+import {
+  createMemoryPool,
+  MEMORY_ITEM_SCHEMA_FIELDS,
+  MEMORY_TYPES,
+} from "../src/data/memoryPool.js";
 import {
   MEMORY_UI_CONFIG,
   getMemoryCardUpperBand,
 } from "../src/memory/MemoryExperience.js";
+import { getMemoryCardViewModel } from "../src/memory/MemoryCardRenderer.js";
 import { BloomParticleSystem } from "../src/effects/BloomParticleSystem.js";
 import { estimatePNGBloomWork } from "../src/effects/PNGBloomPipeline.js";
 import {
@@ -885,13 +890,63 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   const visitorMemory = memoryPool.addSessionMemory("  一段被保留的记忆。  ");
 
   assert.equal(visitorMemory.text, "一段被保留的记忆。");
+  assert.equal(visitorMemory.type, MEMORY_TYPES.TEXT);
   assert.equal(visitorMemory.label, "YOUR MEMORY");
+  assert.equal(visitorMemory.audio, null);
+  assert.equal(visitorMemory.audioId, null);
   assert.deepEqual(memoryPool.sessionMemories, [visitorMemory]);
   assert.equal(memoryPool.getById(visitorMemory.id), visitorMemory);
 
   const firstEcho = memoryPool.selectEcho(() => 0);
   const secondEcho = memoryPool.selectEcho(() => 0);
   assert.notEqual(secondEcho.id, firstEcho.id);
+});
+
+test("memory schema and card view models support text and image entries", () => {
+  const memoryPool = createMemoryPool();
+  const prototypeTypes = new Set(
+    memoryPool.prototypeMemories.map((memory) => memory.type),
+  );
+  assert.deepEqual(
+    [...prototypeTypes].sort(),
+    [MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
+  );
+  assert.deepEqual(MEMORY_ITEM_SCHEMA_FIELDS, [
+    "id",
+    "type",
+    "kind",
+    "label",
+    "text",
+    "image",
+    "caption",
+    "source",
+    "date",
+    "location",
+    "audio",
+    "audioId",
+  ]);
+
+  const imageMemory = memoryPool.prototypeMemories.find(
+    (memory) => memory.type === MEMORY_TYPES.IMAGE,
+  );
+  const imageViewModel = getMemoryCardViewModel(
+    imageMemory,
+    "MEMORY · 007",
+  );
+  assert.equal(imageViewModel.type, MEMORY_TYPES.IMAGE);
+  assert.match(imageViewModel.image, /archive-placeholder-\d+\.svg$/);
+  assert.match(imageViewModel.caption, /待补充/);
+  assert.match(imageViewModel.metadata, /ARCHIVE PLACEHOLDER/);
+  assert.equal(imageViewModel.label, "MEMORY · 007");
+
+  const textMemory = memoryPool.addSessionMemory("一段文字记忆。");
+  const textViewModel = getMemoryCardViewModel(textMemory);
+  assert.equal(textViewModel.type, MEMORY_TYPES.TEXT);
+  assert.equal(textViewModel.text, "一段文字记忆。");
+  assert.equal(textViewModel.image, "");
+
+  const randomlySelectedImage = createMemoryPool().selectEcho(() => 0.999999);
+  assert.equal(randomlySelectedImage.type, MEMORY_TYPES.IMAGE);
 });
 
 test("memory gesture rhythm keeps its public tuning limits centralized", () => {
@@ -913,6 +968,8 @@ test("memory gesture rhythm keeps its public tuning limits centralized", () => {
   );
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION, 4200);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_FADE_DURATION, 700);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_WIDTH, 270);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_IMAGE_CARD_WIDTH, 286);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MIN_RATIO, 0.2);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MAX_RATIO, 0.42);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_BOTTOM_MAX_RATIO, 0.58);

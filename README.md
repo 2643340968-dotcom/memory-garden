@@ -76,7 +76,7 @@ pnpm run dev
   → 卡片淡出；Reset 不重开入口
 ```
 
-Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
+Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构支持 `text` 和 `image` 两种记忆：文字卡保持轻量，图片卡包含一张图、短说明和可选的日期/地点/来源行；当前两张图片是明确标注的本地占位资源，并非真实史料。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
 
 ## 核心数据流
 
@@ -113,6 +113,7 @@ src/
   app/createFlowerFieldApp.js
   data/memoryPool.js
   memory/MemoryExperience.js
+  memory/MemoryCardRenderer.js
   flowers/
     BloomEvent.js
     BloomPatchConfig.js
@@ -147,6 +148,9 @@ src/
 public/assets/flowers/
   zijincao.glb
   png/zijincao_01.png … zijincao_05.png
+public/assets/memories/
+  archive-placeholder-01.svg
+  archive-placeholder-02.svg
 ```
 
 ## 关键配置
@@ -165,7 +169,7 @@ public/assets/flowers/
 - 第一条在本次拖拽的第 `1` 个 BloomEvent
 - 后续每 `2–3` 个 BloomEvent，或移动 `1.75` 世界单位
 - 卡片停留 `4200ms`，退场 `700ms`
-- 卡片宽 `330px`，视口安全边距 `30px`
+- 文字卡宽 `270px`，图片卡宽 `286px`，视口安全边距 `30px`
 - 卡片顶部从视口高度 `20%` 开始，最大为 `42%`，并附加 `58%` 的卡片底部上限；保留 `28%` 的花簇投影纵向影响，候选纵向间隔 `78px`，稳定随机偏移 `±22px`
 
 当前 PNG 场景：
@@ -212,7 +216,7 @@ npm run build
 - 记忆手势配置上限
 - 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
-当前自动化套件共 `15` 项，并额外覆盖解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `16` 项，并额外覆盖统一记忆 schema、文字/图片卡视图模型、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - `/` still opens the preserved model entry through `src/main.js`.
-- The last verified automated suite has 15 passing tests.
+- The last verified automated suite has 16 passing tests.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -42,7 +42,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Procedural grass fading irregularly into the distance.
 - Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
-- Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow.
+- Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards or slightly wider archival-image cards from one unified memory schema.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
 - Avoid cyberpunk neon, bright blue/cyan accents, heavy app-style cards, and bright daytime botanical styling.
 - Do not change the Three.js scene merely to adjust the memory UI.
@@ -63,7 +63,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 12. An unattended patch dims and settles while the same petal/edge point slots fragment softly upward/outward, edge-first, and then release with the flower slots for reuse.
 13. Bloom growth, Memory Echo appearance, and BloomPatch decay each emit a small transient point-fragment event from the related flower world position. No fragments exist before the first BloomEvent.
 14. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
-15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible.
+15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible. The same queue randomly renders either a text or image memory according to the selected entry's `type`.
 16. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
 17. A full reload restarts the entry flow and clears page-local submitted memories.
 
@@ -107,7 +107,8 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
 - `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, viewport clamping, reset cleanup.
-- `src/data/memoryPool.js`: generic prototype memories and in-memory `sessionMemories`; do not present prototype text as real survivor testimony or a historical quotation.
+- `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text and archival-image memory cards.
+- `src/data/memoryPool.js`: unified `text | image` memory schema, generic prototype memories, two explicitly labelled local image placeholders, and in-memory `sessionMemories`; optional `audio/audioId` fields are reserved for later but playback is not implemented. Do not present prototype text as real survivor testimony or a historical quotation.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
 - `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.
@@ -140,6 +141,9 @@ Required runtime assets are inside the repository:
   - `public/assets/flowers/png/zijincao_04.png`
   - `public/assets/flowers/png/zijincao_05.png`
 - Preserved GLB: `public/assets/flowers/zijincao.glb`
+- Temporary image-memory placeholders:
+  - `public/assets/memories/archive-placeholder-01.svg`
+  - `public/assets/memories/archive-placeholder-02.svg`
 - Additional source/reference assets: `图片素材/` and `模型/`.
 - Historical snapshot: `版本存档/原版-花田-20000容量-2026-08-30.zip`.
 
@@ -197,7 +201,7 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Later echoes every `2–3` BloomEvents or `1.75` world units
 - Echo reveal delay `180ms`; minimum visual stagger `420ms`
 - Visible duration `4200ms`; fade duration `700ms`; enter duration `480ms`
-- Card width `330px`; viewport margin `30px`; acceptable overlap target `0.22`
+- Text-card width `270px`; image-card width `286px`; viewport margin `30px`; acceptable overlap target `0.22`
 - Card top band starts at `20%` and ends no lower than the tighter of `42%` viewport height or a `58%` card-bottom ceiling, with `168px` title clearance, `28%` projected-world vertical influence, `78px` candidate lane gap, and `±22px` stable jitter
 - Modal exit `850ms`
 - Entry layout uses `place-items: center` on desktop and mobile. The large input panel remains geometrically centered; only the post-bloom Memory Echo cards use the upper-screen band.
@@ -251,6 +255,7 @@ After every completed modification round, commit the verified changes, push `mai
 ## KNOWN LIMITATIONS
 
 - Submitted memories are page-local only; reload clears them. There is no backend, database, login, or moderation layer.
+- Image-memory entries currently use two clearly marked local placeholders, not final historical photographs. Verified source assets and attribution are a later content step.
 - MediaPipe/HandInput is not implemented yet.
 - There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; the patch aura comes from the combined HDR flower-center contributors, with no separate large circular glow sprite.
 - Collision avoidance uses four candidate placements and simple rectangle-overlap scoring, not a full layout solver. Extremely dense edge cases may still approach the `0.22` overlap threshold.

@@ -380,8 +380,8 @@ canvas {
 
 .memory-echo-card {
   position: fixed;
-  width: min(var(--memory-card-width, 330px), calc(100vw - 60px));
-  padding: 21px 23px 19px;
+  width: min(var(--memory-card-width, 270px), calc(100vw - 60px));
+  padding: 17px 19px 15px;
   overflow: hidden;
   border: 1px solid var(--memory-glass-border);
   border-radius: 10px;
@@ -443,17 +443,96 @@ canvas {
   overflow: hidden;
   color: #ded9e2;
   font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
-  font-size: clamp(16px, 1.35vw, 18px);
-  line-height: 1.7;
+  font-size: clamp(15px, 1.15vw, 16px);
+  line-height: 1.66;
   letter-spacing: 0.04em;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
 }
 
 .memory-echo-label {
-  margin: 16px 0 0;
+  margin: 12px 0 0;
   color: #b6a0c7;
   opacity: 0.82;
+}
+
+.memory-echo-card--image {
+  width: min(var(--memory-image-card-width, 286px), calc(100vw - 60px));
+  padding: 10px 10px 13px;
+}
+
+.memory-echo-image-frame {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(207, 184, 226, 0.15);
+  border-radius: 6px;
+  background: rgba(9, 7, 13, 0.72);
+}
+
+.memory-echo-image-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(21, 14, 28, 0.03), rgba(12, 8, 17, 0.22)),
+    radial-gradient(circle at 50% 44%, transparent 38%, rgba(8, 6, 12, 0.2));
+  pointer-events: none;
+}
+
+.memory-echo-image-frame.is-missing::before {
+  content: attr(data-fallback);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  color: rgba(202, 182, 218, 0.64);
+  font-family: Georgia, serif;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.memory-echo-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.88;
+  filter: saturate(0.72) contrast(0.96) brightness(0.9);
+  -webkit-user-drag: none;
+}
+
+.memory-echo-image-frame.is-missing .memory-echo-image {
+  opacity: 0;
+}
+
+.memory-echo-caption {
+  margin: 11px 5px 0;
+  color: #ded9e2;
+  font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0.035em;
+}
+
+.memory-echo-meta {
+  margin: 5px 5px 0;
+  overflow: hidden;
+  color: #aa97b9;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 9px;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.memory-echo-card--image .memory-echo-label {
+  margin: 9px 5px 0;
 }
 
 .brand-block {
@@ -724,12 +803,17 @@ canvas {
   }
 
   .memory-echo-card {
-    width: min(286px, calc(100vw - 48px));
-    padding: 18px 19px 17px;
+    width: min(246px, calc(100vw - 48px));
+    padding: 15px 17px 14px;
   }
 
   .memory-echo-text {
-    font-size: 15px;
+    font-size: 14px;
+  }
+
+  .memory-echo-card--image {
+    width: min(264px, calc(100vw - 48px));
+    padding: 9px 9px 12px;
   }
 }
 

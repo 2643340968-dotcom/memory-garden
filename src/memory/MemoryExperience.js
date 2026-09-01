@@ -1,12 +1,14 @@
 import * as THREE from "three";
 import { createMemoryPool } from "../data/memoryPool.js";
+import { createMemoryCardElement } from "./MemoryCardRenderer.js";
 
 export const MEMORY_UI_CONFIG = Object.freeze({
   MODAL_EXIT_DURATION: 850,
   MEMORY_CARD_ENTER_DURATION: 480,
   MEMORY_CARD_VISIBLE_DURATION: 4200,
   MEMORY_CARD_FADE_DURATION: 700,
-  MEMORY_CARD_WIDTH: 330,
+  MEMORY_CARD_WIDTH: 270,
+  MEMORY_IMAGE_CARD_WIDTH: 286,
   MEMORY_CARD_EDGE_MARGIN: 30,
   MEMORY_CARD_MAX_OVERLAP: 0.22,
   MEMORY_CARD_UPPER_TOP_MIN_RATIO: 0.2,
@@ -112,6 +114,10 @@ export class MemoryExperience {
     document.documentElement.style.setProperty(
       "--memory-card-width",
       `${MEMORY_UI_CONFIG.MEMORY_CARD_WIDTH}px`,
+    );
+    document.documentElement.style.setProperty(
+      "--memory-image-card-width",
+      `${MEMORY_UI_CONFIG.MEMORY_IMAGE_CARD_WIDTH}px`,
     );
     document.body.classList.add("memory-entry-active");
     this.textarea.addEventListener("input", this.onInput);
@@ -372,15 +378,7 @@ export class MemoryExperience {
       }
     }
 
-    const card = document.createElement("article");
-    card.className = "memory-echo-card";
-    card.setAttribute("role", "status");
-    card.innerHTML = `
-      <p class="memory-echo-text"></p>
-      <p class="memory-echo-label"></p>
-    `;
-    card.querySelector(".memory-echo-text").textContent = `“${memory.text}”`;
-    card.querySelector(".memory-echo-label").textContent = displayLabel;
+    const card = createMemoryCardElement(memory, displayLabel);
     this.cardLayer.append(card);
 
     const entry = {

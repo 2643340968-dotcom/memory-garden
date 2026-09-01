@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-labelledby="title desc">
+  <title id="title">Archive image placeholder</title>
+  <desc id="desc">A restrained abstract placeholder for a future verified historical image.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#21182b"/>
+      <stop offset="1" stop-color="#0d0a13"/>
+    </linearGradient>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="2" seed="8" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="mono"/>
+      <feComponentTransfer in="mono"><feFuncA type="table" tableValues="0 0.09"/></feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="640" height="400" fill="url(#bg)"/>
+  <path d="M0 322 180 242 334 276 500 184 640 215v185H0Z" fill="#6d5a7b" opacity=".2"/>
+  <path d="M48 302 196 238M115 336 284 263M260 314 455 205M390 292 570 190" stroke="#c3a9d6" stroke-width="2" opacity=".22"/>
+  <circle cx="484" cy="104" r="42" fill="none" stroke="#c9addd" stroke-width="2" opacity=".2"/>
+  <rect width="640" height="400" filter="url(#grain)" opacity=".72"/>
+  <text x="42" y="58" fill="#d2bedf" font-family="Georgia, serif" font-size="15" letter-spacing="4" opacity=".72">ARCHIVE PLACEHOLDER</text>
+  <text x="43" y="83" fill="#9f89ad" font-family="sans-serif" font-size="11" letter-spacing="2" opacity=".65">VERIFIED IMAGE TO BE ADDED</text>
+</svg>
