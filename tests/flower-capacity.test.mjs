@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import test from "node:test";
 import * as THREE from "three";
 
@@ -32,6 +33,12 @@ import {
   AIRBORNE_FLOWER_CONFIG,
   getAirborneParticleBudget,
 } from "../src/effects/AirborneFlowerSystem.js";
+import {
+  AUDIO_CONFIG,
+  getBGMTargetVolume,
+  getVoiceCardVisibleDuration,
+  shouldTriggerBloomSfx,
+} from "../src/audio/AudioConfig.js";
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 720;
@@ -894,6 +901,8 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   assert.equal(visitorMemory.label, "YOUR MEMORY");
   assert.equal(visitorMemory.audio, null);
   assert.equal(visitorMemory.audioId, null);
+  assert.equal(visitorMemory.audioType, null);
+  assert.equal(visitorMemory.audioCaption, null);
   assert.deepEqual(memoryPool.sessionMemories, [visitorMemory]);
   assert.equal(memoryPool.getById(visitorMemory.id), visitorMemory);
 
@@ -924,6 +933,8 @@ test("memory schema and card view models support text and image entries", () => 
     "location",
     "audio",
     "audioId",
+    "audioType",
+    "audioCaption",
   ]);
 
   const imageMemory = memoryPool.prototypeMemories.find(
@@ -945,8 +956,41 @@ test("memory schema and card view models support text and image entries", () => 
   assert.equal(textViewModel.text, "一段文字记忆。");
   assert.equal(textViewModel.image, "");
 
-  const randomlySelectedImage = createMemoryPool().selectEcho(() => 0.999999);
+  const randomlySelectedImage = createMemoryPool().selectEcho(() => 0.4);
   assert.equal(randomlySelectedImage.type, MEMORY_TYPES.IMAGE);
+
+  const audioMemories = memoryPool.prototypeMemories.filter(
+    (memory) => memory.audioType === "voice",
+  );
+  assert.equal(audioMemories.length, 5);
+  audioMemories.forEach((memory) => {
+    assert.equal(memory.kind, "source-audio");
+    assert.match(memory.audio, /^\.\/assets\/audio\/voice\/[a-z0-9-]+\.mp3$/);
+    const publicAsset = new URL(
+      `../public/${memory.audio.replace(/^\.\//, "")}`,
+      import.meta.url,
+    );
+    assert.equal(existsSync(publicAsset), true);
+  });
+
+  const audioViewModel = getMemoryCardViewModel(audioMemories[0]);
+  assert.equal(audioViewModel.hasAudio, true);
+  assert.equal(audioViewModel.audioType, "voice");
+  assert.equal(audioViewModel.quoteText, false);
+  assert.match(audioViewModel.audioCaption, /采访素材/);
+});
+
+test("audio configuration centralizes restrained mixing and card timing", () => {
+  assert.equal(AUDIO_CONFIG.BGM_URL, null);
+  assert.equal(AUDIO_CONFIG.BGM_VOLUME, 0.18);
+  assert.equal(AUDIO_CONFIG.BGM_DUCK_VOLUME, 0.06);
+  assert.equal(getBGMTargetVolume(false), 0.18);
+  assert.equal(getBGMTargetVolume(true), 0.06);
+  assert.equal(getVoiceCardVisibleDuration(9000, 4200), 9900);
+  assert.equal(getVoiceCardVisibleDuration(30000, 4200), 24000);
+  assert.equal(shouldTriggerBloomSfx(1000, 0, 0.2), true);
+  assert.equal(shouldTriggerBloomSfx(800, 0, 0.2), false);
+  assert.equal(shouldTriggerBloomSfx(1000, 0, 0.9), false);
 });
 
 test("memory gesture rhythm keeps its public tuning limits centralized", () => {

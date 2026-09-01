@@ -16,6 +16,8 @@ export const MEMORY_ITEM_SCHEMA_FIELDS = Object.freeze([
   "location",
   "audio",
   "audioId",
+  "audioType",
+  "audioCaption",
 ]);
 
 function createMemoryItem({
@@ -31,6 +33,8 @@ function createMemoryItem({
   location = null,
   audio = null,
   audioId = null,
+  audioType = null,
+  audioCaption = null,
 }) {
   if (!Object.values(MEMORY_TYPES).includes(type)) {
     throw new TypeError(`Unsupported memory type: ${type}`);
@@ -49,6 +53,8 @@ function createMemoryItem({
     location,
     audio,
     audioId,
+    audioType,
+    audioCaption,
   });
 }
 
@@ -84,6 +90,56 @@ const PROTOTYPE_MEMORIES = Object.freeze([
     caption: "纪念空间影像档案 · 待补充",
     location: "南京",
     source: "ARCHIVE PLACEHOLDER",
+  }),
+  createMemoryItem({
+    id: "audio-xia-shuqin-interview",
+    kind: "source-audio",
+    label: "ORAL HISTORY · SOURCE AUDIO",
+    text: "夏淑琴采访录音片段",
+    audio: "./assets/audio/voice/xia-shuqin-interview.mp3",
+    audioId: "voice-xia-shuqin",
+    audioType: "voice",
+    audioCaption: "夏淑琴 Xia Shuqin｜采访素材",
+  }),
+  createMemoryItem({
+    id: "audio-zhang-xiuhong-interview",
+    kind: "source-audio",
+    label: "ORAL HISTORY · SOURCE AUDIO",
+    text: "张秀红采访录音片段",
+    audio: "./assets/audio/voice/zhang-xiuhong-interview.mp3",
+    audioId: "voice-zhang-xiuhong",
+    audioType: "voice",
+    audioCaption: "Zhang Xiu-Hong 张秀红｜采访素材",
+  }),
+  createMemoryItem({
+    id: "audio-iris-chang-interview",
+    kind: "source-audio",
+    label: "ARCHIVE INTERVIEW · SOURCE AUDIO",
+    text: "Iris Chang · 1998 Charlie Rose 采访录音片段",
+    audio: "./assets/audio/voice/iris-chang-charlie-rose-1998.mp3",
+    audioId: "voice-iris-chang",
+    audioType: "voice",
+    audioCaption: "Iris Chang｜1998 Charlie Rose 采访素材",
+  }),
+  createMemoryItem({
+    id: "audio-john-magee-testimony",
+    kind: "source-audio",
+    label: "ARCHIVE TESTIMONY · SOURCE AUDIO",
+    text: "John Magee 证言录音片段",
+    audio: "./assets/audio/voice/john-magee-testimony.mp3",
+    audioId: "voice-john-magee",
+    audioType: "voice",
+    audioCaption: "John Magee｜Testimony source material",
+  }),
+  createMemoryItem({
+    id: "audio-npr-museum-segment",
+    kind: "source-audio",
+    label: "RADIO ARCHIVE · SOURCE AUDIO",
+    text: "NPR Radio 纪念馆专题录音片段",
+    audio: "./assets/audio/voice/npr-museum-hero-nanjing.mp3",
+    audioId: "voice-npr-museum",
+    audioType: "voice",
+    audioCaption: "NPR Radio｜Museum archive source material",
   }),
 ]);
 

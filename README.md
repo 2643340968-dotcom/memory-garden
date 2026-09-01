@@ -63,20 +63,23 @@ pnpm run dev
 ```text
 进入 /png.html
   → 记忆输入弹窗；种植锁定
-  → 提交文字；记忆保存在本页 sessionMemories
+  → 提交文字；记忆保存在本页 sessionMemories，同时由这次访客手势解锁声音
   → 弹窗淡出
   → 自动触发一个真实 BloomEvent
   → YOUR MEMORY 卡片出现在上半屏，并保持与花簇的水平关系
   → 花朵生长与卡片出现各释放一组短寿命花形碎片
   → 鼠标种植解锁
   → 每次拖拽可产生约 1–3 个 Memory Echo
+  → 部分 Memory Echo 连接用户提供的语音素材；同一时间只播放一段
   → 光标附近花簇刷新 attention
   → 无人关注的旧花簇缓慢变暗、下沉，花瓣轮廓碎裂成粒子并消失
   → 花簇进入消散时再释放两组轻微上升、散开并淡出的碎片
   → 卡片淡出；Reset 不重开入口
 ```
 
-Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构支持 `text` 和 `image` 两种记忆：文字卡保持轻量，图片卡包含一张图、短说明和可选的日期/地点/来源行；当前两张图片是明确标注的本地占位资源，并非真实史料。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
+Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构支持 `text` 和 `image` 两种记忆，并可附加 `audio`、`audioId`、`audioType`、`audioCaption`：文字卡保持轻量，图片卡包含一张图、短说明和可选的日期/地点/来源行，音频卡只增加克制的播放状态行。当前两张图片是明确标注的本地占位资源，并非真实史料。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
+
+页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。当前没有合适 BGM，因此 `BGM_URL` 有意保持为空，不会请求缺失资源；BGM 循环、淡入淡出和语音 ducking 接口已经保留。五段用户提供的 MP3 作为可选记忆语音，由一个可复用的 `THREE.Audio` 通道顺序播放；新语音会柔和替换上一段，卡片停留时间会跟随音频并保留短尾声。其来源、剪辑边界、授权和最终署名仍需内容方复核。
 
 ## 核心数据流
 
@@ -102,6 +105,12 @@ BloomEvent
 BloomEvent
   → MemoryExperience
   → Memory Echo DOM UI
+
+First memory submission
+  → AudioManager unlock
+  → optional BGM bus (currently unconfigured)
+  → one reusable memory-voice channel
+  → restrained bloom / card cues
 ```
 
 输入层与花朵系统解耦。未来的 `HandInput` 应与 `MouseInput` 一样，只更新 `PointerController`；鼠标模式需要继续作为摄像头不可用时的 fallback。
@@ -112,6 +121,9 @@ BloomEvent
 src/
   app/createFlowerFieldApp.js
   data/memoryPool.js
+  audio/
+    AudioConfig.js
+    AudioManager.js
   memory/MemoryExperience.js
   memory/MemoryCardRenderer.js
   flowers/
@@ -151,6 +163,9 @@ public/assets/flowers/
 public/assets/memories/
   archive-placeholder-01.svg
   archive-placeholder-02.svg
+public/assets/audio/
+  README.md
+  voice/*.mp3
 ```
 
 ## 关键配置
@@ -158,6 +173,7 @@ public/assets/memories/
 - 全局容量：`src/config.js` → `MAX_FLOWERS = 20000`
 - PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
 - 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
+- 音频混音、淡入淡出、ducking、语音卡片时长和提示音冷却：`src/audio/AudioConfig.js` → `AUDIO_CONFIG`
 - 花簇注意力、消散和粒子：`src/flowers/BloomPatchConfig.js` → `BLOOM_PATCH_CONFIG`
 - 事件驱动花形碎片：`src/effects/AirborneFlowerSystem.js` → `AIRBORNE_FLOWER_CONFIG`
 - Vite 多入口：`vite.config.js`
@@ -171,6 +187,15 @@ public/assets/memories/
 - 卡片停留 `4200ms`，退场 `700ms`
 - 文字卡宽 `270px`，图片卡宽 `286px`，视口安全边距 `30px`
 - 卡片顶部从视口高度 `20%` 开始，最大为 `42%`，并附加 `58%` 的卡片底部上限；保留 `28%` 的花簇投影纵向影响，候选纵向间隔 `78px`，稳定随机偏移 `±22px`
+
+当前声音节奏：
+
+- 初始页不自动播放；第一次有效提交后状态从 `SOUND · WAITING` 变为 `SOUND ON`
+- 当前没有 BGM 文件；未来 BGM 正常音量 `0.18`、语音期间 duck 到 `0.06`、淡入 `5s`、淡出 `1.4s`
+- 语音音量 `0.72`，开始延迟 `480ms`，替换淡出 `280ms`，同一时间只保留一段
+- 语音卡停留至音频结束后 `900ms`，最长 `24s`
+- 开花提示音有 `850ms` 冷却和 `38%` 触发概率，记忆卡提示音冷却 `360ms`
+- 页面左上角按钮控制全局声音；切页隐藏和恢复会渐变主音量，不直接破坏播放状态
 
 当前 PNG 场景：
 
@@ -216,7 +241,7 @@ npm run build
 - 记忆手势配置上限
 - 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
-当前自动化套件共 `16` 项，并额外覆盖统一记忆 schema、文字/图片卡视图模型、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `17` 项，并额外覆盖统一记忆 schema、文字/图片/音频卡视图模型、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

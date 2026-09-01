@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - `/` still opens the preserved model entry through `src/main.js`.
-- The last verified automated suite has 16 passing tests.
+- The last verified automated suite has 17 passing tests.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -53,7 +53,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 2. A memory-entry modal appears over the visible garden.
 3. The visitor writes a memory related to 南京大屠杀、江东门, or a personal connection to the place.
 4. Planting remains disabled and the status reads `MOUSE INPUT · WAITING`.
-5. Submission stores the text in the page-local `sessionMemories` array; there is no backend or persistence.
+5. Submission stores the text in the page-local `sessionMemories` array; there is no backend or persistence. The same visitor gesture unlocks the Web Audio context. The page never autoplays audio on entry.
 6. The modal fades and the submitted memory triggers one automatic BloomEvent near the lower center.
 7. A `YOUR MEMORY` glass card appears beside that bloom.
 8. Mouse planting becomes enabled and the status changes to `MOUSE INPUT · READY`.
@@ -63,9 +63,10 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 12. An unattended patch dims and settles while the same petal/edge point slots fragment softly upward/outward, edge-first, and then release with the flower slots for reuse.
 13. Bloom growth, Memory Echo appearance, and BloomPatch decay each emit a small transient point-fragment event from the related flower world position. No fragments exist before the first BloomEvent.
 14. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
-15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible. The same queue randomly renders either a text or image memory according to the selected entry's `type`.
-16. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
-17. A full reload restarts the entry flow and clears page-local submitted memories.
+15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible. The same queue randomly renders text, image, or user-supplied source-audio memories from one schema.
+16. Audio memories use one reusable non-positional `THREE.Audio` voice channel. A new voice softly replaces the previous one, temporarily ducks the optional BGM bus, and keeps its card visible through playback plus a short tail (capped at 24 seconds).
+17. The top-left sound toggle controls the complete mix. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, gesture state, and current voice playback. It does not reopen the entry modal.
+18. A full reload restarts the entry flow and clears page-local submitted memories.
 
 ## ARCHITECTURE
 
@@ -95,6 +96,12 @@ BloomEvent subscription
   → MemoryExperience
   → world position projected through camera
   → collision-aware Memory Echo DOM card
+
+First memory submission
+  → AudioManager unlock
+  → optional looping BGM bus (currently unconfigured)
+  → one reusable memory-voice channel
+  → restrained bloom / card cues
 ```
 
 Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific renderer and scene configuration are supplied by the entry modules, so the pages have independent runtime state.
@@ -103,12 +110,14 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 
 - `src/app/createFlowerFieldApp.js`: shared scene/runtime creation, input gate, reset, counter mode, animation loop, debug datasets.
 - `src/config.js`: shared/model defaults and the global flower capacity.
-- `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, memory experience mount.
+- `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, audio manager and memory experience mount, plus canvas audio diagnostics.
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
-- `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, viewport clamping, reset cleanup.
-- `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text and archival-image memory cards.
-- `src/data/memoryPool.js`: unified `text | image` memory schema, generic prototype memories, two explicitly labelled local image placeholders, and in-memory `sessionMemories`; optional `audio/audioId` fields are reserved for later but playback is not implemented. Do not present prototype text as real survivor testimony or a historical quotation.
+- `src/audio/AudioConfig.js`: centralized BGM, ducking, voice, card-lifetime, cue probability/cooldown, master fade, and visibility fade tuning. `BGM_URL` is intentionally `null` until a suitable track is supplied.
+- `src/audio/AudioManager.js`: PNG-only Web Audio owner. Attaches one `AudioListener` to the camera, caches `AudioLoader` buffers, owns one looping BGM channel and one reusable voice channel, schedules gain fades/ducking, generates restrained cues, handles mute/visibility, and exposes diagnostics.
+- `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, optional voice playback/lifetime coordination, viewport clamping, reset cleanup.
+- `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, and optional source-audio memory cards.
+- `src/data/memoryPool.js`: unified `text | image` memory schema, generic prototype memories, two explicitly labelled local image placeholders, five user-supplied audio entries, and in-memory `sessionMemories`; optional audio fields are `audio`, `audioId`, `audioType`, and `audioCaption`. Do not present prototype text as real survivor testimony or a historical quotation, and do not claim unverified recording provenance.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
 - `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.
@@ -144,7 +153,8 @@ Required runtime assets are inside the repository:
 - Temporary image-memory placeholders:
   - `public/assets/memories/archive-placeholder-01.svg`
   - `public/assets/memories/archive-placeholder-02.svg`
-- Additional source/reference assets: `图片素材/` and `模型/`.
+- Runtime voice clips: `public/assets/audio/voice/*.mp3`; normalized names are documented in `public/assets/audio/README.md`.
+- Additional source/reference assets: `图片素材/`, `音频素材/`, and `模型/`.
 - Historical snapshot: `版本存档/原版-花田-20000容量-2026-08-30.zip`.
 
 Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-card.png` and `public/assets/flowers/zijincao-01.png` are retained supporting assets, but the five numbered PNG files above are the active variants.
@@ -206,6 +216,16 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Modal exit `850ms`
 - Entry layout uses `place-items: center` on desktop and mobile. The large input panel remains geometrically centered; only the post-bloom Memory Echo cards use the upper-screen band.
 
+### Audio: `src/audio/AudioConfig.js`
+
+- Initial page state is silent. Audio unlock occurs only inside the first valid memory-form submission gesture.
+- No BGM is currently configured: `BGM_URL = null`, so the project performs no missing-track request. When supplied later, the BGM channel is looping and uses `0.18` normal volume, `0.06` ducked volume, a `5s` fade-in, and a `1.4s` fade-out.
+- One reusable voice channel uses volume `0.72`, a `480ms` start delay, a `180ms` fade-in, and a `280ms` replacement fade. Only one memory voice can play at once.
+- Voice cards remain through the decoded clip duration plus a `900ms` tail, with a `24s` maximum card lifetime.
+- Bloom cues use volume `0.018`, an `850ms` cooldown, and `0.38` probability. Memory-card cues use volume `0.012` and a `360ms` cooldown.
+- The sound toggle ramps the listener master gain instead of destroying playback state. Page visibility also fades the master gain down/up.
+- Audio transitions use Web Audio `AudioParam` gain automation, not `AnimationMixer`; visual animation timing remains unchanged.
+
 ### BloomPatch lifecycle and flower-body particles: `src/flowers/BloomPatchConfig.js`
 
 - Attention radius `2.65` world units
@@ -256,6 +276,8 @@ After every completed modification round, commit the verified changes, push `mai
 
 - Submitted memories are page-local only; reload clears them. There is no backend, database, login, or moderation layer.
 - Image-memory entries currently use two clearly marked local placeholders, not final historical photographs. Verified source assets and attribution are a later content step.
+- The five voice files are user-supplied source material. Their provenance, edit boundaries, permissions, and final public-facing attribution still require content-owner review. No transcript or quotation is invented in code.
+- A suitable BGM has not yet been supplied, so the BGM architecture is present but intentionally silent.
 - MediaPipe/HandInput is not implemented yet.
 - There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; the patch aura comes from the combined HDR flower-center contributors, with no separate large circular glow sprite.
 - Collision avoidance uses four candidate placements and simple rectangle-overlap scoring, not a full layout solver. Extremely dense edge cases may still approach the `0.22` overlap threshold.

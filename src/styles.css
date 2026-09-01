@@ -535,6 +535,76 @@ canvas {
   margin: 9px 5px 0;
 }
 
+.memory-echo-audio {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 11px 0 0;
+  color: #bca9ca;
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+  opacity: 0.68;
+  text-transform: uppercase;
+}
+
+.memory-echo-audio > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memory-echo-audio-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.62;
+}
+
+.memory-echo-card.is-audio-loading .memory-echo-audio-dot {
+  opacity: 0.32;
+}
+
+.memory-echo-card.is-audio-playing .memory-echo-audio {
+  color: #ccb5dc;
+  opacity: 0.88;
+}
+
+.memory-echo-card.is-audio-playing .memory-echo-audio-dot {
+  background: currentColor;
+  animation: memory-audio-breathe 1.8s ease-in-out infinite;
+}
+
+.memory-echo-card.is-audio-complete .memory-echo-audio {
+  opacity: 0.5;
+}
+
+.memory-echo-card--audio .memory-echo-label {
+  margin-top: 9px;
+}
+
+.memory-echo-card--source-audio .memory-echo-text {
+  letter-spacing: 0.025em;
+}
+
+@keyframes memory-audio-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(204, 181, 220, 0);
+    opacity: 0.62;
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(204, 181, 220, 0.1);
+    opacity: 1;
+  }
+}
+
 .brand-block {
   position: absolute;
   top: clamp(24px, 4vw, 54px);
@@ -567,6 +637,7 @@ canvas {
 .guide-sub,
 .meta-label,
 .system-status,
+.audio-toggle,
 .reset-button {
   font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
   letter-spacing: 0.18em;
@@ -605,6 +676,63 @@ canvas {
   gap: 10px;
   font-size: 9px;
   font-weight: 700;
+}
+
+.audio-toggle {
+  position: absolute;
+  top: clamp(27px, 4vw, 58px);
+  left: clamp(24px, 4.5vw, 68px);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font-size: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0.72;
+  pointer-events: auto;
+  transition: color 180ms ease, opacity 180ms ease;
+}
+
+.audio-toggle:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.audio-toggle:not(:disabled):hover,
+.audio-toggle:not(:disabled):focus-visible {
+  color: #c2a3dd;
+  opacity: 1;
+  outline: none;
+}
+
+.audio-toggle-mark {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.68;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.audio-toggle[data-audio-state="active"] .audio-toggle-mark {
+  background: #b298c6;
+  box-shadow: 0 0 0 4px rgba(178, 152, 198, 0.1);
+}
+
+.audio-toggle[data-audio-state="muted"] .audio-toggle-mark {
+  background: transparent;
+  opacity: 0.36;
+}
+
+.audio-toggle.is-voice-playing .audio-toggle-mark {
+  box-shadow:
+    0 0 0 4px rgba(178, 152, 198, 0.12),
+    0 0 12px rgba(178, 152, 198, 0.28);
 }
 
 .status-dot {
@@ -844,5 +972,9 @@ canvas {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .memory-echo-card.is-audio-playing .memory-echo-audio-dot {
+    animation: none;
   }
 }

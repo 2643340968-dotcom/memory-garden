@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { createMemoryPool } from "../data/memoryPool.js";
+import {
+  AUDIO_CONFIG,
+  getVoiceCardVisibleDuration,
+} from "../audio/AudioConfig.js";
 import { createMemoryCardElement } from "./MemoryCardRenderer.js";
 
 export const MEMORY_UI_CONFIG = Object.freeze({
@@ -149,6 +153,17 @@ export class MemoryExperience {
       return;
     }
 
+    const audioUnlock = this.app.audioManager?.unlock();
+    if (audioUnlock) {
+      void audioUnlock.then((unlocked) => {
+        if (unlocked) {
+          void this.app.audioManager.preloadMemoryVoices(
+            this.memoryPool.prototypeMemories,
+          );
+        }
+      });
+    }
+
     const memory = this.memoryPool.addSessionMemory(text);
     this.firstBloomMemoryId = memory.id;
     this.form.dataset.submitting = "true";
@@ -205,6 +220,8 @@ export class MemoryExperience {
     if (!this.entryComplete) {
       return;
     }
+
+    this.app.audioManager?.playBloomSfx();
 
     if (bloomEvent.memoryId === this.firstBloomMemoryId) {
       const memory = this.memoryPool.getById(bloomEvent.memoryId);
@@ -372,7 +389,10 @@ export class MemoryExperience {
     while (
       this.activeCards.length >= MEMORY_UI_CONFIG.MAX_ACTIVE_MEMORY_CARDS
     ) {
-      await this.dismissCard(this.activeCards[0]);
+      const dismissCandidate =
+        this.activeCards.find((entry) => !entry.voiceActive) ??
+        this.activeCards[0];
+      await this.dismissCard(dismissCandidate);
       if (generation !== this.cardGeneration) {
         return;
       }
@@ -383,9 +403,14 @@ export class MemoryExperience {
 
     const entry = {
       element: card,
+      memoryId: memory.id,
       worldPosition,
       hideTimer: null,
+      hideAt: 0,
       dismissing: false,
+      shownAt: performance.now(),
+      voiceActive: false,
+      audioAbortController: memory.audio ? new AbortController() : null,
       placementOffset: this.randomInteger(0, 3),
       verticalJitter: THREE.MathUtils.lerp(
         -MEMORY_UI_CONFIG.MEMORY_CARD_VERTICAL_JITTER,
@@ -402,10 +427,84 @@ export class MemoryExperience {
       { horizontalBias: entry.horizontalBias },
     );
     window.requestAnimationFrame(() => card.classList.add("is-visible"));
-    entry.hideTimer = window.setTimeout(
-      () => this.dismissCard(entry),
+    this.app.audioManager?.playMemorySfx();
+    this.scheduleCardDismiss(
+      entry,
       MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION,
     );
+    if (memory.audio) {
+      void this.startCardAudio(entry, memory, generation);
+    }
+  }
+
+  scheduleCardDismiss(entry, delayMilliseconds) {
+    if (!entry || entry.dismissing) {
+      return;
+    }
+    window.clearTimeout(entry.hideTimer);
+    const delayDuration = Math.max(0, delayMilliseconds);
+    entry.hideAt = performance.now() + delayDuration;
+    entry.element.dataset.dismissDelay = String(Math.round(delayDuration));
+    entry.hideTimer = window.setTimeout(
+      () => this.dismissCard(entry),
+      delayDuration,
+    );
+  }
+
+  async startCardAudio(entry, memory, generation) {
+    const audioManager = this.app.audioManager;
+    if (!audioManager || !entry.audioAbortController) {
+      return;
+    }
+
+    entry.element.classList.add("is-audio-loading");
+    const playback = await audioManager.playMemoryVoice(memory, {
+      signal: entry.audioAbortController.signal,
+    });
+    entry.element.classList.remove("is-audio-loading");
+    if (
+      !playback ||
+      entry.dismissing ||
+      generation !== this.cardGeneration
+    ) {
+      return;
+    }
+
+    entry.voiceActive = true;
+    entry.element.classList.add("is-audio-playing");
+    entry.element.dataset.audioDuration = String(Math.round(playback.durationMs));
+    const visibleDurationFromPlayback = getVoiceCardVisibleDuration(
+      playback.durationMs,
+      0,
+    );
+    const defaultEnd =
+      entry.shownAt + MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION;
+    const playbackEnd = performance.now() + visibleDurationFromPlayback;
+    const maximumEnd = entry.shownAt + AUDIO_CONFIG.VOICE_CARD_MAX_DURATION;
+    const targetEnd = Math.min(
+      maximumEnd,
+      Math.max(defaultEnd, playbackEnd),
+    );
+    this.scheduleCardDismiss(
+      entry,
+      Math.max(0, targetEnd - performance.now()),
+    );
+
+    void playback.finished.then(() => {
+      if (entry.dismissing || generation !== this.cardGeneration) {
+        return;
+      }
+      entry.voiceActive = false;
+      entry.element.classList.remove("is-audio-playing");
+      entry.element.classList.add("is-audio-complete");
+      const defaultEnd =
+        entry.shownAt + MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION;
+      const audioTailEnd = performance.now() + AUDIO_CONFIG.VOICE_CARD_TAIL_DURATION;
+      this.scheduleCardDismiss(
+        entry,
+        Math.max(0, Math.max(defaultEnd, audioTailEnd) - performance.now()),
+      );
+    });
   }
 
   positionCard(entry) {
@@ -539,6 +638,11 @@ export class MemoryExperience {
 
     entry.dismissing = true;
     window.clearTimeout(entry.hideTimer);
+    entry.audioAbortController?.abort();
+    if (entry.voiceActive) {
+      entry.voiceActive = false;
+      void this.app.audioManager?.stopMemoryVoice(entry.memoryId);
+    }
     entry.element.classList.remove("is-visible");
     entry.element.classList.add("is-exiting");
     entry.dismissPromise = wait(
@@ -558,6 +662,7 @@ export class MemoryExperience {
     this.activeCards = [];
     this.cardLayer.replaceChildren();
     this.cardQueue = Promise.resolve();
+    void this.app.audioManager?.resetMemoryAudio();
   }
 
   onReset() {
