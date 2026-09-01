@@ -32,6 +32,19 @@ body {
   background: #0f0c16;
 }
 
+.png-page #app {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.png-page input,
+.png-page textarea,
+.png-page button,
+.png-page [contenteditable]:not([contenteditable="false"]) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 .png-page #app::before,
 .png-page #app::after {
   content: "";

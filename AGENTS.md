@@ -43,6 +43,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow.
+- Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
 - Avoid cyberpunk neon, bright blue/cyan accents, heavy app-style cards, and bright daytime botanical styling.
 - Do not change the Three.js scene merely to adjust the memory UI.
 
