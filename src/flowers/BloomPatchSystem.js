@@ -25,6 +25,7 @@ export class BloomPatchSystem {
     this.nextPatchId = 1;
     this.decayStartedCount = 0;
     this.deadPatchCount = 0;
+    this.patchDecayListeners = new Set();
     this.attentionRadiusSquared = config.ATTENTION_RADIUS ** 2;
     this.unsubscribeFromBlooms = flowerSystem.onBloomCreated((bloomEvent) => {
       this.createPatch(bloomEvent);
@@ -95,6 +96,15 @@ export class BloomPatchSystem {
     this.decayStartedCount += 1;
     this.flowerSystem.beginBloomDecay(patch.bloomEvent);
     this.particleSystem.spawnDecay(patch, this.flowerSystem, timeSeconds);
+    this.patchDecayListeners.forEach((listener) => listener(patch, timeSeconds));
+  }
+
+  onPatchDecay(listener) {
+    if (typeof listener !== "function") {
+      throw new TypeError("BloomPatch decay listeners must be functions.");
+    }
+    this.patchDecayListeners.add(listener);
+    return () => this.patchDecayListeners.delete(listener);
   }
 
   update(timeSeconds, deltaSeconds, pointerGroundPosition = null) {
@@ -174,6 +184,7 @@ export class BloomPatchSystem {
     this.unsubscribeFromBlooms?.();
     this.particleSystem.dispose();
     this.patches.length = 0;
+    this.patchDecayListeners.clear();
   }
 }
 

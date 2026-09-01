@@ -169,16 +169,12 @@ canvas {
 }
 
 .memory-entry-overlay {
-  --memory-entry-top: clamp(24px, 3.5vh, 42px);
   position: fixed;
   inset: 0;
   z-index: 6;
   display: grid;
-  place-items: start center;
-  padding:
-    var(--memory-entry-top)
-    clamp(24px, 5vw, 72px)
-    clamp(24px, 4vh, 44px);
+  place-items: center;
+  padding: clamp(20px, 4vh, 44px) clamp(24px, 5vw, 72px);
   color: #d8d4dd;
   background: rgba(7, 5, 12, 0.38);
   -webkit-backdrop-filter: blur(10px) brightness(0.76);
@@ -698,9 +694,8 @@ canvas {
   }
 
   .memory-entry-overlay {
-    --memory-entry-top: clamp(44px, 6.5vh, 58px);
-    place-items: start center;
-    padding: var(--memory-entry-top) 20px 20px;
+    place-items: center;
+    padding: 20px;
   }
 
   .memory-entry-panel {
@@ -727,7 +722,8 @@ canvas {
 
 @media (max-height: 760px) and (min-width: 521px) {
   .memory-entry-overlay {
-    --memory-entry-top: 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
   }
 
   .memory-entry-panel {

@@ -82,6 +82,8 @@ export async function createFlowerFieldApp({
           camera,
           renderer,
           flowerRenderer,
+          flowerSystem,
+          bloomPatchSystem,
         })
       : null;
   const maxFlowers = flowerSystem.maxFlowers;
@@ -144,6 +146,7 @@ export async function createFlowerFieldApp({
   function resetField() {
     resetCount += 1;
     bloomPatchSystem?.reset();
+    atmosphereSystem?.reset?.();
     flowerSystem.reset();
     flowerSpawner.reset();
     flowerCount.textContent = formatFlowerCount(0);
@@ -271,6 +274,16 @@ export async function createFlowerFieldApp({
       canvas.dataset.airborneCpuUpdates = String(
         atmosphereDiagnostics?.particleCpuUpdatesPerFrame ?? 0,
       );
+      canvas.dataset.airborneCapacity = String(
+        atmosphereDiagnostics?.particleCapacity ?? 0,
+      );
+      canvas.dataset.airborneTriggerCounts = atmosphereDiagnostics?.eventCounts
+        ? [
+            atmosphereDiagnostics.eventCounts.bloom,
+            atmosphereDiagnostics.eventCounts.memory,
+            atmosphereDiagnostics.eventCounts.decay,
+          ].join("/")
+        : "0/0/0";
       if (bloomPatchSystem) {
         const patchStates = { growing: 0, alive: 0, decaying: 0 };
         let oldestPatchAge = 0;

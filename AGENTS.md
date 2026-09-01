@@ -41,7 +41,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
 - Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
-- Five soft particle-flower fragments drift in the upper air on desktop; narrow screens show three. They are incomplete fixed-slot point silhouettes sampled from the PNG flowers, not BloomEvent flowers.
+- The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow.
 - Avoid cyberpunk neon, bright blue/cyan accents, heavy app-style cards, and bright daytime botanical styling.
 - Do not change the Three.js scene merely to adjust the memory UI.
@@ -60,10 +60,11 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 10. Each BloomEvent also becomes one BloomPatch. Every flower receives a stable-slot point cloud sampled from the matching PNG alpha silhouette and source colors. The points gather from the flower roots into a persistent particulate flower body; the PNG card remains only a very faint continuity layer.
 11. Cursor proximity within a soft world-space radius refreshes patch attention. Unattended attention decays after a guaranteed visible lifetime.
 12. An unattended patch dims and settles while the same petal/edge point slots fragment softly upward/outward, edge-first, and then release with the flower slots for reuse.
-13. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
-14. Echo cards are projected from BloomEvent world positions, clamped to the viewport, collision-checked, and always use `pointer-events: none`.
-15. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
-16. A full reload restarts the entry flow and clears page-local submitted memories.
+13. Bloom growth, Memory Echo appearance, and BloomPatch decay each emit a small transient point-fragment event from the related flower world position. No fragments exist before the first BloomEvent.
+14. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
+15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible.
+16. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, and gesture state. It does not reopen the entry modal.
+17. A full reload restarts the entry flow and clears page-local submitted memories.
 
 ## ARCHITECTURE
 
@@ -104,7 +105,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, memory experience mount.
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
-- `src/memory/MemoryExperience.js`: entry flow, gesture sessions, memory triggers, automatic first bloom, projection, card queue, collision avoidance, viewport clamping, reset cleanup.
+- `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, viewport clamping, reset cleanup.
 - `src/data/memoryPool.js`: generic prototype memories and in-memory `sessionMemories`; do not present prototype text as real survivor testimony or a historical quotation.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
@@ -115,7 +116,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/flowers/renderers/PNGFlowerRenderer.js`: five texture batches, bottom-anchored card geometry, camera-facing instancing, matrix access for attached points, and the subdued 11%-maximum continuity card.
 - `src/flowers/renderers/PNGFlowerParticleSampler.js`: one precomputed alpha/color sample library per PNG variant, with petal-edge weighting and flower-center detection.
 - `src/effects/BloomParticleSystem.js`: the PNG flower body's primary fixed-capacity stable-slot `THREE.Points` renderer. Immutable flower samples are uploaded once; flower matrices and patch state use compact float data textures, while gather, attention drift, center light, and edge-led breakup are evaluated analytically in the vertex shader. The patch aura is distributed across flower-center contributors rather than drawn as a large glow disc.
-- `src/effects/AirborneFlowerSystem.js`: PNG-only upper-air composition accents. It reuses the five cached PNG alpha/color sample libraries to build one 450-point fixed-capacity `THREE.Points` draw containing five incomplete flower fragments. Motion is analytic in the shader; desktop shows five fragments and narrow screens show three. It is independent from BloomEvents and the main 262,144-slot flower pool.
+- `src/effects/AirborneFlowerSystem.js`: PNG-only event-driven flower-fragment pool. It reuses the five cached PNG alpha/color libraries, starts with zero visible points, and writes sparse incomplete silhouettes only for `bloom`, `memory`, and `decay` events. One 512-slot `THREE.Points` draw uses stable generation-bearing ring slots and analytic lifetime motion; it remains separate from the main 262,144-slot flower-body pool.
 - `src/effects/PNGBloomPipeline.js`: PNG-only `EffectComposer` pipeline with a high-threshold `UnrealBloomPass` and `OutputPass`; includes an explicit bloom-off control and viewport/resource-budget diagnostics. The model page remains on the shared direct renderer.
 - `src/flowers/renderers/PNGFlowerConfig.js`: PNG-only renderer and scene tuning.
 - `src/flowers/renderers/ModelFlowerRenderer.js`: preserved GLB renderer.
@@ -175,15 +176,16 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Exposure `1.04`
 - PNG-only full-scene HDR bloom is active through `PNGBloomPipeline`; the model entry still uses direct rendering.
 
-### Upper-air composition: `src/effects/AirborneFlowerSystem.js`
+### Event-driven flower fragments: `src/effects/AirborneFlowerSystem.js`
 
-- `5` particle-flower fragments on desktop; `3` remain on narrow screens
-- One fixed-capacity `THREE.Points` draw with `450` total slots and zero per-particle CPU updates per frame
-- Opacity up to `0.38`; analytic speed `0.30–0.42`
-- Maximum NDC drift `0.043 / 0.041`; maximum rotation amplitude `0.078`
-- Reuses the active PNG alpha/color sample libraries, filters to upper blossoms, and applies deterministic gaps so every accent remains incomplete
-- Normal alpha blending, depth test on, depth write off; the points enter the existing PNG full-scene HDR pipeline without owning a second post path
-- The particles exist immediately at page load and only the shared `uTime` uniform changes each frame
+- One fixed-capacity `THREE.Points` draw with `512` stable ring slots and zero per-particle CPU updates per frame
+- Initial active particle and fragment counts are both `0`; the draw remains hidden until the first event
+- Triggers: BloomEvent growth emits `1` fragment, Memory Echo appearance emits `1`, and BloomPatch decay emits `2`
+- Bloom fragments use `13–18` points for `3.4–4.7s`; memory fragments use `17–24` for `4.1–5.6s`; decay fragments use `15–22` per fragment for `4.5–6.2s`
+- Samples reuse the active PNG alpha/color libraries, focus on partial upper-blossom silhouettes, and carry a stable generation whenever a ring slot is reused
+- Motion is analytic from immutable origin/velocity/lifetime data: gentle world-up rise, limited camera-plane curve, gradual dispersion, and age-based fade
+- Normal alpha blending, depth test on, depth write off; the points enter the existing PNG HDR bloom path without owning a second post stack
+- Pool pressure overwrites the oldest presentation-only slots; Reset invalidates every active slot and returns all event counters to zero
 - Vite production base is `/memory-garden/`; public PNG and GLB asset URLs are document-relative so both MPA entries resolve inside the GitHub Pages project path.
 
 ### Memory UI and rhythm: `src/memory/MemoryExperience.js`
@@ -195,8 +197,9 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Echo reveal delay `180ms`; minimum visual stagger `420ms`
 - Visible duration `4200ms`; fade duration `700ms`; enter duration `480ms`
 - Card width `330px`; viewport margin `30px`; acceptable overlap target `0.22`
+- Card top band starts at `20%` and ends no lower than the tighter of `42%` viewport height or a `58%` card-bottom ceiling, with `168px` title clearance, `28%` projected-world vertical influence, `78px` candidate lane gap, and `±22px` stable jitter
 - Modal exit `850ms`
-- Entry layout uses `place-items: start center`, not geometric centering. Desktop top padding is `clamp(24px, 3.5vh, 42px)`; mobile is `clamp(44px, 6.5vh, 58px)`. Short desktop viewports use `12px` plus reduced vertical panel padding.
+- Entry layout uses `place-items: center` on desktop and mobile. The large input panel remains geometrically centered; only the post-bloom Memory Echo cards use the upper-screen band.
 
 ### BloomPatch lifecycle and flower-body particles: `src/flowers/BloomPatchConfig.js`
 

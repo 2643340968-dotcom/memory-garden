@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。上半幅使用缩小后的“记忆之场”标题与少量缓慢漂浮的粒子断花平衡构图。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。页面上半幅保留缩小后的“记忆之场”标题，初始没有装饰粒子；只有花朵生长、记忆卡出现或花簇消散时，才会从对应花簇位置释放少量残缺花形碎片。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -66,15 +66,17 @@ pnpm run dev
   → 提交文字；记忆保存在本页 sessionMemories
   → 弹窗淡出
   → 自动触发一个真实 BloomEvent
-  → YOUR MEMORY 卡片出现在花簇附近
+  → YOUR MEMORY 卡片出现在上半屏，并保持与花簇的水平关系
+  → 花朵生长与卡片出现各释放一组短寿命花形碎片
   → 鼠标种植解锁
   → 每次拖拽可产生约 1–3 个 Memory Echo
   → 光标附近花簇刷新 attention
   → 无人关注的旧花簇缓慢变暗、下沉，花瓣轮廓碎裂成粒子并消失
+  → 花簇进入消散时再释放两组轻微上升、散开并淡出的碎片
   → 卡片淡出；Reset 不重开入口
 ```
 
-Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。卡片通过 BloomEvent 世界坐标投影到屏幕，尝试四个相邻方向并进行简单重叠检测；它们始终使用 `pointer-events: none`。
+Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
 
 ## 核心数据流
 
@@ -153,7 +155,7 @@ public/assets/flowers/
 - PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
 - 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
 - 花簇注意力、消散和粒子：`src/flowers/BloomPatchConfig.js` → `BLOOM_PATCH_CONFIG`
-- 上半幅漂浮断花：`src/effects/AirborneFlowerSystem.js` → `AIRBORNE_FLOWER_CONFIG`
+- 事件驱动花形碎片：`src/effects/AirborneFlowerSystem.js` → `AIRBORNE_FLOWER_CONFIG`
 - Vite 多入口：`vite.config.js`
 
 当前记忆节奏：
@@ -164,6 +166,7 @@ public/assets/flowers/
 - 后续每 `2–3` 个 BloomEvent，或移动 `1.75` 世界单位
 - 卡片停留 `4200ms`，退场 `700ms`
 - 卡片宽 `330px`，视口安全边距 `30px`
+- 卡片顶部从视口高度 `20%` 开始，最大为 `42%`，并附加 `58%` 的卡片底部上限；保留 `28%` 的花簇投影纵向影响，候选纵向间隔 `78px`，稳定随机偏移 `±22px`
 
 当前 PNG 场景：
 
@@ -183,9 +186,9 @@ public/assets/flowers/
 - 花心 glow 强度/半径 `0.15 / 6.5`；patch glow 强度/时长 `0.006 / 0.85s`
 - 消散按花瓣边缘权重先后碎裂，breakup `0.42`，轻微表面漂移 `0.003`
 - PNG 页面启用 `EffectComposer + UnrealBloomPass + OutputPass` 的高阈值全场 HDR bloom；普通草地和花卡保持在提取阈值以下。没有体积光或 DOF
-- 上半幅漂浮断花是独立的 `450` 点固定池：桌面 `5` 组、窄屏 `3` 组，1 次 draw call、每帧 0 次逐粒子 CPU 更新
-- 粒子复用原 PNG 的 alpha/颜色采样，限制到上部花冠并用确定性缺口形成残缺轮廓；最大透明度 `0.38`，解析速度 `0.30–0.42`，最大 NDC 漂移 `0.043 / 0.041`
-- 留言弹窗不再几何居中：桌面顶部为 `clamp(24px, 3.5vh, 42px)`，手机为 `clamp(44px, 6.5vh, 58px)`，短桌面视口使用 `12px` 和收紧后的纵向内边距
+- 花形碎片使用独立的 `512` 槽稳定环形池：初始活跃粒子为 `0`，BloomEvent 生长触发 `1` 组、记忆卡出现触发 `1` 组、BloomPatch 消散触发 `2` 组，1 次 draw call、每帧 0 次逐粒子 CPU 更新
+- 碎片复用原 PNG 的 alpha/颜色采样，以残缺花冠轮廓从对应世界坐标向上轻轻漂移、散开和淡出；生长寿命 `3.4–4.7s`，卡片寿命 `4.1–5.6s`，消散寿命 `4.5–6.2s`
+- 首页留言弹窗恢复为几何居中：桌面和手机都使用 `place-items: center`。这一规则只影响入口大面板；后续小记忆卡使用上半屏带状布局
 
 ## 测试与构建
 
@@ -207,7 +210,7 @@ npm run build
 - PNG renderer 的局部实例槽回收
 - 本地 memoryPool
 - 记忆手势配置上限
-- 漂浮断花的数量、窄屏降级、透明度与运动上限
+- 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
 当前自动化套件共 `15` 项，并额外覆盖解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 

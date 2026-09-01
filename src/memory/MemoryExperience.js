@@ -9,6 +9,13 @@ export const MEMORY_UI_CONFIG = Object.freeze({
   MEMORY_CARD_WIDTH: 330,
   MEMORY_CARD_EDGE_MARGIN: 30,
   MEMORY_CARD_MAX_OVERLAP: 0.22,
+  MEMORY_CARD_UPPER_TOP_MIN_RATIO: 0.2,
+  MEMORY_CARD_UPPER_TOP_MAX_RATIO: 0.42,
+  MEMORY_CARD_UPPER_BOTTOM_MAX_RATIO: 0.58,
+  MEMORY_CARD_TITLE_CLEARANCE: 168,
+  MEMORY_CARD_WORLD_Y_INFLUENCE: 0.28,
+  MEMORY_CARD_VERTICAL_LANE_GAP: 78,
+  MEMORY_CARD_VERTICAL_JITTER: 22,
   MAX_ACTIVE_MEMORY_CARDS: 3,
   MAX_MEMORIES_PER_GESTURE: 3,
   FIRST_MEMORY_ECHO_BLOOMS_MIN: 1,
@@ -22,6 +29,37 @@ export const MEMORY_UI_CONFIG = Object.freeze({
 
 const wait = (duration) =>
   new Promise((resolve) => window.setTimeout(resolve, duration));
+
+export function getMemoryCardUpperBand(
+  viewportHeight,
+  cardHeight,
+  margin = MEMORY_UI_CONFIG.MEMORY_CARD_EDGE_MARGIN,
+) {
+  const safeViewportHeight = Math.max(1, viewportHeight);
+  const titleClearance = Math.min(
+    MEMORY_UI_CONFIG.MEMORY_CARD_TITLE_CLEARANCE,
+    safeViewportHeight * 0.24,
+  );
+  const topMin = Math.max(
+    margin,
+    safeViewportHeight * MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MIN_RATIO,
+    titleClearance,
+  );
+  const viewportSafeMaximum = Math.max(
+    margin,
+    safeViewportHeight - cardHeight - margin,
+  );
+  const topMax = Math.max(
+    topMin,
+    Math.min(
+      safeViewportHeight * MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MAX_RATIO,
+      safeViewportHeight * MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_BOTTOM_MAX_RATIO -
+        cardHeight,
+      viewportSafeMaximum,
+    ),
+  );
+  return Object.freeze({ topMin, topMax });
+}
 
 export class MemoryExperience {
   constructor(app, { random = Math.random } = {}) {
@@ -351,9 +389,20 @@ export class MemoryExperience {
       hideTimer: null,
       dismissing: false,
       placementOffset: this.randomInteger(0, 3),
+      verticalJitter: THREE.MathUtils.lerp(
+        -MEMORY_UI_CONFIG.MEMORY_CARD_VERTICAL_JITTER,
+        MEMORY_UI_CONFIG.MEMORY_CARD_VERTICAL_JITTER,
+        THREE.MathUtils.clamp(this.random(), 0, 1),
+      ),
+      horizontalBias: 0,
     };
     this.activeCards.push(entry);
     this.positionCard(entry);
+    this.app.atmosphereSystem?.emitMemory?.(
+      worldPosition,
+      performance.now() * 0.001,
+      { horizontalBias: entry.horizontalBias },
+    );
     window.requestAnimationFrame(() => card.classList.add("is-visible"));
     entry.hideTimer = window.setTimeout(
       () => this.dismissCard(entry),
@@ -377,26 +426,47 @@ export class MemoryExperience {
     const margin = MEMORY_UI_CONFIG.MEMORY_CARD_EDGE_MARGIN;
     const horizontalOffset = 38;
     const verticalOffset = 34;
+    const upperBand = getMemoryCardUpperBand(
+      window.innerHeight,
+      bounds.height,
+      margin,
+    );
+    const projectedTop = THREE.MathUtils.clamp(
+      bloomY - bounds.height - verticalOffset,
+      upperBand.topMin,
+      upperBand.topMax,
+    );
+    const upperBandMidpoint = (upperBand.topMin + upperBand.topMax) * 0.5;
+    const preferredTop = THREE.MathUtils.clamp(
+      THREE.MathUtils.lerp(
+        upperBandMidpoint,
+        projectedTop,
+        MEMORY_UI_CONFIG.MEMORY_CARD_WORLD_Y_INFLUENCE,
+      ) + entry.verticalJitter,
+      upperBand.topMin,
+      upperBand.topMax,
+    );
+    const laneGap = MEMORY_UI_CONFIG.MEMORY_CARD_VERTICAL_LANE_GAP;
     const rawCandidates = [
       {
         name: "upper-right",
         left: bloomX + horizontalOffset,
-        top: bloomY - bounds.height - verticalOffset,
+        top: preferredTop - laneGap * 0.62,
       },
       {
         name: "upper-left",
         left: bloomX - bounds.width - horizontalOffset,
-        top: bloomY - bounds.height - verticalOffset,
+        top: preferredTop + laneGap * 0.18,
       },
       {
         name: "right",
         left: bloomX + horizontalOffset + 6,
-        top: bloomY - bounds.height * 0.5,
+        top: preferredTop + laneGap,
       },
       {
         name: "left",
         left: bloomX - bounds.width - horizontalOffset - 6,
-        top: bloomY - bounds.height * 0.5,
+        top: preferredTop - laneGap,
       },
     ];
     const candidates = rawCandidates.map((_, index) => {
@@ -411,8 +481,8 @@ export class MemoryExperience {
         ),
         top: THREE.MathUtils.clamp(
           candidate.top,
-          margin,
-          Math.max(margin, window.innerHeight - bounds.height - margin),
+          upperBand.topMin,
+          upperBand.topMax,
         ),
       };
     });
@@ -456,6 +526,12 @@ export class MemoryExperience {
     element.dataset.placement = bestCandidate.name;
     element.style.left = `${Math.round(bestCandidate.left)}px`;
     element.style.top = `${Math.round(bestCandidate.top)}px`;
+    entry.horizontalBias = THREE.MathUtils.clamp(
+      (bestCandidate.left + bounds.width * 0.5 - bloomX) /
+        Math.max(1, window.innerWidth * 0.34),
+      -1,
+      1,
+    );
   }
 
   dismissCard(entry, immediate = false) {

@@ -16,10 +16,14 @@ import { GroundRaycaster } from "../src/interaction/GroundRaycaster.js";
 import { createGrass } from "../src/scene/createGrass.js";
 import { createLights } from "../src/scene/createLights.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
-import { MEMORY_UI_CONFIG } from "../src/memory/MemoryExperience.js";
+import {
+  MEMORY_UI_CONFIG,
+  getMemoryCardUpperBand,
+} from "../src/memory/MemoryExperience.js";
 import { BloomParticleSystem } from "../src/effects/BloomParticleSystem.js";
 import { estimatePNGBloomWork } from "../src/effects/PNGBloomPipeline.js";
 import {
+  AirborneFlowerSystem,
   AIRBORNE_FLOWER_CONFIG,
   getAirborneParticleBudget,
 } from "../src/effects/AirborneFlowerSystem.js";
@@ -611,31 +615,66 @@ test("PNG bloom budget exposes the full-scene HDR cost and viewport gate", () =>
   assert.ok(tinyBudget.deepestMinimumDimension < 16);
 });
 
-test("airborne flower fragments use a sparse analytic particle budget", () => {
+test("airborne flower fragments are empty initially and respond only to memory events", () => {
   const budget = getAirborneParticleBudget();
-  assert.equal(AIRBORNE_FLOWER_CONFIG.count, 5);
-  assert.equal(AIRBORNE_FLOWER_CONFIG.accents.length, 5);
-  assert.equal(budget.fragmentCount, 5);
-  assert.equal(budget.mobileFragmentCount, 3);
-  assert.equal(budget.particleCapacity, 450);
+  assert.equal(AIRBORNE_FLOWER_CONFIG.particleCapacity, 512);
+  assert.equal(budget.particleCapacity, 512);
   assert.equal(budget.drawCalls, 1);
-  assert.equal(budget.motionMode, "analytic");
-  assert.equal(
-    AIRBORNE_FLOWER_CONFIG.accents.every(
-      (accent) =>
-        accent.pointCount <= 104 &&
-        accent.opacity <= 0.38 &&
-        accent.speed >= 0.3 &&
-        accent.speed <= 0.42 &&
-        accent.driftX >= 0.025 &&
-        accent.driftX <= 0.043 &&
-        accent.driftY >= 0.03 &&
-        accent.driftY <= 0.041 &&
-        accent.rotationAmount <= 0.078 &&
-        accent.completeness < 0.65,
-    ),
-    true,
-  );
+  assert.equal(budget.motionMode, "analytic-event-driven");
+  assert.equal(budget.initialActiveParticleCount, 0);
+  assert.deepEqual(budget.triggerTypes, ["bloom", "memory", "decay"]);
+  assert.equal(budget.maximumParticlesPerEvent, 44);
+
+  const harness = createParticleHarness();
+  let decayListener = null;
+  const fragmentSystem = new AirborneFlowerSystem({
+    scene: harness.scene,
+    camera: harness.camera,
+    renderer: { getPixelRatio: () => 1 },
+    flowerRenderer: harness.flowerRenderer,
+    flowerSystem: harness.flowerSystem,
+    bloomPatchSystem: {
+      onPatchDecay(listener) {
+        decayListener = listener;
+        return () => {
+          decayListener = null;
+        };
+      },
+    },
+  });
+
+  try {
+    assert.equal(fragmentSystem.points.visible, false);
+    assert.equal(fragmentSystem.diagnostics.particleCount, 0);
+    assert.deepEqual(fragmentSystem.diagnostics.eventCounts, {
+      bloom: 0,
+      memory: 0,
+      decay: 0,
+    });
+
+    const center = groundPointAt(harness.groundRaycaster, 640, 430);
+    harness.flowerSystem.createBloom(center, 1);
+    fragmentSystem.update(1.1);
+    assert.ok(fragmentSystem.diagnostics.particleCount > 0);
+    assert.equal(fragmentSystem.diagnostics.eventCounts.bloom, 1);
+
+    fragmentSystem.emitMemory(center, 1.2, { horizontalBias: 0.5 });
+    decayListener({ center }, 1.3);
+    assert.equal(fragmentSystem.diagnostics.eventCounts.memory, 1);
+    assert.equal(fragmentSystem.diagnostics.eventCounts.decay, 1);
+    assert.equal(fragmentSystem.points.userData.decorative, false);
+    assert.equal(fragmentSystem.material.depthTest, true);
+    assert.equal(fragmentSystem.material.depthWrite, false);
+
+    fragmentSystem.update(20);
+    assert.equal(fragmentSystem.points.visible, false);
+    assert.equal(fragmentSystem.diagnostics.particleCount, 0);
+    fragmentSystem.reset();
+    assert.equal(fragmentSystem.diagnostics.particleCount, 0);
+  } finally {
+    fragmentSystem.dispose();
+    harness.dispose();
+  }
 });
 
 test("camera-facing cards keep their root fixed and limit yaw and tilt", () => {
@@ -874,4 +913,12 @@ test("memory gesture rhythm keeps its public tuning limits centralized", () => {
   );
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION, 4200);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_FADE_DURATION, 700);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MIN_RATIO, 0.2);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MAX_RATIO, 0.42);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_BOTTOM_MAX_RATIO, 0.58);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_WORLD_Y_INFLUENCE, 0.28);
+  const upperBand = getMemoryCardUpperBand(720, 140, 30);
+  assert.equal(upperBand.topMin, 168);
+  assert.ok(upperBand.topMax <= 720 * 0.58 - 140);
+  assert.ok(upperBand.topMax > upperBand.topMin);
 });
