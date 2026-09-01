@@ -19,15 +19,23 @@ import { createLights } from "../src/scene/createLights.js";
 import {
   createMemoryItem,
   createMemoryPool,
+  isAudioPresentation,
   MEMORY_ITEM_SCHEMA_FIELDS,
+  MEMORY_KINDS,
+  MEMORY_RELATIONSHIPS,
   MEMORY_SELECTION_CONFIG,
   MEMORY_TYPES,
 } from "../src/data/memoryPool.js";
 import {
   MEMORY_UI_CONFIG,
+  getMemoryEchoLabel,
   getMemoryCardUpperBand,
 } from "../src/memory/MemoryExperience.js";
-import { getMemoryCardViewModel } from "../src/memory/MemoryCardRenderer.js";
+import {
+  createMemoryCardElement,
+  formatAudioDuration,
+  getMemoryCardViewModel,
+} from "../src/memory/MemoryCardRenderer.js";
 import {
   getMemoryImageUrls,
   MemoryImagePreloader,
@@ -41,6 +49,7 @@ import {
 } from "../src/effects/AirborneFlowerSystem.js";
 import {
   AUDIO_CONFIG,
+  getBloomSfxParameters,
   getBGMTargetVolume,
   getVoiceCardVisibleDuration,
   shouldTriggerBloomSfx,
@@ -919,7 +928,7 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   assert.notEqual(secondEcho.id, firstEcho.id);
 });
 
-test("memory schema and card view models support coherent multimedia entries", () => {
+test("memory schema keeps independent archives separate and permits verified pairs", () => {
   const memoryPool = createMemoryPool();
   const prototypeTypes = new Set(
     memoryPool.prototypeMemories.map((memory) => memory.type),
@@ -949,6 +958,7 @@ test("memory schema and card view models support coherent multimedia entries", (
     "isQuote",
     "verified",
     "isPrototype",
+    "relationship",
   ]);
 
   const imageMemory = memoryPool.prototypeMemories.find(
@@ -966,12 +976,23 @@ test("memory schema and card view models support coherent multimedia entries", (
   assert.equal(imageViewModel.label, "MEMORY · 007");
   assert.equal(imageViewModel.verified, false);
   assert.equal(imageViewModel.isPrototype, true);
+  assert.equal(imageViewModel.kind, MEMORY_KINDS.IMAGE_ARCHIVE);
+  assert.equal(
+    imageViewModel.relationship,
+    MEMORY_RELATIONSHIPS.INDEPENDENT,
+  );
+  assert.equal(imageViewModel.hasAudio, false);
 
   const textMemory = memoryPool.addSessionMemory("一段文字记忆。");
   const textViewModel = getMemoryCardViewModel(textMemory);
   assert.equal(textViewModel.type, MEMORY_TYPES.TEXT);
+  assert.equal(textViewModel.kind, MEMORY_KINDS.TEXT_MEMORY);
   assert.equal(textViewModel.text, "一段文字记忆。");
   assert.equal(textViewModel.image, "");
+  assert.equal(
+    textViewModel.relationship,
+    MEMORY_RELATIONSHIPS.INDEPENDENT,
+  );
 
   memoryPool.prototypeMemories.forEach((memory) => {
     assert.equal(memory.audio, null);
@@ -979,9 +1000,74 @@ test("memory schema and card view models support coherent multimedia entries", (
     assert.equal(memory.isPrototype, true);
   });
 
+  const independentAudio = createMemoryItem({
+    id: "independent-audio-fixture",
+    kind: MEMORY_KINDS.AUDIO_ARCHIVE,
+    audio: "./assets/memories/audio/voice_001.mp3",
+    audioId: "voice_001",
+    audioType: "voice",
+    audioCaption: "Archive excerpt",
+    audioSource: "Verified audio archive",
+    audioSourceUrl: "https://archive.example/audio/001",
+    verified: true,
+    isPrototype: false,
+  });
+  const audioViewModel = getMemoryCardViewModel(independentAudio);
+  assert.equal(audioViewModel.type, MEMORY_TYPES.AUDIO);
+  assert.equal(audioViewModel.isAudioOnly, true);
+  assert.equal(audioViewModel.image, "");
+  assert.equal(audioViewModel.text, "");
+  assert.equal(audioViewModel.sourceLabel, "SOURCE · Verified audio archive");
+  assert.equal(audioViewModel.relationship, MEMORY_RELATIONSHIPS.INDEPENDENT);
+  assert.equal(isAudioPresentation(independentAudio), true);
+  assert.equal(getMemoryEchoLabel(independentAudio, "007"), "ARCHIVE VOICE");
+  assert.equal(formatAudioDuration(8120), "00:08");
+
+  class FakeElement {
+    constructor(tagName) {
+      this.tagName = tagName;
+      this.className = "";
+      this.dataset = {};
+      this.children = [];
+      this.attributes = {};
+      this.textContent = "";
+      this.classList = {
+        add: (...names) => {
+          const values = new Set(this.className.split(/\s+/).filter(Boolean));
+          names.forEach((name) => values.add(name));
+          this.className = [...values].join(" ");
+        },
+      };
+    }
+
+    append(...children) {
+      this.children.push(...children);
+    }
+
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    }
+  }
+  const audioIndicator = createMemoryCardElement(
+    independentAudio,
+    "ARCHIVE VOICE",
+    { createElement: (tagName) => new FakeElement(tagName) },
+  );
+  assert.match(audioIndicator.className, /memory-echo-card--audio-only/);
+  assert.equal(audioIndicator.dataset.memoryType, MEMORY_TYPES.AUDIO);
+  assert.equal(
+    audioIndicator.dataset.memoryRelationship,
+    MEMORY_RELATIONSHIPS.INDEPENDENT,
+  );
+  assert.equal(audioIndicator.children[0].textContent, "ARCHIVE VOICE");
+  assert.equal(
+    audioIndicator.children[1].children.at(-1).textContent,
+    "--:--",
+  );
+
   const verifiedImageAudio = createMemoryItem({
     id: "verified-image-audio-fixture",
-    kind: "archive",
+    kind: MEMORY_KINDS.PAIRED_MEMORY,
     image: "./assets/memories/images/memory_001.jpg",
     caption: "Verified fixture caption",
     date: "Verified fixture date",
@@ -996,6 +1082,7 @@ test("memory schema and card view models support coherent multimedia entries", (
     audioSourceUrl: "https://archive.example/audio/001",
     verified: true,
     isPrototype: false,
+    relationship: MEMORY_RELATIONSHIPS.VERIFIED_PAIR,
   });
   const imageAudioViewModel = getMemoryCardViewModel(verifiedImageAudio);
   assert.equal(imageAudioViewModel.type, MEMORY_TYPES.IMAGE);
@@ -1005,21 +1092,49 @@ test("memory schema and card view models support coherent multimedia entries", (
   assert.equal(imageAudioViewModel.sourceLabel, "SOURCE · Verified image source");
   assert.equal(imageAudioViewModel.verified, true);
   assert.equal(imageAudioViewModel.isPrototype, false);
+  assert.equal(imageAudioViewModel.isVerifiedPair, true);
+  assert.equal(
+    imageAudioViewModel.relationship,
+    MEMORY_RELATIONSHIPS.VERIFIED_PAIR,
+  );
 
   const verifiedTextAudio = createMemoryItem({
     id: "verified-text-audio-fixture",
-    kind: "archive",
+    kind: MEMORY_KINDS.PAIRED_MEMORY,
     text: "Verified fixture transcript summary",
     source: "Verified text source",
     audio: "./assets/memories/audio/memory_002.mp3",
     audioCaption: "Verified related recording",
     verified: true,
     isPrototype: false,
+    relationship: MEMORY_RELATIONSHIPS.VERIFIED_PAIR,
   });
   const textAudioViewModel = getMemoryCardViewModel(verifiedTextAudio);
   assert.equal(textAudioViewModel.type, MEMORY_TYPES.TEXT);
   assert.equal(textAudioViewModel.hasAudio, true);
   assert.equal(textAudioViewModel.text, verifiedTextAudio.text);
+  assert.equal(textAudioViewModel.isVerifiedPair, true);
+  assert.throws(
+    () =>
+      createMemoryItem({
+        id: "unsafe-image-audio",
+        kind: MEMORY_KINDS.IMAGE_ARCHIVE,
+        image: "image.jpg",
+        audio: "voice.mp3",
+      }),
+    /cannot contain unrelated audio/,
+  );
+  assert.throws(
+    () =>
+      createMemoryItem({
+        id: "unverified-pair",
+        kind: MEMORY_KINDS.PAIRED_MEMORY,
+        image: "image.jpg",
+        audio: "voice.mp3",
+        relationship: MEMORY_RELATIONSHIPS.VERIFIED_PAIR,
+      }),
+    /requires verified media/,
+  );
   assert.throws(
     () => createMemoryItem({ id: "unsafe", verified: true, isPrototype: true }),
     /both verified and a prototype/,
@@ -1033,8 +1148,7 @@ test("audio memory selection remains rare and enforces silent spacing", () => {
   const audioEntries = ["one", "two"].map((id) =>
     createMemoryItem({
       id: `audio-${id}`,
-      kind: "archive",
-      text: id,
+      kind: MEMORY_KINDS.AUDIO_ARCHIVE,
       audio: `./assets/memories/audio/${id}.mp3`,
       verified: true,
       isPrototype: false,
@@ -1055,8 +1169,9 @@ test("audio memory selection remains rare and enforces silent spacing", () => {
   assert.match(second.id, /^silent-/);
   assert.match(third.id, /^silent-/);
   assert.match(fourth.id, /^audio-/);
-  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_MEMORY_COOLDOWN_EVENTS, 2);
-  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_MEMORY_SELECTION_PROBABILITY, 0.18);
+  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_ARCHIVE_COOLDOWN_EVENTS, 2);
+  assert.equal(MEMORY_SELECTION_CONFIG.MIN_EVENTS_BETWEEN_AUDIO, 2);
+  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_ARCHIVE_PROBABILITY, 0.12);
   assert.equal(memoryPool.selectionState.audioCooldownRemaining, 2);
   memoryPool.resetSelection();
   assert.equal(memoryPool.selectionState.audioCooldownRemaining, 0);
@@ -1121,9 +1236,21 @@ test("audio configuration centralizes restrained mixing and card timing", () => 
   assert.equal(getBGMTargetVolume(true), 0.06);
   assert.equal(getVoiceCardVisibleDuration(9000, 4200), 9900);
   assert.equal(getVoiceCardVisibleDuration(30000, 4200), 24000);
-  assert.equal(shouldTriggerBloomSfx(1000, 0, 0.2), true);
-  assert.equal(shouldTriggerBloomSfx(800, 0, 0.2), false);
-  assert.equal(shouldTriggerBloomSfx(1000, 0, 0.9), false);
+  assert.equal(AUDIO_CONFIG.BLOOM_SFX_VOLUME, 0.006);
+  assert.equal(AUDIO_CONFIG.BLOOM_SFX_COOLDOWN, 1050);
+  assert.equal(AUDIO_CONFIG.BLOOM_SFX_PROBABILITY, 0.28);
+  assert.equal(shouldTriggerBloomSfx(1100, 0, 0.2), true);
+  assert.equal(shouldTriggerBloomSfx(1000, 0, 0.2), false);
+  assert.equal(shouldTriggerBloomSfx(1100, 0, 0.9), false);
+  const bloomSound = getBloomSfxParameters(() => 0.5);
+  assert.equal(bloomSound.durationSeconds, 0.3);
+  assert.equal(bloomSound.toneFrequencyHz, 1650);
+  assert.equal(bloomSound.airFrequencyHz, 3550);
+  assert.ok(bloomSound.durationSeconds >= 0.18);
+  assert.ok(bloomSound.durationSeconds <= 0.45);
+  assert.ok(bloomSound.toneFrequencyHz >= 1400);
+  assert.ok(bloomSound.airHighpassFrequencyHz >= 1400);
+  assert.ok(bloomSound.overtoneFrequencyHz > bloomSound.toneFrequencyHz);
 });
 
 test("memory gesture rhythm keeps its public tuning limits centralized", () => {
@@ -1147,6 +1274,7 @@ test("memory gesture rhythm keeps its public tuning limits centralized", () => {
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_FADE_DURATION, 700);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_WIDTH, 270);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_IMAGE_CARD_WIDTH, 286);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_AUDIO_CARD_WIDTH, 176);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MIN_RATIO, 0.2);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MAX_RATIO, 0.42);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_BOTTOM_MAX_RATIO, 0.58);

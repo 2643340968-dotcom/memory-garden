@@ -1,10 +1,16 @@
 import * as THREE from "three";
-import { createMemoryPool } from "../data/memoryPool.js";
+import {
+  createMemoryPool,
+  MEMORY_KINDS,
+} from "../data/memoryPool.js";
 import {
   AUDIO_CONFIG,
   getVoiceCardVisibleDuration,
 } from "../audio/AudioConfig.js";
-import { createMemoryCardElement } from "./MemoryCardRenderer.js";
+import {
+  createMemoryCardElement,
+  updateMemoryCardAudioDuration,
+} from "./MemoryCardRenderer.js";
 import { MemoryImagePreloader } from "./MemoryAssetPreloader.js";
 
 export const MEMORY_UI_CONFIG = Object.freeze({
@@ -14,6 +20,7 @@ export const MEMORY_UI_CONFIG = Object.freeze({
   MEMORY_CARD_FADE_DURATION: 700,
   MEMORY_CARD_WIDTH: 270,
   MEMORY_IMAGE_CARD_WIDTH: 286,
+  MEMORY_AUDIO_CARD_WIDTH: 176,
   MEMORY_CARD_EDGE_MARGIN: 30,
   MEMORY_CARD_MAX_OVERLAP: 0.22,
   MEMORY_CARD_UPPER_TOP_MIN_RATIO: 0.2,
@@ -33,6 +40,19 @@ export const MEMORY_UI_CONFIG = Object.freeze({
   MEMORY_ECHO_REVEAL_DELAY: 180,
   MEMORY_ECHO_MIN_STAGGER: 420,
 });
+
+export function getMemoryEchoLabel(memory, bloomNumber) {
+  if (memory?.kind === MEMORY_KINDS.AUDIO_ARCHIVE) {
+    return "ARCHIVE VOICE";
+  }
+  if (memory?.kind === MEMORY_KINDS.IMAGE_ARCHIVE) {
+    return `ARCHIVE IMAGE · ${bloomNumber}`;
+  }
+  if (memory?.kind === MEMORY_KINDS.PAIRED_MEMORY) {
+    return `VERIFIED MEMORY · ${bloomNumber}`;
+  }
+  return `MEMORY · ${bloomNumber}`;
+}
 
 const wait = (duration) =>
   new Promise((resolve) => window.setTimeout(resolve, duration));
@@ -124,6 +144,10 @@ export class MemoryExperience {
     document.documentElement.style.setProperty(
       "--memory-image-card-width",
       `${MEMORY_UI_CONFIG.MEMORY_IMAGE_CARD_WIDTH}px`,
+    );
+    document.documentElement.style.setProperty(
+      "--memory-audio-card-width",
+      `${MEMORY_UI_CONFIG.MEMORY_AUDIO_CARD_WIDTH}px`,
     );
     document.body.classList.add("memory-entry-active");
     this.textarea.addEventListener("input", this.onInput);
@@ -280,7 +304,7 @@ export class MemoryExperience {
     this.queueMemoryCard(
       memory,
       bloomEvent.anchorPosition,
-      `MEMORY · ${bloomNumber}`,
+      getMemoryEchoLabel(memory, bloomNumber),
       Math.max(0, revealTime - now),
     );
   }
@@ -356,7 +380,7 @@ export class MemoryExperience {
     const generation = this.cardGeneration;
     const position = worldPosition.clone();
     void this.imagePreloader.preload(memory.image);
-    void this.app.audioManager?.preloadMemoryVoice(memory);
+    void this.app.audioManager?.preloadArchiveVoice(memory);
     const enqueue = () => {
       if (generation !== this.cardGeneration) {
         return;
@@ -454,7 +478,7 @@ export class MemoryExperience {
     }
 
     entry.element.classList.add("is-audio-loading");
-    const playback = await audioManager.playMemoryVoice(memory, {
+    const playback = await audioManager.playArchiveVoice(memory, {
       signal: entry.audioAbortController.signal,
     });
     entry.element.classList.remove("is-audio-loading");
@@ -465,6 +489,9 @@ export class MemoryExperience {
     ) {
       if (!entry.dismissing && generation === this.cardGeneration) {
         entry.element.classList.add("is-audio-unavailable");
+        if (memory.kind === MEMORY_KINDS.AUDIO_ARCHIVE) {
+          this.scheduleCardDismiss(entry, 1200);
+        }
       }
       return;
     }
@@ -472,6 +499,10 @@ export class MemoryExperience {
     entry.voiceActive = true;
     entry.element.classList.add("is-audio-playing");
     entry.element.dataset.audioDuration = String(Math.round(playback.durationMs));
+    updateMemoryCardAudioDuration(
+      entry.element,
+      playback.mediaDurationMs ?? playback.durationMs,
+    );
     const visibleDurationFromPlayback = getVoiceCardVisibleDuration(
       playback.durationMs,
       0,
@@ -640,7 +671,7 @@ export class MemoryExperience {
     entry.audioAbortController?.abort();
     if (entry.voiceActive) {
       entry.voiceActive = false;
-      void this.app.audioManager?.stopMemoryVoice(entry.memoryId);
+      void this.app.audioManager?.stopArchiveVoice(entry.memoryId);
     }
     entry.element.classList.remove("is-visible");
     entry.element.classList.add("is-exiting");
@@ -661,7 +692,7 @@ export class MemoryExperience {
     this.activeCards = [];
     this.cardLayer.replaceChildren();
     this.cardQueue = Promise.resolve();
-    void this.app.audioManager?.resetMemoryAudio();
+    void this.app.audioManager?.resetArchiveAudio();
   }
 
   onReset() {

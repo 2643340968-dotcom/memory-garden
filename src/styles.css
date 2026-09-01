@@ -558,10 +558,18 @@ canvas {
   text-transform: uppercase;
 }
 
-.memory-echo-audio > span:last-child {
+.memory-echo-audio-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.memory-echo-audio-time {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
 }
 
 .memory-echo-audio-dot {
@@ -595,8 +603,47 @@ canvas {
   display: none;
 }
 
-.memory-echo-card--audio .memory-echo-label {
+.memory-echo-card--has-audio .memory-echo-label {
   margin-top: 9px;
+}
+
+.memory-echo-card--audio-only {
+  width: min(var(--memory-audio-card-width, 176px), calc(100vw - 60px));
+  padding: 12px 14px 11px;
+  border-color: rgba(207, 184, 226, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(219, 195, 235, 0.045), transparent 48%),
+    rgba(19, 13, 25, 0.64);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    0 0 18px rgba(141, 101, 172, 0.08),
+    inset 0 1px 0 rgba(233, 220, 243, 0.055);
+}
+
+.memory-echo-card--audio-only::after {
+  display: none;
+}
+
+.memory-echo-card--audio-only .memory-echo-label {
+  margin: 0;
+  color: #bca9ca;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  opacity: 0.76;
+}
+
+.memory-echo-card--audio-only .memory-echo-audio {
+  margin-top: 7px;
+}
+
+.memory-echo-card--audio-only .memory-echo-audio-label {
+  display: none;
+}
+
+.memory-echo-card--audio-only .memory-echo-source {
+  margin: 7px 0 0;
+  font-size: 7px;
 }
 
 @keyframes memory-audio-breathe {
@@ -949,6 +996,11 @@ canvas {
   .memory-echo-card--image {
     width: min(264px, calc(100vw - 48px));
     padding: 9px 9px 12px;
+  }
+
+  .memory-echo-card--audio-only {
+    width: min(168px, calc(100vw - 48px));
+    padding: 11px 13px 10px;
   }
 }
 

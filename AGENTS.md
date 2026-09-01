@@ -42,7 +42,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Procedural grass fading irregularly into the distance.
 - Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
-- Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards or slightly wider archival-image cards from one unified memory schema.
+- Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards, slightly wider archival-image cards, or a smaller independent archive-voice indicator.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
 - Avoid cyberpunk neon, bright blue/cyan accents, heavy app-style cards, and bright daytime botanical styling.
 - Do not change the Three.js scene merely to adjust the memory UI.
@@ -63,8 +63,8 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 12. An unattended patch dims and settles while the same petal/edge point slots fragment softly upward/outward, edge-first, and then release with the flower slots for reuse.
 13. Bloom growth, Memory Echo appearance, and BloomPatch decay each emit a small transient point-fragment event from the related flower world position. No fragments exist before the first BloomEvent.
 14. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
-15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible. The same queue draws complete memory records; image, text, audio, place, time, and source always come from the selected record and are never paired independently.
-16. The current runtime database contains only clearly marked silent prototypes. When a later verified record includes audio, one reusable non-positional `THREE.Audio` voice channel will play it, temporarily duck the optional BGM bus, and keep its card visible through playback plus a short tail (capped at 24 seconds).
+15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible. `TEXT_MEMORY`, `IMAGE_ARCHIVE`, and `AUDIO_ARCHIVE` are independent fragments; each keeps its own source and never borrows media from another selected item.
+16. Only an explicitly declared, verified `PAIRED_MEMORY` with `relationship: "verified-pair"` may combine image/text/audio in one card. An independent archive voice uses its own small indicator and one reusable non-positional `THREE.Audio` channel, temporarily ducks the optional BGM bus, and remains visible through playback plus a short tail (capped at 24 seconds).
 17. The top-left sound toggle controls the complete mix. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, gesture state, and current voice playback. It does not reopen the entry modal.
 18. A full reload restarts the entry flow and clears page-local submitted memories.
 
@@ -100,7 +100,7 @@ BloomEvent subscription
 First memory submission
   → AudioManager unlock
   → optional looping BGM bus (currently unconfigured)
-  → one reusable memory-voice channel
+  → one reusable archive-voice channel
   → restrained bloom / card cues
 ```
 
@@ -116,9 +116,9 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/audio/AudioConfig.js`: centralized BGM, ducking, voice, card-lifetime, cue probability/cooldown, master fade, and visibility fade tuning. `BGM_URL` is intentionally `null` until a suitable track is supplied.
 - `src/audio/AudioManager.js`: PNG-only Web Audio owner. Attaches one `AudioListener` to the camera, caches `AudioLoader` buffers, owns one looping BGM channel and one reusable voice channel, schedules gain fades/ducking, generates restrained cues, handles mute/visibility, and exposes diagnostics.
 - `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, per-selected-record image/audio warmup, optional voice playback/lifetime coordination, viewport clamping, reset cleanup.
-- `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, optional audio, concise source metadata, and graceful missing-image/audio states.
+- `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, the smaller independent archive-voice indicator, verified pairs, concise source metadata, duration display, and graceful missing-image/audio states.
 - `src/memory/MemoryAssetPreloader.js`: small non-blocking image cache. It warms at most two prototype images during idle time and preloads only the selected memory image before presentation.
-- `src/data/memoryPool.js`: unified multimedia schema with coherent per-record image/audio/source binding, internal `verified`/`isPrototype` safety flags, rare-audio probability, two-silent-event cooldown, generic silent prototypes, and in-memory `sessionMemories`. Do not present prototype text as real survivor testimony or a historical quotation, and do not claim unverified recording provenance.
+- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, rare-audio probability, two-non-audio-event cooldown, generic silent prototypes, and in-memory `sessionMemories`. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. Do not present prototype text as real survivor testimony or a historical quotation, and do not claim unverified recording provenance.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
 - `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.
@@ -158,7 +158,7 @@ Required runtime assets are inside the repository:
   - `public/assets/memories/images/`
   - `public/assets/memories/audio/`
   - `public/assets/memories/bgm/`
-  - `public/assets/memories/README.md` documents naming, pairing, provenance, and safety requirements.
+  - `public/assets/memories/README.md` documents independent asset intake, explicit verified pairing, provenance, and safety requirements.
 - Additional source/reference assets: `图片素材/`, `音频素材/`, and `模型/`.
 - Historical snapshot: `版本存档/原版-花田-20000容量-2026-08-30.zip`.
 
@@ -216,20 +216,20 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Later echoes every `2–3` BloomEvents or `1.75` world units
 - Echo reveal delay `180ms`; minimum visual stagger `420ms`
 - Visible duration `4200ms`; fade duration `700ms`; enter duration `480ms`
-- Text-card width `270px`; image-card width `286px`; viewport margin `30px`; acceptable overlap target `0.22`
+- Text-card width `270px`; image-card width `286px`; audio-only indicator width `176px`; viewport margin `30px`; acceptable overlap target `0.22`
 - Card top band starts at `20%` and ends no lower than the tighter of `42%` viewport height or a `58%` card-bottom ceiling, with `168px` title clearance, `28%` projected-world vertical influence, `78px` candidate lane gap, and `±22px` stable jitter
 - Modal exit `850ms`
 - Entry layout uses `place-items: center` on desktop and mobile. The large input panel remains geometrically centered; only the post-bloom Memory Echo cards use the upper-screen band.
-- Audio-bearing memories have an `18%` selection gate and require `2` successfully displayed silent memory events before another audio-bearing memory is eligible.
+- Archive-audio presentations have a `12%` selection gate and require at least `2` successfully displayed non-audio memory events before another voice is eligible.
 - Prototype images warm non-blockingly during browser idle time with an initial limit of `2`; only the selected memory image/audio may warm when a card is queued.
 
 ### Audio: `src/audio/AudioConfig.js`
 
 - Initial page state is silent. Audio unlock occurs only inside the first valid memory-form submission gesture.
 - No BGM is currently configured: `BGM_URL = null`, so the project performs no missing-track request. When supplied later, the BGM channel is looping and uses `0.18` normal volume, `0.06` ducked volume, a `5s` fade-in, and a `1.4s` fade-out.
-- One reusable voice channel uses volume `0.72`, a `480ms` start delay, a `180ms` fade-in, and a `280ms` replacement fade. Only one memory voice can play at once.
+- One reusable voice channel uses volume `0.72`, a `480ms` start delay, a `180ms` fade-in, and a `280ms` replacement fade. Only one archive voice can play at once.
 - Voice cards remain through the decoded clip duration plus a `900ms` tail, with a `24s` maximum card lifetime.
-- Bloom cues use volume `0.018`, an `850ms` cooldown, and `0.38` probability. Memory-card cues use volume `0.012` and a `360ms` cooldown.
+- Bloom cues are procedural high-passed air plus a faint `1450–1850Hz` sine resonance and a `14%` overtone. They use volume `0.006`, last `220–380ms`, have a `1050ms` cooldown, and a `0.28` probability. Memory-card cues use volume `0.012` and a `360ms` cooldown.
 - The sound toggle ramps the listener master gain instead of destroying playback state. Page visibility also fades the master gain down/up.
 - Audio transitions use Web Audio `AudioParam` gain automation, not `AnimationMixer`; visual animation timing remains unchanged.
 - The runtime database currently has zero audio-bearing memories, and no voice or BGM asset is requested. `AudioManager` remains ready for later verified records.

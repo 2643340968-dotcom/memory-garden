@@ -70,7 +70,7 @@ pnpm run dev
   → 花朵生长与卡片出现各释放一组短寿命花形碎片
   → 鼠标种植解锁
   → 每次拖拽可产生约 1–3 个 Memory Echo
-  → 未来经核实的 Memory Echo 可以携带自身绑定的语音；当前 prototype 库保持静音
+  → 后续事件可以独立呈现文字、档案图片或档案声音；只有明确核实的 paired memory 才会组合媒体
   → 光标附近花簇刷新 attention
   → 无人关注的旧花簇缓慢变暗、下沉，花瓣轮廓碎裂成粒子并消失
   → 花簇进入消散时再释放两组轻微上升、散开并淡出的碎片
@@ -79,7 +79,7 @@ pnpm run dev
 
 Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构支持 `text` 和 `image` 两种记忆，并可附加 `audio`、`audioId`、`audioType`、`audioCaption`：文字卡保持轻量，图片卡包含一张图、短说明和可选的日期/地点/来源行，音频卡只增加克制的播放状态行。当前两张图片是明确标注的本地占位资源，并非真实史料。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
 
-页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。当前没有合适 BGM，因此 `BGM_URL` 有意保持为空，不会请求缺失资源；BGM 循环、淡入淡出和语音 ducking 接口已经保留。当前运行时数据库不包含历史语音，未核实 MP3 不进入公开页面。未来每一段经核实语音都必须和文字/图片、地点、时间、来源写在同一条 memory 记录里，由一个可复用的 `THREE.Audio` 通道播放；系统不会分别随机抽取图片与声音。
+页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。当前没有合适 BGM，因此 `BGM_URL` 有意保持为空，不会请求缺失资源；BGM 循环、淡入淡出和语音 ducking 接口已经保留。当前运行时数据库不包含历史语音，未核实 MP3 不进入公开页面。历史图片、历史声音与文字记忆现在默认是彼此独立的档案片段，各自保留来源；只有显式声明为 `PAIRED_MEMORY`、标记 `relationship: "verified-pair"` 且 `verified: true` 的素材才会出现在同一张卡中。
 
 ## 核心数据流
 
@@ -109,7 +109,7 @@ BloomEvent
 First memory submission
   → AudioManager unlock
   → optional BGM bus (currently unconfigured)
-  → one reusable memory-voice channel
+  → one reusable archive-voice channel
   → restrained bloom / card cues
 ```
 
@@ -197,9 +197,9 @@ public/assets/memories/
 - 当前没有 BGM 文件；未来 BGM 正常音量 `0.18`、语音期间 duck 到 `0.06`、淡入 `5s`、淡出 `1.4s`
 - 语音音量 `0.72`，开始延迟 `480ms`，替换淡出 `280ms`，同一时间只保留一段
 - 语音卡停留至音频结束后 `900ms`，最长 `24s`
-- 音频 memory 的选择概率门槛为 `18%`；播放一条后至少经过 `2` 条静音 memory 才能再次选择音频
+- 独立档案声音和含声音的 verified pair 选择概率门槛为 `12%`；播放一条后至少经过 `2` 条非音频 memory 才能再次选择声音
 - 不在启动时批量加载音频；仅对已经选中的 memory 进行轻量预载。图片在浏览器空闲时最多预热 `2` 张，并在卡片排队时预载对应图片
-- 开花提示音有 `850ms` 冷却和 `38%` 触发概率，记忆卡提示音冷却 `360ms`
+- 开花提示音改为 `220–380ms` 的轻量程序化声音：高通空气噪声叠加 `1450–1850Hz` 微弱玻璃质感正弦与极轻泛音；音量 `0.006`、冷却 `1050ms`、触发概率 `28%`。记忆卡提示音冷却 `360ms`
 - 页面左上角按钮控制全局声音；切页隐藏和恢复会渐变主音量，不直接破坏播放状态
 
 正式 multimedia memory 数据位于 `src/data/memoryPool.js`，字段包括：
@@ -208,10 +208,10 @@ public/assets/memories/
 id, type, kind, label, text, image, caption,
 date, location, source, sourceUrl,
 audio, audioId, audioType, audioCaption, audioSource, audioSourceUrl,
-isQuote, verified, isPrototype
+isQuote, verified, isPrototype, relationship
 ```
 
-`verified: true` 与 `isPrototype: true` 不允许同时存在。资源放置和来源登记规范见 `public/assets/memories/README.md`。缺失图片显示安静的中性占位，缺失音频则保持普通静音卡片；不会出现破图图标或把声音改配给其他记忆。
+`kind` 支持 `TEXT_MEMORY`、`IMAGE_ARCHIVE`、`AUDIO_ARCHIVE`、`PAIRED_MEMORY`；`relationship` 支持 `independent` 与 `verified-pair`。独立类型在数据构造阶段禁止混入其他媒体，verified pair 则必须显式声明关系并通过核实。`verified: true` 与 `isPrototype: true` 不允许同时存在。资源放置和来源登记规范见 `public/assets/memories/README.md`。缺失图片显示安静的中性占位，缺失音频则让独立声音指示器快速淡出；不会出现破图图标或把声音改配给其他记忆。
 
 当前 PNG 场景：
 

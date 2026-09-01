@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import {
   AUDIO_CONFIG,
+  getBloomSfxParameters,
   getBGMTargetVolume,
   shouldTriggerBloomSfx,
 } from "./AudioConfig.js";
@@ -179,11 +180,11 @@ export class AudioManager {
     return loadPromise;
   }
 
-  preloadMemoryVoice(memory) {
-    if (!this.unlocked || !memory?.audio) {
+  preloadArchiveVoice(archive) {
+    if (!this.unlocked || !archive?.audio) {
       return Promise.resolve(null);
     }
-    return this.loadBuffer(memory.audio);
+    return this.loadBuffer(archive.audio);
   }
 
   rampAudioVolume(audio, targetVolume, durationSeconds, startTime = null) {
@@ -263,13 +264,13 @@ export class AudioManager {
     );
   }
 
-  async playMemoryVoice(memory, { signal } = {}) {
-    if (!this.unlocked || !memory?.audio || signal?.aborted) {
+  async playArchiveVoice(archive, { signal } = {}) {
+    if (!this.unlocked || !archive?.audio || signal?.aborted) {
       return null;
     }
 
     const requestId = ++this.voiceRequestId;
-    const buffer = await this.loadBuffer(memory.audio);
+    const buffer = await this.loadBuffer(archive.audio);
     if (!buffer || requestId !== this.voiceRequestId || signal?.aborted) {
       return null;
     }
@@ -296,7 +297,7 @@ export class AudioManager {
     });
     const activeVoice = {
       requestId,
-      memoryId: memory.id ?? memory.audioId ?? memory.audio,
+      memoryId: archive.id ?? archive.audioId ?? archive.audio,
       startedAt: performance.now(),
       durationMs: (delaySeconds + buffer.duration) * 1000,
       finish: finishVoice,
@@ -322,6 +323,7 @@ export class AudioManager {
     return Object.freeze({
       id: activeVoice.memoryId,
       durationMs: activeVoice.durationMs,
+      mediaDurationMs: buffer.duration * 1000,
       finished,
     });
   }
@@ -357,7 +359,7 @@ export class AudioManager {
     this.completeVoice(activeVoice, reason, restoreBGM);
   }
 
-  stopMemoryVoice(memoryId, reason = "card-dismissed") {
+  stopArchiveVoice(memoryId, reason = "indicator-dismissed") {
     if (!this.currentVoice || this.currentVoice.memoryId !== memoryId) {
       return Promise.resolve();
     }
@@ -365,7 +367,7 @@ export class AudioManager {
     return this.stopCurrentVoice(reason, true);
   }
 
-  resetMemoryAudio() {
+  resetArchiveAudio() {
     this.voiceRequestId += 1;
     return this.stopCurrentVoice("reset", true);
   }
@@ -374,11 +376,13 @@ export class AudioManager {
     if (this.noiseBuffer) {
       return this.noiseBuffer;
     }
-    const frameCount = Math.ceil(this.context.sampleRate * 0.72);
+    const frameCount = Math.ceil(
+      this.context.sampleRate * (this.config.BLOOM_SFX_MAX_DURATION + 0.04),
+    );
     const buffer = this.context.createBuffer(1, frameCount, this.context.sampleRate);
     const data = buffer.getChannelData(0);
     for (let index = 0; index < frameCount; index += 1) {
-      data[index] = (Math.random() * 2 - 1) * (1 - index / frameCount);
+      data[index] = Math.random() * 2 - 1;
     }
     this.noiseBuffer = buffer;
     return buffer;
@@ -399,27 +403,92 @@ export class AudioManager {
       return false;
     }
 
+    const parameters = getBloomSfxParameters(this.random, this.config);
     const now = this.context.currentTime;
-    const source = this.context.createBufferSource();
-    const filter = this.context.createBiquadFilter();
-    const gain = this.context.createGain();
-    source.buffer = this.getNoiseBuffer();
-    source.playbackRate.value = 0.84 + this.random() * 0.18;
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(520 + this.random() * 180, now);
-    filter.Q.value = 0.38;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(this.config.BLOOM_SFX_VOLUME, now + 0.12);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.62);
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.listener.getInput());
-    source.start(now);
-    source.stop(now + 0.66);
-    source.onended = () => {
-      source.disconnect();
-      filter.disconnect();
-      gain.disconnect();
+    const end = now + parameters.durationSeconds;
+    const airSource = this.context.createBufferSource();
+    const airHighpass = this.context.createBiquadFilter();
+    const airLowpass = this.context.createBiquadFilter();
+    const airGain = this.context.createGain();
+    const tone = this.context.createOscillator();
+    const toneGain = this.context.createGain();
+    const overtone = this.context.createOscillator();
+    const overtoneGain = this.context.createGain();
+
+    airSource.buffer = this.getNoiseBuffer();
+    airSource.playbackRate.value = 0.96 + this.random() * 0.08;
+    airHighpass.type = "highpass";
+    airHighpass.frequency.setValueAtTime(
+      parameters.airHighpassFrequencyHz,
+      now,
+    );
+    airHighpass.Q.value = 0.42;
+    airLowpass.type = "lowpass";
+    airLowpass.frequency.setValueAtTime(parameters.airFrequencyHz * 1.7, now);
+    airLowpass.Q.value = 0.34;
+
+    const airPeak = parameters.volume * parameters.airMix * 0.72;
+    airGain.gain.setValueAtTime(0, now);
+    airGain.gain.linearRampToValueAtTime(
+      airPeak,
+      now + parameters.attackSeconds * 1.35,
+    );
+    airGain.gain.exponentialRampToValueAtTime(0.000001, end);
+
+    tone.type = "sine";
+    tone.frequency.setValueAtTime(parameters.toneFrequencyHz, now);
+    tone.frequency.exponentialRampToValueAtTime(
+      parameters.toneFrequencyHz * 0.975,
+      end,
+    );
+    const tonePeak = parameters.volume * parameters.toneMix;
+    toneGain.gain.setValueAtTime(0, now);
+    toneGain.gain.linearRampToValueAtTime(
+      tonePeak,
+      now + parameters.attackSeconds,
+    );
+    toneGain.gain.exponentialRampToValueAtTime(
+      0.000001,
+      now + parameters.durationSeconds * 0.78,
+    );
+
+    overtone.type = "sine";
+    overtone.frequency.setValueAtTime(parameters.overtoneFrequencyHz, now);
+    overtone.frequency.exponentialRampToValueAtTime(
+      parameters.overtoneFrequencyHz * 0.985,
+      end,
+    );
+    overtoneGain.gain.setValueAtTime(0, now);
+    overtoneGain.gain.linearRampToValueAtTime(
+      tonePeak * parameters.overtoneLevel,
+      now + parameters.attackSeconds * 1.8,
+    );
+    overtoneGain.gain.exponentialRampToValueAtTime(0.000001, end);
+
+    airSource.connect(airHighpass);
+    airHighpass.connect(airLowpass);
+    airLowpass.connect(airGain);
+    airGain.connect(this.listener.getInput());
+    tone.connect(toneGain);
+    toneGain.connect(this.listener.getInput());
+    overtone.connect(overtoneGain);
+    overtoneGain.connect(this.listener.getInput());
+
+    airSource.start(now);
+    tone.start(now);
+    overtone.start(now + parameters.attackSeconds * 0.45);
+    airSource.stop(end);
+    tone.stop(end);
+    overtone.stop(end);
+    overtone.onended = () => {
+      airSource.disconnect();
+      airHighpass.disconnect();
+      airLowpass.disconnect();
+      airGain.disconnect();
+      tone.disconnect();
+      toneGain.disconnect();
+      overtone.disconnect();
+      overtoneGain.disconnect();
     };
     this.lastBloomSfxAt = nowMilliseconds;
     this.bloomSfxCount += 1;
