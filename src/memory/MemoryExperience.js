@@ -5,6 +5,7 @@ import {
   getVoiceCardVisibleDuration,
 } from "../audio/AudioConfig.js";
 import { createMemoryCardElement } from "./MemoryCardRenderer.js";
+import { MemoryImagePreloader } from "./MemoryAssetPreloader.js";
 
 export const MEMORY_UI_CONFIG = Object.freeze({
   MODAL_EXIT_DURATION: 850,
@@ -72,6 +73,7 @@ export class MemoryExperience {
     this.app = app;
     this.random = random;
     this.memoryPool = createMemoryPool();
+    this.imagePreloader = new MemoryImagePreloader();
     this.overlay = document.querySelector("#memory-entry-overlay");
     this.form = document.querySelector("#memory-entry-form");
     this.textarea = document.querySelector("#memory-text");
@@ -138,6 +140,7 @@ export class MemoryExperience {
     this.unsubscribeBloom = this.app.flowerSystem.onBloomCreated(
       this.onBloomCreated,
     );
+    this.imagePreloader.scheduleInitial(this.memoryPool.prototypeMemories);
     window.requestAnimationFrame(() => this.textarea.focus());
     return this;
   }
@@ -153,16 +156,7 @@ export class MemoryExperience {
       return;
     }
 
-    const audioUnlock = this.app.audioManager?.unlock();
-    if (audioUnlock) {
-      void audioUnlock.then((unlocked) => {
-        if (unlocked) {
-          void this.app.audioManager.preloadMemoryVoices(
-            this.memoryPool.prototypeMemories,
-          );
-        }
-      });
-    }
+    void this.app.audioManager?.unlock();
 
     const memory = this.memoryPool.addSessionMemory(text);
     this.firstBloomMemoryId = memory.id;
@@ -361,6 +355,8 @@ export class MemoryExperience {
 
     const generation = this.cardGeneration;
     const position = worldPosition.clone();
+    void this.imagePreloader.preload(memory.image);
+    void this.app.audioManager?.preloadMemoryVoice(memory);
     const enqueue = () => {
       if (generation !== this.cardGeneration) {
         return;
@@ -467,6 +463,9 @@ export class MemoryExperience {
       entry.dismissing ||
       generation !== this.cardGeneration
     ) {
+      if (!entry.dismissing && generation === this.cardGeneration) {
+        entry.element.classList.add("is-audio-unavailable");
+      }
       return;
     }
 
@@ -667,6 +666,7 @@ export class MemoryExperience {
 
   onReset() {
     this.clearCards();
+    this.memoryPool.resetSelection();
     this.endDragMemorySession();
   }
 

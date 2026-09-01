@@ -518,7 +518,8 @@ canvas {
   letter-spacing: 0.035em;
 }
 
-.memory-echo-meta {
+.memory-echo-meta,
+.memory-echo-source {
   margin: 5px 5px 0;
   overflow: hidden;
   color: #aa97b9;
@@ -529,6 +530,12 @@ canvas {
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.memory-echo-source {
+  color: #927fa0;
+  font-size: 8px;
+  letter-spacing: 0.13em;
 }
 
 .memory-echo-card--image .memory-echo-label {
@@ -584,12 +591,12 @@ canvas {
   opacity: 0.5;
 }
 
-.memory-echo-card--audio .memory-echo-label {
-  margin-top: 9px;
+.memory-echo-card.is-audio-unavailable .memory-echo-audio {
+  display: none;
 }
 
-.memory-echo-card--source-audio .memory-echo-text {
-  letter-spacing: 0.025em;
+.memory-echo-card--audio .memory-echo-label {
+  margin-top: 9px;
 }
 
 @keyframes memory-audio-breathe {

@@ -3,6 +3,11 @@ export const MEMORY_TYPES = Object.freeze({
   IMAGE: "image",
 });
 
+export const MEMORY_SELECTION_CONFIG = Object.freeze({
+  AUDIO_MEMORY_COOLDOWN_EVENTS: 2,
+  AUDIO_MEMORY_SELECTION_PROBABILITY: 0.18,
+});
+
 export const MEMORY_ITEM_SCHEMA_FIELDS = Object.freeze([
   "id",
   "type",
@@ -11,50 +16,76 @@ export const MEMORY_ITEM_SCHEMA_FIELDS = Object.freeze([
   "text",
   "image",
   "caption",
-  "source",
   "date",
   "location",
+  "source",
+  "sourceUrl",
   "audio",
   "audioId",
   "audioType",
   "audioCaption",
+  "audioSource",
+  "audioSourceUrl",
+  "isQuote",
+  "verified",
+  "isPrototype",
 ]);
 
-function createMemoryItem({
+export function hasMemoryAudio(memory) {
+  return Boolean(memory?.audio);
+}
+
+export function createMemoryItem({
   id,
-  type = MEMORY_TYPES.TEXT,
+  type = null,
   kind = "prototype",
   label = "GARDEN MEMORY · PROTOTYPE",
   text = null,
   image = null,
   caption = null,
-  source = null,
   date = null,
   location = null,
+  source = null,
+  sourceUrl = null,
   audio = null,
   audioId = null,
   audioType = null,
   audioCaption = null,
+  audioSource = null,
+  audioSourceUrl = null,
+  isQuote = false,
+  verified = false,
+  isPrototype = kind === "prototype",
 }) {
-  if (!Object.values(MEMORY_TYPES).includes(type)) {
-    throw new TypeError(`Unsupported memory type: ${type}`);
+  const resolvedType = type ?? (image ? MEMORY_TYPES.IMAGE : MEMORY_TYPES.TEXT);
+  if (!Object.values(MEMORY_TYPES).includes(resolvedType)) {
+    throw new TypeError(`Unsupported memory type: ${resolvedType}`);
+  }
+  if (verified && isPrototype) {
+    throw new TypeError("A memory cannot be both verified and a prototype.");
   }
 
   return Object.freeze({
     id,
-    type,
+    type: resolvedType,
     kind,
     label,
     text,
     image,
     caption,
-    source,
     date,
     location,
+    source,
+    sourceUrl,
     audio,
     audioId,
     audioType,
     audioCaption,
+    audioSource,
+    audioSourceUrl,
+    isQuote: Boolean(isQuote),
+    verified: Boolean(verified),
+    isPrototype: Boolean(isPrototype),
   });
 }
 
@@ -62,18 +93,22 @@ const PROTOTYPE_MEMORIES = Object.freeze([
   createMemoryItem({
     id: "prototype-rain",
     text: "雨落在纪念馆外的石阶上，周围的脚步声慢了下来。",
+    isQuote: true,
   }),
   createMemoryItem({
     id: "prototype-wind",
     text: "走出展厅时，风从城墙的方向吹来，手里的纸页轻轻作响。",
+    isQuote: true,
   }),
   createMemoryItem({
     id: "prototype-classroom",
     text: "第一次听见“江东门”这个名字，是在一堂安静的历史课上。",
+    isQuote: true,
   }),
   createMemoryItem({
     id: "prototype-silence",
     text: "那天没有说很多话，只记得离开前又回头看了一次。",
+    isQuote: true,
   }),
   createMemoryItem({
     id: "prototype-archive-jiangdongmen",
@@ -91,62 +126,28 @@ const PROTOTYPE_MEMORIES = Object.freeze([
     location: "南京",
     source: "ARCHIVE PLACEHOLDER",
   }),
-  createMemoryItem({
-    id: "audio-xia-shuqin-interview",
-    kind: "source-audio",
-    label: "ORAL HISTORY · SOURCE AUDIO",
-    text: "夏淑琴采访录音片段",
-    audio: "./assets/audio/voice/xia-shuqin-interview.mp3",
-    audioId: "voice-xia-shuqin",
-    audioType: "voice",
-    audioCaption: "夏淑琴 Xia Shuqin｜采访素材",
-  }),
-  createMemoryItem({
-    id: "audio-zhang-xiuhong-interview",
-    kind: "source-audio",
-    label: "ORAL HISTORY · SOURCE AUDIO",
-    text: "张秀红采访录音片段",
-    audio: "./assets/audio/voice/zhang-xiuhong-interview.mp3",
-    audioId: "voice-zhang-xiuhong",
-    audioType: "voice",
-    audioCaption: "Zhang Xiu-Hong 张秀红｜采访素材",
-  }),
-  createMemoryItem({
-    id: "audio-iris-chang-interview",
-    kind: "source-audio",
-    label: "ARCHIVE INTERVIEW · SOURCE AUDIO",
-    text: "Iris Chang · 1998 Charlie Rose 采访录音片段",
-    audio: "./assets/audio/voice/iris-chang-charlie-rose-1998.mp3",
-    audioId: "voice-iris-chang",
-    audioType: "voice",
-    audioCaption: "Iris Chang｜1998 Charlie Rose 采访素材",
-  }),
-  createMemoryItem({
-    id: "audio-john-magee-testimony",
-    kind: "source-audio",
-    label: "ARCHIVE TESTIMONY · SOURCE AUDIO",
-    text: "John Magee 证言录音片段",
-    audio: "./assets/audio/voice/john-magee-testimony.mp3",
-    audioId: "voice-john-magee",
-    audioType: "voice",
-    audioCaption: "John Magee｜Testimony source material",
-  }),
-  createMemoryItem({
-    id: "audio-npr-museum-segment",
-    kind: "source-audio",
-    label: "RADIO ARCHIVE · SOURCE AUDIO",
-    text: "NPR Radio 纪念馆专题录音片段",
-    audio: "./assets/audio/voice/npr-museum-hero-nanjing.mp3",
-    audioId: "voice-npr-museum",
-    audioType: "voice",
-    audioCaption: "NPR Radio｜Museum archive source material",
-  }),
 ]);
 
-export function createMemoryPool() {
+function clampRandom(random) {
+  return Math.max(0, Math.min(0.999999, random()));
+}
+
+function selectFromCandidates(candidates, random) {
+  if (candidates.length === 0) {
+    return null;
+  }
+  return candidates[Math.floor(clampRandom(random) * candidates.length)] ?? null;
+}
+
+export function createMemoryPool({
+  prototypeMemories = PROTOTYPE_MEMORIES,
+  selectionConfig = MEMORY_SELECTION_CONFIG,
+} = {}) {
   const sessionMemories = [];
+  const sourceMemories = Object.freeze([...prototypeMemories]);
   let sessionMemorySequence = 0;
   let lastSelectedId = null;
+  let audioCooldownRemaining = 0;
 
   function addSessionMemory(rawText) {
     const text = String(rawText ?? "").trim();
@@ -161,6 +162,8 @@ export function createMemoryPool() {
       kind: "session",
       label: "YOUR MEMORY",
       text,
+      isQuote: true,
+      isPrototype: false,
     });
     sessionMemories.push(memory);
     return memory;
@@ -169,33 +172,59 @@ export function createMemoryPool() {
   function getById(memoryId) {
     return (
       sessionMemories.find((memory) => memory.id === memoryId) ??
-      PROTOTYPE_MEMORIES.find((memory) => memory.id === memoryId) ??
+      sourceMemories.find((memory) => memory.id === memoryId) ??
       null
     );
   }
 
   function selectEcho(random = Math.random) {
-    const allMemories = [...sessionMemories, ...PROTOTYPE_MEMORIES];
+    const allMemories = [...sessionMemories, ...sourceMemories];
     const candidates =
       allMemories.length > 1
         ? allMemories.filter((memory) => memory.id !== lastSelectedId)
         : allMemories;
-    const index = Math.min(
-      candidates.length - 1,
-      Math.floor(Math.max(0, Math.min(0.999999, random())) * candidates.length),
-    );
-    const selected = candidates[index] ?? null;
-    lastSelectedId = selected?.id ?? null;
+    const audioCandidates = candidates.filter(hasMemoryAudio);
+    const silentCandidates = candidates.filter((memory) => !hasMemoryAudio(memory));
+
+    let eligibleCandidates = candidates;
+    if (audioCooldownRemaining > 0) {
+      eligibleCandidates = silentCandidates;
+    } else if (audioCandidates.length > 0 && silentCandidates.length > 0) {
+      const chooseAudio =
+        clampRandom(random) < selectionConfig.AUDIO_MEMORY_SELECTION_PROBABILITY;
+      eligibleCandidates = chooseAudio ? audioCandidates : silentCandidates;
+    }
+
+    const selected = selectFromCandidates(eligibleCandidates, random);
+    if (!selected) {
+      return null;
+    }
+
+    if (hasMemoryAudio(selected)) {
+      audioCooldownRemaining = selectionConfig.AUDIO_MEMORY_COOLDOWN_EVENTS;
+    } else {
+      audioCooldownRemaining = Math.max(0, audioCooldownRemaining - 1);
+    }
+    lastSelectedId = selected.id;
     return selected;
+  }
+
+  function resetSelection() {
+    lastSelectedId = null;
+    audioCooldownRemaining = 0;
   }
 
   return Object.freeze({
     sessionMemories,
-    prototypeMemories: PROTOTYPE_MEMORIES,
+    prototypeMemories: sourceMemories,
     addSessionMemory,
     getById,
     selectEcho,
+    resetSelection,
+    get selectionState() {
+      return Object.freeze({ lastSelectedId, audioCooldownRemaining });
+    },
   });
 }
 
-export { PROTOTYPE_MEMORIES, createMemoryItem };
+export { PROTOTYPE_MEMORIES };

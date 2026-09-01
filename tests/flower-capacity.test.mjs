@@ -17,8 +17,10 @@ import { GroundRaycaster } from "../src/interaction/GroundRaycaster.js";
 import { createGrass } from "../src/scene/createGrass.js";
 import { createLights } from "../src/scene/createLights.js";
 import {
+  createMemoryItem,
   createMemoryPool,
   MEMORY_ITEM_SCHEMA_FIELDS,
+  MEMORY_SELECTION_CONFIG,
   MEMORY_TYPES,
 } from "../src/data/memoryPool.js";
 import {
@@ -26,6 +28,10 @@ import {
   getMemoryCardUpperBand,
 } from "../src/memory/MemoryExperience.js";
 import { getMemoryCardViewModel } from "../src/memory/MemoryCardRenderer.js";
+import {
+  getMemoryImageUrls,
+  MemoryImagePreloader,
+} from "../src/memory/MemoryAssetPreloader.js";
 import { BloomParticleSystem } from "../src/effects/BloomParticleSystem.js";
 import { estimatePNGBloomWork } from "../src/effects/PNGBloomPipeline.js";
 import {
@@ -903,6 +909,8 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   assert.equal(visitorMemory.audioId, null);
   assert.equal(visitorMemory.audioType, null);
   assert.equal(visitorMemory.audioCaption, null);
+  assert.equal(visitorMemory.verified, false);
+  assert.equal(visitorMemory.isPrototype, false);
   assert.deepEqual(memoryPool.sessionMemories, [visitorMemory]);
   assert.equal(memoryPool.getById(visitorMemory.id), visitorMemory);
 
@@ -911,7 +919,7 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   assert.notEqual(secondEcho.id, firstEcho.id);
 });
 
-test("memory schema and card view models support text and image entries", () => {
+test("memory schema and card view models support coherent multimedia entries", () => {
   const memoryPool = createMemoryPool();
   const prototypeTypes = new Set(
     memoryPool.prototypeMemories.map((memory) => memory.type),
@@ -928,13 +936,19 @@ test("memory schema and card view models support text and image entries", () => 
     "text",
     "image",
     "caption",
-    "source",
     "date",
     "location",
+    "source",
+    "sourceUrl",
     "audio",
     "audioId",
     "audioType",
     "audioCaption",
+    "audioSource",
+    "audioSourceUrl",
+    "isQuote",
+    "verified",
+    "isPrototype",
   ]);
 
   const imageMemory = memoryPool.prototypeMemories.find(
@@ -947,8 +961,11 @@ test("memory schema and card view models support text and image entries", () => 
   assert.equal(imageViewModel.type, MEMORY_TYPES.IMAGE);
   assert.match(imageViewModel.image, /archive-placeholder-\d+\.svg$/);
   assert.match(imageViewModel.caption, /待补充/);
-  assert.match(imageViewModel.metadata, /ARCHIVE PLACEHOLDER/);
+  assert.match(imageViewModel.metadata, /南京/);
+  assert.equal(imageViewModel.sourceLabel, "SOURCE · ARCHIVE PLACEHOLDER");
   assert.equal(imageViewModel.label, "MEMORY · 007");
+  assert.equal(imageViewModel.verified, false);
+  assert.equal(imageViewModel.isPrototype, true);
 
   const textMemory = memoryPool.addSessionMemory("一段文字记忆。");
   const textViewModel = getMemoryCardViewModel(textMemory);
@@ -956,28 +973,144 @@ test("memory schema and card view models support text and image entries", () => 
   assert.equal(textViewModel.text, "一段文字记忆。");
   assert.equal(textViewModel.image, "");
 
-  const randomlySelectedImage = createMemoryPool().selectEcho(() => 0.4);
-  assert.equal(randomlySelectedImage.type, MEMORY_TYPES.IMAGE);
-
-  const audioMemories = memoryPool.prototypeMemories.filter(
-    (memory) => memory.audioType === "voice",
-  );
-  assert.equal(audioMemories.length, 5);
-  audioMemories.forEach((memory) => {
-    assert.equal(memory.kind, "source-audio");
-    assert.match(memory.audio, /^\.\/assets\/audio\/voice\/[a-z0-9-]+\.mp3$/);
-    const publicAsset = new URL(
-      `../public/${memory.audio.replace(/^\.\//, "")}`,
-      import.meta.url,
-    );
-    assert.equal(existsSync(publicAsset), true);
+  memoryPool.prototypeMemories.forEach((memory) => {
+    assert.equal(memory.audio, null);
+    assert.equal(memory.verified, false);
+    assert.equal(memory.isPrototype, true);
   });
 
-  const audioViewModel = getMemoryCardViewModel(audioMemories[0]);
-  assert.equal(audioViewModel.hasAudio, true);
-  assert.equal(audioViewModel.audioType, "voice");
-  assert.equal(audioViewModel.quoteText, false);
-  assert.match(audioViewModel.audioCaption, /采访素材/);
+  const verifiedImageAudio = createMemoryItem({
+    id: "verified-image-audio-fixture",
+    kind: "archive",
+    image: "./assets/memories/images/memory_001.jpg",
+    caption: "Verified fixture caption",
+    date: "Verified fixture date",
+    location: "Verified fixture location",
+    source: "Verified image source",
+    sourceUrl: "https://archive.example/image/001",
+    audio: "./assets/memories/audio/memory_001.mp3",
+    audioId: "memory_001_voice",
+    audioType: "voice",
+    audioCaption: "Verified voice excerpt",
+    audioSource: "Verified audio source",
+    audioSourceUrl: "https://archive.example/audio/001",
+    verified: true,
+    isPrototype: false,
+  });
+  const imageAudioViewModel = getMemoryCardViewModel(verifiedImageAudio);
+  assert.equal(imageAudioViewModel.type, MEMORY_TYPES.IMAGE);
+  assert.equal(imageAudioViewModel.hasAudio, true);
+  assert.equal(imageAudioViewModel.audioType, "voice");
+  assert.equal(imageAudioViewModel.audioLabel, "AUDIO · Verified voice excerpt");
+  assert.equal(imageAudioViewModel.sourceLabel, "SOURCE · Verified image source");
+  assert.equal(imageAudioViewModel.verified, true);
+  assert.equal(imageAudioViewModel.isPrototype, false);
+
+  const verifiedTextAudio = createMemoryItem({
+    id: "verified-text-audio-fixture",
+    kind: "archive",
+    text: "Verified fixture transcript summary",
+    source: "Verified text source",
+    audio: "./assets/memories/audio/memory_002.mp3",
+    audioCaption: "Verified related recording",
+    verified: true,
+    isPrototype: false,
+  });
+  const textAudioViewModel = getMemoryCardViewModel(verifiedTextAudio);
+  assert.equal(textAudioViewModel.type, MEMORY_TYPES.TEXT);
+  assert.equal(textAudioViewModel.hasAudio, true);
+  assert.equal(textAudioViewModel.text, verifiedTextAudio.text);
+  assert.throws(
+    () => createMemoryItem({ id: "unsafe", verified: true, isPrototype: true }),
+    /both verified and a prototype/,
+  );
+});
+
+test("audio memory selection remains rare and enforces silent spacing", () => {
+  const silentEntries = ["one", "two", "three"].map((id) =>
+    createMemoryItem({ id: `silent-${id}`, text: id }),
+  );
+  const audioEntries = ["one", "two"].map((id) =>
+    createMemoryItem({
+      id: `audio-${id}`,
+      kind: "archive",
+      text: id,
+      audio: `./assets/memories/audio/${id}.mp3`,
+      verified: true,
+      isPrototype: false,
+    }),
+  );
+  const memoryPool = createMemoryPool({
+    prototypeMemories: [...silentEntries, ...audioEntries],
+  });
+  const values = [0.1, 0, 0, 0, 0.1, 0];
+  const random = () => values.shift() ?? 0;
+
+  const first = memoryPool.selectEcho(random);
+  const second = memoryPool.selectEcho(random);
+  const third = memoryPool.selectEcho(random);
+  const fourth = memoryPool.selectEcho(random);
+
+  assert.match(first.id, /^audio-/);
+  assert.match(second.id, /^silent-/);
+  assert.match(third.id, /^silent-/);
+  assert.match(fourth.id, /^audio-/);
+  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_MEMORY_COOLDOWN_EVENTS, 2);
+  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_MEMORY_SELECTION_PROBABILITY, 0.18);
+  assert.equal(memoryPool.selectionState.audioCooldownRemaining, 2);
+  memoryPool.resetSelection();
+  assert.equal(memoryPool.selectionState.audioCooldownRemaining, 0);
+});
+
+test("memory images warm lazily without blocking or duplicate loads", async () => {
+  let constructedImages = 0;
+  class FakeImage {
+    constructor() {
+      constructedImages += 1;
+    }
+
+    set src(value) {
+      this.currentSrc = value;
+      queueMicrotask(() => this.onload?.());
+    }
+  }
+  const scheduled = [];
+  const preloader = new MemoryImagePreloader({
+    ImageCtor: FakeImage,
+    windowRef: {
+      requestIdleCallback(callback) {
+        scheduled.push(callback);
+      },
+    },
+  });
+  const memories = [1, 2, 3].map((id) => ({
+    image: `./assets/memories/images/memory_00${id}.jpg`,
+  }));
+
+  assert.deepEqual(getMemoryImageUrls([...memories, memories[0]]), [
+    "./assets/memories/images/memory_001.jpg",
+    "./assets/memories/images/memory_002.jpg",
+    "./assets/memories/images/memory_003.jpg",
+  ]);
+  assert.deepEqual(preloader.scheduleInitial(memories), [
+    "./assets/memories/images/memory_001.jpg",
+    "./assets/memories/images/memory_002.jpg",
+  ]);
+  assert.equal(constructedImages, 0);
+  scheduled[0]();
+  await Promise.all(preloader.cache.values());
+  assert.equal(constructedImages, 2);
+  await preloader.preload(memories[0].image);
+  assert.equal(constructedImages, 2);
+
+  for (const directory of ["images", "audio", "bgm"]) {
+    assert.equal(
+      existsSync(
+        new URL(`../public/assets/memories/${directory}/`, import.meta.url),
+      ),
+      true,
+    );
+  }
 });
 
 test("audio configuration centralizes restrained mixing and card timing", () => {

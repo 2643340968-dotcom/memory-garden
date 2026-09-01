@@ -70,7 +70,7 @@ pnpm run dev
   → 花朵生长与卡片出现各释放一组短寿命花形碎片
   → 鼠标种植解锁
   → 每次拖拽可产生约 1–3 个 Memory Echo
-  → 部分 Memory Echo 连接用户提供的语音素材；同一时间只播放一段
+  → 未来经核实的 Memory Echo 可以携带自身绑定的语音；当前 prototype 库保持静音
   → 光标附近花簇刷新 attention
   → 无人关注的旧花簇缓慢变暗、下沉，花瓣轮廓碎裂成粒子并消失
   → 花簇进入消散时再释放两组轻微上升、散开并淡出的碎片
@@ -79,7 +79,7 @@ pnpm run dev
 
 Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构支持 `text` 和 `image` 两种记忆，并可附加 `audio`、`audioId`、`audioType`、`audioCaption`：文字卡保持轻量，图片卡包含一张图、短说明和可选的日期/地点/来源行，音频卡只增加克制的播放状态行。当前两张图片是明确标注的本地占位资源，并非真实史料。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
 
-页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。当前没有合适 BGM，因此 `BGM_URL` 有意保持为空，不会请求缺失资源；BGM 循环、淡入淡出和语音 ducking 接口已经保留。五段用户提供的 MP3 作为可选记忆语音，由一个可复用的 `THREE.Audio` 通道顺序播放；新语音会柔和替换上一段，卡片停留时间会跟随音频并保留短尾声。其来源、剪辑边界、授权和最终署名仍需内容方复核。
+页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。当前没有合适 BGM，因此 `BGM_URL` 有意保持为空，不会请求缺失资源；BGM 循环、淡入淡出和语音 ducking 接口已经保留。当前运行时数据库不包含历史语音，未核实 MP3 不进入公开页面。未来每一段经核实语音都必须和文字/图片、地点、时间、来源写在同一条 memory 记录里，由一个可复用的 `THREE.Audio` 通道播放；系统不会分别随机抽取图片与声音。
 
 ## 核心数据流
 
@@ -124,8 +124,10 @@ src/
   audio/
     AudioConfig.js
     AudioManager.js
-  memory/MemoryExperience.js
-  memory/MemoryCardRenderer.js
+  memory/
+    MemoryAssetPreloader.js
+    MemoryExperience.js
+    MemoryCardRenderer.js
   flowers/
     BloomEvent.js
     BloomPatchConfig.js
@@ -163,9 +165,10 @@ public/assets/flowers/
 public/assets/memories/
   archive-placeholder-01.svg
   archive-placeholder-02.svg
-public/assets/audio/
   README.md
-  voice/*.mp3
+  images/
+  audio/
+  bgm/
 ```
 
 ## 关键配置
@@ -194,8 +197,21 @@ public/assets/audio/
 - 当前没有 BGM 文件；未来 BGM 正常音量 `0.18`、语音期间 duck 到 `0.06`、淡入 `5s`、淡出 `1.4s`
 - 语音音量 `0.72`，开始延迟 `480ms`，替换淡出 `280ms`，同一时间只保留一段
 - 语音卡停留至音频结束后 `900ms`，最长 `24s`
+- 音频 memory 的选择概率门槛为 `18%`；播放一条后至少经过 `2` 条静音 memory 才能再次选择音频
+- 不在启动时批量加载音频；仅对已经选中的 memory 进行轻量预载。图片在浏览器空闲时最多预热 `2` 张，并在卡片排队时预载对应图片
 - 开花提示音有 `850ms` 冷却和 `38%` 触发概率，记忆卡提示音冷却 `360ms`
 - 页面左上角按钮控制全局声音；切页隐藏和恢复会渐变主音量，不直接破坏播放状态
+
+正式 multimedia memory 数据位于 `src/data/memoryPool.js`，字段包括：
+
+```text
+id, type, kind, label, text, image, caption,
+date, location, source, sourceUrl,
+audio, audioId, audioType, audioCaption, audioSource, audioSourceUrl,
+isQuote, verified, isPrototype
+```
+
+`verified: true` 与 `isPrototype: true` 不允许同时存在。资源放置和来源登记规范见 `public/assets/memories/README.md`。缺失图片显示安静的中性占位，缺失音频则保持普通静音卡片；不会出现破图图标或把声音改配给其他记忆。
 
 当前 PNG 场景：
 
@@ -241,7 +257,7 @@ npm run build
 - 记忆手势配置上限
 - 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
-当前自动化套件共 `17` 项，并额外覆盖统一记忆 schema、文字/图片/音频卡视图模型、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `19` 项，并额外覆盖统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、音频选择冷却、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

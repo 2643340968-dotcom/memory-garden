@@ -179,12 +179,11 @@ export class AudioManager {
     return loadPromise;
   }
 
-  preloadMemoryVoices(memories) {
-    if (!this.unlocked) {
-      return Promise.resolve([]);
+  preloadMemoryVoice(memory) {
+    if (!this.unlocked || !memory?.audio) {
+      return Promise.resolve(null);
     }
-    const urls = [...new Set(memories.map((memory) => memory.audio).filter(Boolean))];
-    return Promise.all(urls.map((url) => this.loadBuffer(url)));
+    return this.loadBuffer(memory.audio);
   }
 
   rampAudioVolume(audio, targetVolume, durationSeconds, startTime = null) {
