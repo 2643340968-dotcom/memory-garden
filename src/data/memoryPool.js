@@ -22,6 +22,10 @@ export const MEMORY_SELECTION_CONFIG = Object.freeze({
     MEMORY_TYPES.IMAGE,
     MEMORY_TYPES.AUDIO,
   ]),
+  TEXT_SOURCE_WEIGHTS: Object.freeze({
+    BUILT_IN: 0.7,
+    VISITOR: 0.3,
+  }),
   RECENT_ITEM_HISTORY_SIZE: 1,
   AVOID_CATEGORY_REPEAT_AT_BAG_BOUNDARY: true,
 });
@@ -207,30 +211,30 @@ export function createMemoryItem({
   });
 }
 
-export const TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION = Object.freeze([
-  Object.freeze({
+export const BUILT_IN_TEXT_MEMORIES = Object.freeze([
+  createMemoryItem({
     id: "prototype-rain",
-    originalLanguage: "zh-CN",
-    originalText: "雨落在纪念馆外的石阶上，周围的脚步声慢了下来。",
-    translationStatus: "requires-verified-English-translation",
+    text: "Rain fell on the stone steps outside the Memorial Hall. Around us, every footstep seemed to slow.",
+    isQuote: false,
+    isPrototype: true,
   }),
-  Object.freeze({
+  createMemoryItem({
     id: "prototype-wind",
-    originalLanguage: "zh-CN",
-    originalText: "走出展厅时，风从城墙的方向吹来，手里的纸页轻轻作响。",
-    translationStatus: "requires-verified-English-translation",
+    text: "As I left the exhibition hall, a wind came from the city wall and stirred the pages in my hands.",
+    isQuote: false,
+    isPrototype: true,
   }),
-  Object.freeze({
+  createMemoryItem({
     id: "prototype-classroom",
-    originalLanguage: "zh-CN",
-    originalText: "第一次听见“江东门”这个名字，是在一堂安静的历史课上。",
-    translationStatus: "requires-verified-English-translation",
+    text: "I first heard the name Jiangdongmen in a quiet history classroom.",
+    isQuote: false,
+    isPrototype: true,
   }),
-  Object.freeze({
+  createMemoryItem({
     id: "prototype-silence",
-    originalLanguage: "zh-CN",
-    originalText: "那天没有说很多话，只记得离开前又回头看了一次。",
-    translationStatus: "requires-verified-English-translation",
+    text: "We did not say much that day. Before leaving, I remember turning back once more.",
+    isQuote: false,
+    isPrototype: true,
   }),
 ]);
 
@@ -302,6 +306,7 @@ export const AUDIO_ARCHIVE_MEMORIES = Object.freeze(
 );
 
 const PROTOTYPE_MEMORIES = Object.freeze([
+  ...BUILT_IN_TEXT_MEMORIES,
   ...IMAGE_ARCHIVE_MEMORIES,
   ...AUDIO_ARCHIVE_MEMORIES,
 ]);
@@ -386,6 +391,55 @@ export function createMemoryPool({
     );
   }
 
+  function getEligibleCandidates(candidates, recentIds) {
+    const withoutRecent = candidates.filter(
+      (memory) => !recentIds.includes(memory.id),
+    );
+    const recentSafe = withoutRecent.length > 0 ? withoutRecent : candidates;
+    const withoutImmediateRepeat = recentSafe.filter(
+      (memory) => memory.id !== lastSelectedId,
+    );
+    return withoutImmediateRepeat.length > 0
+      ? withoutImmediateRepeat
+      : recentSafe;
+  }
+
+  function selectTextEcho(random, recentIds) {
+    const builtInCandidates = sourceMemories.filter(
+      (memory) => getScheduleType(memory) === MEMORY_TYPES.TEXT,
+    );
+    const visitorCandidates = sessionMemories.filter(
+      (memory) => getScheduleType(memory) === MEMORY_TYPES.TEXT,
+    );
+    const isEligible = (memory) =>
+      !recentIds.includes(memory.id) && memory.id !== lastSelectedId;
+    const eligibleBuiltIns = builtInCandidates.filter(isEligible);
+    const eligibleVisitors = visitorCandidates.filter(isEligible);
+    const builtInWeight = Math.max(
+      0,
+      selectionConfig.TEXT_SOURCE_WEIGHTS?.BUILT_IN ?? 0.7,
+    );
+    const visitorWeight = Math.max(
+      0,
+      selectionConfig.TEXT_SOURCE_WEIGHTS?.VISITOR ?? 0.3,
+    );
+    const totalWeight = builtInWeight + visitorWeight;
+    const builtInRatio = totalWeight > 0 ? builtInWeight / totalWeight : 0.7;
+    const preferBuiltIn = clampRandom(random) < builtInRatio;
+    const preferred = preferBuiltIn ? eligibleBuiltIns : eligibleVisitors;
+    const alternate = preferBuiltIn ? eligibleVisitors : eligibleBuiltIns;
+    const candidates = preferred.length > 0 ? preferred : alternate;
+
+    if (candidates.length > 0) {
+      return selectFromCandidates(candidates, random);
+    }
+
+    return selectFromCandidates(
+      [...builtInCandidates, ...visitorCandidates],
+      random,
+    );
+  }
+
   function selectEcho(random = Math.random, { audioAvailable = true } = {}) {
     const allMemories = [...sessionMemories, ...sourceMemories];
     const availableTypes = selectionConfig.CATEGORY_SHUFFLE_BAG.filter((type) =>
@@ -423,21 +477,18 @@ export function createMemoryPool({
             : allowedTypes,
           random,
         );
-    const typeCandidates = allMemories.filter(
-      (memory) => getScheduleType(memory) === selectedType,
-    );
     const recentIds = recentIdsByType.get(selectedType) ?? [];
-    const withoutRecent = typeCandidates.filter(
-      (memory) => !recentIds.includes(memory.id),
-    );
-    const candidates = withoutRecent.length > 0 ? withoutRecent : typeCandidates;
-    const withoutImmediateRepeat = candidates.filter(
-      (memory) => memory.id !== lastSelectedId,
-    );
-    const selected = selectFromCandidates(
-      withoutImmediateRepeat.length > 0 ? withoutImmediateRepeat : candidates,
-      random,
-    );
+    const selected = selectedType === MEMORY_TYPES.TEXT
+      ? selectTextEcho(random, recentIds)
+      : selectFromCandidates(
+          getEligibleCandidates(
+            allMemories.filter(
+              (memory) => getScheduleType(memory) === selectedType,
+            ),
+            recentIds,
+          ),
+          random,
+        );
     if (!selected) {
       return null;
     }
@@ -462,6 +513,11 @@ export function createMemoryPool({
   return Object.freeze({
     sessionMemories,
     prototypeMemories: sourceMemories,
+    builtInTextMemories: Object.freeze(
+      sourceMemories.filter(
+        (memory) => getScheduleType(memory) === MEMORY_TYPES.TEXT,
+      ),
+    ),
     addSessionMemory,
     getById,
     selectEcho,

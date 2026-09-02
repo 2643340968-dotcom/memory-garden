@@ -20,6 +20,7 @@ import {
   createMemoryItem,
   createMemoryPool,
   AUDIO_ARCHIVE_MEMORIES,
+  BUILT_IN_TEXT_MEMORIES,
   IMAGE_ARCHIVE_MEMORIES,
   isAudioPresentation,
   MEMORY_ITEM_SCHEMA_FIELDS,
@@ -27,7 +28,6 @@ import {
   MEMORY_RELATIONSHIPS,
   MEMORY_SELECTION_CONFIG,
   MEMORY_TYPES,
-  TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION,
 } from "../src/data/memoryPool.js";
 import {
   MEMORY_UI_CONFIG,
@@ -936,16 +936,16 @@ test("memory schema keeps independent archives separate and permits verified pai
   );
   assert.deepEqual(
     [...prototypeTypes].sort(),
-    [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE].sort(),
+    [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
   );
-  assert.equal(TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION.length, 4);
-  TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION.forEach((draft) => {
-    assert.equal(draft.originalLanguage, "zh-CN");
-    assert.equal(
-      draft.translationStatus,
-      "requires-verified-English-translation",
-    );
-    assert.match(draft.originalText, /[\u3400-\u9fff]/u);
+  assert.equal(BUILT_IN_TEXT_MEMORIES.length, 4);
+  BUILT_IN_TEXT_MEMORIES.forEach((memory) => {
+    assert.equal(memory.type, MEMORY_TYPES.TEXT);
+    assert.equal(memory.kind, MEMORY_KINDS.TEXT_MEMORY);
+    assert.equal(memory.isQuote, false);
+    assert.equal(memory.isPrototype, true);
+    assert.doesNotMatch(memory.text, /[\u3400-\u9fff]/u);
+    assert.equal(getMemoryEchoLabel(memory, "007"), "MEMORY · 007");
   });
   assert.deepEqual(MEMORY_ITEM_SCHEMA_FIELDS, [
     "id",
@@ -1247,12 +1247,57 @@ test("memory shuffle bag balances text, image, and audio without exact repeats",
     MEMORY_TYPES.IMAGE,
     MEMORY_TYPES.AUDIO,
   ]);
+  assert.deepEqual(MEMORY_SELECTION_CONFIG.TEXT_SOURCE_WEIGHTS, {
+    BUILT_IN: 0.7,
+    VISITOR: 0.3,
+  });
   assert.equal(MEMORY_SELECTION_CONFIG.RECENT_ITEM_HISTORY_SIZE, 1);
   assert.equal(memoryPool.selectionState.categoryBag.length, 0);
   memoryPool.resetSelection();
   assert.equal(memoryPool.selectionState.lastSelectedId, null);
   assert.deepEqual(memoryPool.selectionState.categoryBag, []);
   assert.deepEqual(memoryPool.selectionState.recentIdsByType, {});
+});
+
+test("text selections favor restored built-ins while protecting recent visitor text", () => {
+  let seed = 0x9e3779b9;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+  const memoryPool = createMemoryPool();
+  const visitorMemory = memoryPool.addSessionMemory(
+    "This visitor sentence must remain exactly as entered.",
+  );
+  const selections = Array.from({ length: 3000 }, () =>
+    memoryPool.selectEcho(random),
+  );
+  const countsByType = Object.fromEntries(
+    Object.values(MEMORY_TYPES).map((type) => [
+      type,
+      selections.filter((memory) => memory.type === type).length,
+    ]),
+  );
+  assert.deepEqual(countsByType, {
+    [MEMORY_TYPES.TEXT]: 1000,
+    [MEMORY_TYPES.IMAGE]: 1000,
+    [MEMORY_TYPES.AUDIO]: 1000,
+  });
+
+  const textSelections = selections.filter(
+    (memory) => memory.type === MEMORY_TYPES.TEXT,
+  );
+  const builtInIds = new Set(BUILT_IN_TEXT_MEMORIES.map((memory) => memory.id));
+  const builtInCount = textSelections.filter((memory) =>
+    builtInIds.has(memory.id),
+  ).length;
+  assert.ok(builtInCount / textSelections.length >= 0.67);
+  assert.ok(builtInCount / textSelections.length <= 0.8);
+  assert.ok(textSelections.some((memory) => memory.id === visitorMemory.id));
+  assert.equal(visitorMemory.text, "This visitor sentence must remain exactly as entered.");
+  for (let index = 1; index < textSelections.length; index += 1) {
+    assert.notEqual(textSelections[index].id, textSelections[index - 1].id);
+  }
 });
 
 test("memory shuffle bag uses only available categories and defers busy audio", () => {
@@ -1525,9 +1570,13 @@ test("PNG public interface uses the approved English exhibition language", () =>
     new URL("../src/data/memoryPool.js", import.meta.url),
     "utf8",
   );
+  const memoryExperienceSource = readFileSync(
+    new URL("../src/memory/MemoryExperience.js", import.meta.url),
+    "utf8",
+  );
 
   for (const approvedCopy of [
-    "FIELD OF MEMORY",
+    "SITE OF MEMORY",
     "Leave a memory you wish to preserve",
     "A memory of the Nanjing Massacre, Jiangdongmen,",
     "or a moment that connects you to this place.",
@@ -1549,8 +1598,6 @@ test("PNG public interface uses the approved English exhibition language", () =>
   assert.doesNotMatch(pngHtml, /HOLD\s*\+\s*DRAG|MOUSE|POINTER/i);
   assert.doesNotMatch(pngHtml, /[\u3400-\u9fff]/u);
   assert.doesNotMatch(cardRendererSource, /[\u3400-\u9fff]/u);
-  assert.match(
-    memoryPoolSource,
-    /TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION/,
-  );
+  assert.match(memoryPoolSource, /BUILT_IN_TEXT_MEMORIES/);
+  assert.match(memoryExperienceSource, /"YOUR MEMORY"/);
 });
