@@ -14,6 +14,11 @@ mountFlowerField({
   sceneConfig: PNG_SCENE_CONFIG,
   interactionEnabled: false,
   counterMode: "blooms",
+  inputStatusLabels: {
+    waiting: "GAZE INPUT · WAITING",
+    ready: "GAZE INPUT · READY",
+    active: "GAZE INPUT · READY",
+  },
   createPatchSystem: createBloomPatchSystem,
   createRenderPipeline: createPNGBloomPipeline,
   createAtmosphereSystem: createAirborneFlowerSystem,

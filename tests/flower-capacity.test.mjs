@@ -27,6 +27,7 @@ import {
   MEMORY_RELATIONSHIPS,
   MEMORY_SELECTION_CONFIG,
   MEMORY_TYPES,
+  TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION,
 } from "../src/data/memoryPool.js";
 import {
   MEMORY_UI_CONFIG,
@@ -935,8 +936,17 @@ test("memory schema keeps independent archives separate and permits verified pai
   );
   assert.deepEqual(
     [...prototypeTypes].sort(),
-    [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
+    [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE].sort(),
   );
+  assert.equal(TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION.length, 4);
+  TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION.forEach((draft) => {
+    assert.equal(draft.originalLanguage, "zh-CN");
+    assert.equal(
+      draft.translationStatus,
+      "requires-verified-English-translation",
+    );
+    assert.match(draft.originalText, /[\u3400-\u9fff]/u);
+  });
   assert.deepEqual(MEMORY_ITEM_SCHEMA_FIELDS, [
     "id",
     "type",
@@ -993,6 +1003,13 @@ test("memory schema keeps independent archives separate and permits verified pai
     textViewModel.relationship,
     MEMORY_RELATIONSHIPS.INDEPENDENT,
   );
+  const defaultSelections = Array.from({ length: 3 }, () =>
+    memoryPool.selectEcho(() => 0),
+  );
+  assert.deepEqual(
+    [...new Set(defaultSelections.map((memory) => memory.type))].sort(),
+    [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
+  );
 
   assert.equal(IMAGE_ARCHIVE_MEMORIES.length, 21);
   assert.equal(AUDIO_ARCHIVE_MEMORIES.length, 10);
@@ -1045,7 +1062,10 @@ test("memory schema keeps independent archives separate and permits verified pai
   assert.equal(audioViewModel.isAudioOnly, true);
   assert.equal(audioViewModel.image, "");
   assert.equal(audioViewModel.text, "");
-  assert.equal(audioViewModel.sourceLabel, "SOURCE · Verified audio archive");
+  assert.equal(
+    audioViewModel.sourceLabel,
+    "AUDIO SOURCE · Verified audio archive",
+  );
   assert.equal(audioViewModel.relationship, MEMORY_RELATIONSHIPS.INDEPENDENT);
   assert.equal(isAudioPresentation(independentAudio), true);
   assert.equal(getMemoryEchoLabel(independentAudio, "007"), "ARCHIVE VOICE");
@@ -1090,7 +1110,7 @@ test("memory schema keeps independent archives separate and permits verified pai
   assert.equal(audioIndicator.children[0].textContent, "ARCHIVE VOICE");
   assert.equal(
     audioIndicator.children[1].children.at(-1).textContent,
-    "--:--",
+    "DURATION · --:--",
   );
 
   const verifiedImageAudio = createMemoryItem({
@@ -1117,7 +1137,18 @@ test("memory schema keeps independent archives separate and permits verified pai
   assert.equal(imageAudioViewModel.hasAudio, true);
   assert.equal(imageAudioViewModel.audioType, "voice");
   assert.equal(imageAudioViewModel.audioLabel, "AUDIO · Verified voice excerpt");
-  assert.equal(imageAudioViewModel.sourceLabel, "SOURCE · Verified image source");
+  assert.equal(
+    imageAudioViewModel.metadata,
+    "LOCATION · Verified fixture location   DATE · Verified fixture date",
+  );
+  assert.equal(
+    imageAudioViewModel.sourceLabel,
+    "IMAGE SOURCE · Verified image source",
+  );
+  assert.equal(
+    imageAudioViewModel.audioSourceLabel,
+    "AUDIO SOURCE · Verified audio source",
+  );
   assert.equal(imageAudioViewModel.verified, true);
   assert.equal(imageAudioViewModel.isPrototype, false);
   assert.equal(imageAudioViewModel.isVerifiedPair, true);
@@ -1475,4 +1506,51 @@ test("memory gesture rhythm keeps its public tuning limits centralized", () => {
   assert.equal(upperBand.topMin, 168);
   assert.ok(upperBand.topMax <= 720 * 0.58 - 140);
   assert.ok(upperBand.topMax > upperBand.topMin);
+});
+
+test("PNG public interface uses the approved English exhibition language", () => {
+  const pngHtml = readFileSync(
+    new URL("../png.html", import.meta.url),
+    "utf8",
+  );
+  const pngEntrySource = readFileSync(
+    new URL("../src/png-main.js", import.meta.url),
+    "utf8",
+  );
+  const cardRendererSource = readFileSync(
+    new URL("../src/memory/MemoryCardRenderer.js", import.meta.url),
+    "utf8",
+  );
+  const memoryPoolSource = readFileSync(
+    new URL("../src/data/memoryPool.js", import.meta.url),
+    "utf8",
+  );
+
+  for (const approvedCopy of [
+    "FIELD OF MEMORY",
+    "Leave a memory you wish to preserve",
+    "A memory of the Nanjing Massacre, Jiangdongmen,",
+    "or a moment that connects you to this place.",
+    "It can be a sentence, a place,",
+    "a sound, or the moment you first encountered this history.",
+    "Leave this memory in the field",
+    "GAZE TO LET MEMORIES BLOOM",
+    "AMBIENCE",
+    "SOUND OFF",
+    "MEMORIES",
+    "RESET FIELD",
+  ]) {
+    assert.ok(pngHtml.includes(approvedCopy));
+  }
+
+  assert.match(pngEntrySource, /GAZE INPUT · WAITING/);
+  assert.match(pngEntrySource, /GAZE INPUT · READY/);
+  assert.doesNotMatch(pngHtml, />\s*BGM\s*</i);
+  assert.doesNotMatch(pngHtml, /HOLD\s*\+\s*DRAG|MOUSE|POINTER/i);
+  assert.doesNotMatch(pngHtml, /[\u3400-\u9fff]/u);
+  assert.doesNotMatch(cardRendererSource, /[\u3400-\u9fff]/u);
+  assert.match(
+    memoryPoolSource,
+    /TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION/,
+  );
 });

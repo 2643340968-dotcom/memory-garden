@@ -40,7 +40,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
-- Centered, restrained title: `INTERACTIVE MEMORY GARDEN / 记忆之场 / MEMORY BLOOMS`.
+- Centered, restrained English title: `INTERACTIVE MEMORY GARDEN / FIELD OF MEMORY / MEMORY BLOOMS`.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards, slightly wider archival-image cards, or a smaller independent archive-voice indicator.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
@@ -52,11 +52,11 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 1. The visitor enters `/png.html`.
 2. A memory-entry modal appears over the visible garden.
 3. The visitor writes a memory related to 南京大屠杀、江东门, or a personal connection to the place.
-4. Planting remains disabled and the status reads `MOUSE INPUT · WAITING`.
+4. Planting remains disabled and the public-facing status reads `GAZE INPUT · WAITING`; the actual input adapter is still mouse-based.
 5. Submission stores the text in the page-local `sessionMemories` array; there is no backend or persistence. The same visitor gesture unlocks the Web Audio context. The page never autoplays audio on entry.
 6. The modal fades and the submitted memory triggers one automatic BloomEvent near the lower center.
 7. A `YOUR MEMORY` glass card appears beside that bloom.
-8. Mouse planting becomes enabled and the status changes to `MOUSE INPUT · READY`.
+8. Mouse planting becomes enabled and the public-facing status changes to `GAZE INPUT · READY`.
 9. Dragging creates irregular, clustered BloomEvent patches rather than a linear flower trail.
 10. Each BloomEvent also becomes one BloomPatch. Every flower receives a stable-slot point cloud sampled from the matching PNG alpha silhouette and source colors. The points gather from the flower roots into a persistent particulate flower body; the PNG card remains only a very faint continuity layer.
 11. Cursor proximity within a soft world-space radius refreshes patch attention. Unattended attention decays after a guaranteed visible lifetime.
@@ -118,7 +118,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, per-selected-record image/audio warmup, optional voice playback/lifetime coordination, viewport clamping, reset cleanup.
 - `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, the smaller independent archive-voice indicator, verified pairs, concise source metadata, duration display, and graceful missing-image/audio states.
 - `src/memory/MemoryAssetPreloader.js`: small non-blocking image cache. It warms at most two prototype images during idle time and preloads only the selected memory image before presentation.
-- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, centralized `1:1:1` type shuffle-bag, category-boundary and immediate-item repeat protection, busy-voice deferral, 21 independent supplied image records, 10 independent normalized audio records, generic silent text prototypes, and in-memory `sessionMemories`. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. The supplied media records intentionally omit unverified captions, speakers, dates, locations, and sources.
+- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, centralized `1:1:1` type shuffle-bag, category-boundary and immediate-item repeat protection, busy-voice deferral, 21 independent supplied image records, 10 independent normalized audio records, and in-memory `sessionMemories`. The visitor's submitted memory supplies the public text category. Four older Chinese prototype drafts are retained only in `TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION` for content review and are excluded from runtime presentation until a verified English translation is supplied. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. The supplied media records intentionally omit unverified captions, speakers, dates, locations, and sources.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
 - `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.

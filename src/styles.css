@@ -675,6 +675,7 @@ canvas {
 .png-page .brand-block h1 {
   font-size: clamp(36px, 4.5vw, 64px);
   line-height: 0.98;
+  white-space: nowrap;
 }
 
 .png-page .brand-block .eyebrow,
@@ -1047,6 +1048,11 @@ canvas {
 @media (max-width: 520px) {
   .png-page .brand-block {
     top: 68px;
+  }
+
+  .png-page .brand-block h1 {
+    font-size: clamp(29px, 8.2vw, 34px);
+    letter-spacing: 0.025em;
   }
 
   .memory-entry-overlay {

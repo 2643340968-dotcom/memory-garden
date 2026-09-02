@@ -174,7 +174,10 @@ export class AudioManager {
     const sliderPercent = this.getBGMSliderPercent();
     this.bgmSlider.value = String(sliderPercent);
     this.bgmSlider.style.setProperty("--bgm-level", `${sliderPercent}%`);
-    this.bgmSlider.setAttribute("aria-valuetext", `BGM ${sliderPercent}%`);
+    this.bgmSlider.setAttribute(
+      "aria-valuetext",
+      `Ambience ${sliderPercent}%`,
+    );
   }
 
   handleBGMVolumeInput() {
@@ -240,7 +243,7 @@ export class AudioManager {
     const state = !this.unlocked ? "waiting" : this.muted ? "muted" : "active";
     const label =
       state === "waiting"
-        ? "SOUND · WAITING"
+        ? "SOUND OFF"
         : state === "muted"
           ? "SOUND OFF"
           : "SOUND ON";

@@ -22,6 +22,7 @@ export async function createFlowerFieldApp({
   createPatchSystem = null,
   createRenderPipeline = null,
   createAtmosphereSystem = null,
+  inputStatusLabels = null,
 }) {
   if (typeof createFlowerRenderer !== "function") {
     throw new TypeError("createFlowerFieldApp requires a flower renderer factory.");
@@ -87,12 +88,18 @@ export async function createFlowerFieldApp({
         })
       : null;
   const maxFlowers = flowerSystem.maxFlowers;
+  const inputStatus = {
+    waiting: "MOUSE INPUT · WAITING",
+    ready: "MOUSE INPUT · READY",
+    active: "MOUSE INPUT · PLANTING",
+    ...inputStatusLabels,
+  };
 
   assetMode.textContent = flowerRenderer.assetMode;
   let inputEnabled = Boolean(interactionEnabled);
   inputState.textContent = inputEnabled
-    ? "MOUSE INPUT · READY"
-    : "MOUSE INPUT · WAITING";
+    ? inputStatus.ready
+    : inputStatus.waiting;
 
   let lastDisplayedCount = -1;
   let lastPlantingState = false;
@@ -121,8 +128,8 @@ export async function createFlowerFieldApp({
       lastPlantingState = false;
     }
     inputState.textContent = inputEnabled
-      ? "MOUSE INPUT · READY"
-      : "MOUSE INPUT · WAITING";
+      ? inputStatus.ready
+      : inputStatus.waiting;
   }
 
   function resize() {
@@ -151,8 +158,8 @@ export async function createFlowerFieldApp({
     flowerSpawner.reset();
     flowerCount.textContent = formatFlowerCount(0);
     inputState.textContent = inputEnabled
-      ? "MOUSE INPUT · READY"
-      : "MOUSE INPUT · WAITING";
+      ? inputStatus.ready
+      : inputStatus.waiting;
     document.body.classList.remove("is-planting");
     lastDisplayedCount = 0;
     lastPlantingState = false;
@@ -196,12 +203,12 @@ export async function createFlowerFieldApp({
     if (isPlanting !== lastPlantingState) {
       document.body.classList.toggle("is-planting", isPlanting);
       inputState.textContent = isPlanting
-        ? "MOUSE INPUT · PLANTING"
+        ? inputStatus.active
         : flowerSystem.isFull()
           ? "FLOWER LIMIT · REACHED"
           : inputEnabled
-            ? "MOUSE INPUT · READY"
-            : "MOUSE INPUT · WAITING";
+            ? inputStatus.ready
+            : inputStatus.waiting;
       lastPlantingState = isPlanting;
     }
 

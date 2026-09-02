@@ -5,7 +5,12 @@ import {
 } from "../data/memoryPool.js";
 
 function joinMetadata(memory) {
-  return [memory.date, memory.location].filter(Boolean).join(" · ");
+  return [
+    memory.location ? `LOCATION · ${memory.location}` : "",
+    memory.date ? `DATE · ${memory.date}` : "",
+  ]
+    .filter(Boolean)
+    .join("   ");
 }
 
 export function getMemoryCardViewModel(memory, displayLabel = memory?.label) {
@@ -19,6 +24,11 @@ export function getMemoryCardViewModel(memory, displayLabel = memory?.label) {
   const primarySource = isAudioOnly
     ? memory?.audioSource ?? memory?.source
     : memory?.source;
+  const primarySourcePrefix = isAudioOnly
+    ? "AUDIO SOURCE"
+    : type === MEMORY_TYPES.IMAGE
+      ? "IMAGE SOURCE"
+      : "SOURCE";
   const separateAudioSource =
     !isAudioOnly &&
     memory?.audioSource &&
@@ -36,17 +46,19 @@ export function getMemoryCardViewModel(memory, displayLabel = memory?.label) {
     label: displayLabel ?? "MEMORY",
     text:
       type === MEMORY_TYPES.TEXT
-        ? memory?.text ?? memory?.caption ?? "记忆内容暂不可用"
+        ? memory?.text ?? memory?.caption ?? "MEMORY UNAVAILABLE"
         : "",
     image: type === MEMORY_TYPES.IMAGE ? memory?.image ?? "" : "",
     caption: type === MEMORY_TYPES.IMAGE ? memory?.caption ?? "" : "",
     metadata: joinMetadata(memory ?? {}),
-    sourceLabel: primarySource ? `SOURCE · ${primarySource}` : "",
+    sourceLabel: primarySource
+      ? `${primarySourcePrefix} · ${primarySource}`
+      : "",
     sourceUrl: isAudioOnly
       ? memory?.audioSourceUrl ?? memory?.sourceUrl ?? null
       : memory?.sourceUrl ?? null,
     audioSourceLabel: separateAudioSource
-      ? `VOICE SOURCE · ${separateAudioSource}`
+      ? `AUDIO SOURCE · ${separateAudioSource}`
       : "",
     quoteText: Boolean(memory?.isQuote),
     hasAudio: Boolean(memory?.audio),
@@ -85,7 +97,7 @@ export function updateMemoryCardAudioDuration(card, durationMilliseconds) {
   if (!duration) {
     return false;
   }
-  duration.textContent = formatAudioDuration(durationMilliseconds);
+  duration.textContent = `DURATION · ${formatAudioDuration(durationMilliseconds)}`;
   return true;
 }
 
@@ -107,7 +119,7 @@ function appendImageCardContent(card, viewModel, documentRef) {
     const image = documentRef.createElement("img");
     image.className = "memory-echo-image";
     image.src = viewModel.image;
-    image.alt = viewModel.caption || "记忆影像";
+    image.alt = viewModel.caption || "Archive image";
     image.decoding = "async";
     image.loading = "eager";
     image.draggable = false;
@@ -159,7 +171,7 @@ function appendAudioStatus(card, viewModel, documentRef) {
 
   const status = documentRef.createElement("p");
   status.className = "memory-echo-audio";
-  status.setAttribute("aria-label", `档案声音：${viewModel.audioLabel}`);
+  status.setAttribute("aria-label", `Archive audio: ${viewModel.audioLabel}`);
   const dot = documentRef.createElement("span");
   dot.className = "memory-echo-audio-dot";
   dot.setAttribute("aria-hidden", "true");
@@ -168,7 +180,7 @@ function appendAudioStatus(card, viewModel, documentRef) {
   caption.textContent = viewModel.audioLabel;
   const duration = documentRef.createElement("span");
   duration.className = "memory-echo-audio-time";
-  duration.textContent = "--:--";
+  duration.textContent = "DURATION · --:--";
   status.append(dot, caption, duration);
   card.append(status);
 }

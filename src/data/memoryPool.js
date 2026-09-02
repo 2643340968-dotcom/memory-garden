@@ -207,30 +207,30 @@ export function createMemoryItem({
   });
 }
 
-const TEXT_PROTOTYPE_MEMORIES = Object.freeze([
-  createMemoryItem({
+export const TEXT_PROTOTYPE_DRAFTS_REQUIRING_TRANSLATION = Object.freeze([
+  Object.freeze({
     id: "prototype-rain",
-    kind: MEMORY_KINDS.TEXT_MEMORY,
-    text: "雨落在纪念馆外的石阶上，周围的脚步声慢了下来。",
-    isQuote: true,
+    originalLanguage: "zh-CN",
+    originalText: "雨落在纪念馆外的石阶上，周围的脚步声慢了下来。",
+    translationStatus: "requires-verified-English-translation",
   }),
-  createMemoryItem({
+  Object.freeze({
     id: "prototype-wind",
-    kind: MEMORY_KINDS.TEXT_MEMORY,
-    text: "走出展厅时，风从城墙的方向吹来，手里的纸页轻轻作响。",
-    isQuote: true,
+    originalLanguage: "zh-CN",
+    originalText: "走出展厅时，风从城墙的方向吹来，手里的纸页轻轻作响。",
+    translationStatus: "requires-verified-English-translation",
   }),
-  createMemoryItem({
+  Object.freeze({
     id: "prototype-classroom",
-    kind: MEMORY_KINDS.TEXT_MEMORY,
-    text: "第一次听见“江东门”这个名字，是在一堂安静的历史课上。",
-    isQuote: true,
+    originalLanguage: "zh-CN",
+    originalText: "第一次听见“江东门”这个名字，是在一堂安静的历史课上。",
+    translationStatus: "requires-verified-English-translation",
   }),
-  createMemoryItem({
+  Object.freeze({
     id: "prototype-silence",
-    kind: MEMORY_KINDS.TEXT_MEMORY,
-    text: "那天没有说很多话，只记得离开前又回头看了一次。",
-    isQuote: true,
+    originalLanguage: "zh-CN",
+    originalText: "那天没有说很多话，只记得离开前又回头看了一次。",
+    translationStatus: "requires-verified-English-translation",
   }),
 ]);
 
@@ -302,7 +302,6 @@ export const AUDIO_ARCHIVE_MEMORIES = Object.freeze(
 );
 
 const PROTOTYPE_MEMORIES = Object.freeze([
-  ...TEXT_PROTOTYPE_MEMORIES,
   ...IMAGE_ARCHIVE_MEMORIES,
   ...AUDIO_ARCHIVE_MEMORIES,
 ]);

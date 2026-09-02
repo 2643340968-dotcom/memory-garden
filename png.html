@@ -1,32 +1,32 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="The Three.js PNG flower-card version of the Zijincao field."
+      content="An interactive field where attention lets flowers and memories bloom."
     />
     <meta name="theme-color" content="#2b2335" />
-    <title>记忆之场 · Memory Blooms</title>
+    <title>Field of Memory · Memory Blooms</title>
   </head>
   <body class="png-page">
-    <main id="app" aria-label="记忆花园互动花田">
-      <canvas id="scene" aria-label="可拖动种花的 Three.js 花田"></canvas>
+    <main id="app" aria-label="Field of Memory interactive garden">
+      <canvas id="scene" aria-label="Interactive Three.js memory field"></canvas>
 
       <div class="interface" aria-live="polite">
         <header class="brand-block">
           <p class="eyebrow">INTERACTIVE MEMORY GARDEN</p>
-          <h1>记忆之场</h1>
+          <h1>FIELD OF MEMORY</h1>
           <p class="subtitle">MEMORY BLOOMS</p>
         </header>
 
-        <div class="system-status" aria-label="系统状态">
+        <div class="system-status" aria-label="System status">
           <span class="status-dot" aria-hidden="true"></span>
           <span id="input-state">FLOWER ASSET · LOADING</span>
         </div>
 
-        <div class="audio-controls" aria-label="声音控制">
+        <div class="audio-controls" aria-label="Sound controls">
           <button
             id="audio-toggle"
             class="audio-toggle"
@@ -35,28 +35,27 @@
             disabled
           >
             <span class="audio-toggle-mark" aria-hidden="true"></span>
-            <span id="audio-toggle-label">SOUND · WAITING</span>
+            <span id="audio-toggle-label">SOUND OFF</span>
           </button>
           <label class="bgm-volume-control" for="bgm-volume">
-            <span>BGM</span>
+            <span>AMBIENCE</span>
             <input
               id="bgm-volume"
               type="range"
               min="0"
               max="100"
               step="1"
-              aria-label="BGM 音量"
+              aria-label="Ambience volume"
             />
           </label>
         </div>
 
         <section class="planting-guide">
-          <p class="guide-main">按住鼠标，拖出一条花径</p>
-          <p class="guide-sub">HOLD + DRAG TO PLANT FLOWERS</p>
+          <p class="guide-main">GAZE TO LET MEMORIES BLOOM</p>
           <span class="guide-line" aria-hidden="true"></span>
         </section>
 
-        <aside class="field-meta" aria-label="记忆花园数据">
+        <aside class="field-meta" aria-label="Field data">
           <div>
             <span class="meta-label">MEMORIES</span>
             <strong id="flower-count">00000</strong>
@@ -93,33 +92,33 @@
       >
         <form id="memory-entry-form" class="memory-entry-panel">
           <p class="memory-entry-index">MEMORY ARCHIVE · 001</p>
-          <h2 id="memory-entry-title">留下一段你想保存的记忆</h2>
+          <h2 id="memory-entry-title">Leave a memory you wish to preserve</h2>
           <p class="memory-entry-description">
-            关于南京大屠杀、江东门，<br />
-            或你与这个地点产生联系的某个瞬间。
+            A memory of the Nanjing Massacre, Jiangdongmen,<br />
+            or a moment that connects you to this place.
           </p>
-          <label class="sr-only" for="memory-text">写下你的记忆</label>
+          <label class="sr-only" for="memory-text">Write your memory</label>
           <textarea
             id="memory-text"
             name="memory"
             maxlength="180"
             rows="4"
             required
-            placeholder="可以是一句话、一个地点、&#10;一种声音，或第一次知道这段历史的时刻。"
+            placeholder="It can be a sentence, a place,&#10;a sound, or the moment you first encountered this history."
           ></textarea>
           <button id="memory-submit" class="memory-submit" type="submit" disabled>
-            <span>将记忆留在花园中</span>
+            <span>Leave this memory in the field</span>
             <span aria-hidden="true">→</span>
           </button>
         </form>
       </section>
 
       <div id="fatal-error" class="fatal-error" role="alert" hidden>
-        <strong>花田未能启动</strong>
-        <span>请检查浏览器是否支持 WebGL，然后刷新页面。</span>
+        <strong>THE FIELD COULD NOT OPEN</strong>
+        <span>Check that this browser supports WebGL, then refresh the page.</span>
       </div>
 
-      <noscript>这个互动花田需要启用 JavaScript。</noscript>
+      <noscript>This interactive field requires JavaScript.</noscript>
     </main>
 
     <script type="module" src="/src/png-main.js"></script>
