@@ -17,17 +17,17 @@ export const MEMORY_RELATIONSHIPS = Object.freeze({
 });
 
 export const MEMORY_SELECTION_CONFIG = Object.freeze({
-  CATEGORY_SHUFFLE_BAG: Object.freeze([
+  VISUAL_CATEGORY_SHUFFLE_BAG: Object.freeze([
     MEMORY_TYPES.TEXT,
     MEMORY_TYPES.IMAGE,
-    MEMORY_TYPES.AUDIO,
   ]),
   TEXT_SOURCE_WEIGHTS: Object.freeze({
     BUILT_IN: 0.7,
     VISITOR: 0.3,
   }),
-  RECENT_ITEM_HISTORY_SIZE: 1,
-  AVOID_CATEGORY_REPEAT_AT_BAG_BOUNDARY: true,
+  VISUAL_RECENT_ITEM_HISTORY_SIZE: 1,
+  AUDIO_RECENT_ITEM_HISTORY_SIZE: 1,
+  AVOID_VISUAL_CATEGORY_REPEAT_AT_BAG_BOUNDARY: true,
 });
 
 export const MEMORY_ITEM_SCHEMA_FIELDS = Object.freeze([
@@ -359,10 +359,12 @@ export function createMemoryPool({
   const sessionMemories = [];
   const sourceMemories = Object.freeze([...prototypeMemories]);
   let sessionMemorySequence = 0;
-  let lastSelectedId = null;
-  let lastSelectedType = null;
-  let categoryBag = [];
-  const recentIdsByType = new Map();
+  let lastVisualId = null;
+  let lastVisualType = null;
+  let visualCategoryBag = [];
+  let lastAudioId = null;
+  let recentAudioIds = [];
+  const recentVisualIdsByType = new Map();
 
   function addSessionMemory(rawText) {
     const text = String(rawText ?? "").trim();
@@ -391,7 +393,7 @@ export function createMemoryPool({
     );
   }
 
-  function getEligibleCandidates(candidates, recentIds) {
+  function getEligibleCandidates(candidates, recentIds, lastSelectedId) {
     const withoutRecent = candidates.filter(
       (memory) => !recentIds.includes(memory.id),
     );
@@ -404,15 +406,19 @@ export function createMemoryPool({
       : recentSafe;
   }
 
-  function selectTextEcho(random, recentIds) {
+  function selectTextEcho(random, recentIds, excludedIds) {
     const builtInCandidates = sourceMemories.filter(
-      (memory) => getScheduleType(memory) === MEMORY_TYPES.TEXT,
+      (memory) =>
+        getScheduleType(memory) === MEMORY_TYPES.TEXT &&
+        !excludedIds.has(memory.id),
     );
     const visitorCandidates = sessionMemories.filter(
-      (memory) => getScheduleType(memory) === MEMORY_TYPES.TEXT,
+      (memory) =>
+        getScheduleType(memory) === MEMORY_TYPES.TEXT &&
+        !excludedIds.has(memory.id),
     );
     const isEligible = (memory) =>
-      !recentIds.includes(memory.id) && memory.id !== lastSelectedId;
+      !recentIds.includes(memory.id) && memory.id !== lastVisualId;
     const eligibleBuiltIns = builtInCandidates.filter(isEligible);
     const eligibleVisitors = visitorCandidates.filter(isEligible);
     const builtInWeight = Math.max(
@@ -440,52 +446,46 @@ export function createMemoryPool({
     );
   }
 
-  function selectEcho(random = Math.random, { audioAvailable = true } = {}) {
-    const allMemories = [...sessionMemories, ...sourceMemories];
-    const availableTypes = selectionConfig.CATEGORY_SHUFFLE_BAG.filter((type) =>
-      allMemories.some((memory) => getScheduleType(memory) === type),
+  function selectVisualEcho(random = Math.random, { excludeIds = [] } = {}) {
+    const excludedIds = new Set(excludeIds);
+    const allVisualMemories = [...sessionMemories, ...sourceMemories].filter(
+      (memory) =>
+        getScheduleType(memory) !== MEMORY_TYPES.AUDIO &&
+        !excludedIds.has(memory.id),
+    );
+    const availableTypes = selectionConfig.VISUAL_CATEGORY_SHUFFLE_BAG.filter(
+      (type) =>
+        allVisualMemories.some(
+          (memory) => getScheduleType(memory) === type,
+        ),
     );
     if (availableTypes.length === 0) {
       return null;
     }
 
-    categoryBag = categoryBag.filter((type) => availableTypes.includes(type));
-    if (categoryBag.length === 0) {
-      categoryBag = shuffleCategoryTypes(
+    visualCategoryBag = visualCategoryBag.filter((type) =>
+      availableTypes.includes(type),
+    );
+    if (visualCategoryBag.length === 0) {
+      visualCategoryBag = shuffleCategoryTypes(
         availableTypes,
         random,
-        lastSelectedType,
-        selectionConfig.AVOID_CATEGORY_REPEAT_AT_BAG_BOUNDARY,
+        lastVisualType,
+        selectionConfig.AVOID_VISUAL_CATEGORY_REPEAT_AT_BAG_BOUNDARY,
       );
     }
 
-    const allowedTypes = audioAvailable
-      ? availableTypes
-      : availableTypes.filter((type) => type !== MEMORY_TYPES.AUDIO);
-    if (allowedTypes.length === 0) {
-      return null;
-    }
-
-    const scheduledIndex = categoryBag.findIndex((type) =>
-      allowedTypes.includes(type),
-    );
-    const selectedType = scheduledIndex >= 0
-      ? categoryBag.splice(scheduledIndex, 1)[0]
-      : selectFromCandidates(
-          allowedTypes.filter((type) => type !== lastSelectedType).length > 0
-            ? allowedTypes.filter((type) => type !== lastSelectedType)
-            : allowedTypes,
-          random,
-        );
-    const recentIds = recentIdsByType.get(selectedType) ?? [];
+    const selectedType = visualCategoryBag.shift();
+    const recentIds = recentVisualIdsByType.get(selectedType) ?? [];
     const selected = selectedType === MEMORY_TYPES.TEXT
-      ? selectTextEcho(random, recentIds)
+      ? selectTextEcho(random, recentIds, excludedIds)
       : selectFromCandidates(
           getEligibleCandidates(
-            allMemories.filter(
+            allVisualMemories.filter(
               (memory) => getScheduleType(memory) === selectedType,
             ),
             recentIds,
+            lastVisualId,
           ),
           random,
         );
@@ -493,21 +493,46 @@ export function createMemoryPool({
       return null;
     }
 
-    lastSelectedId = selected.id;
-    lastSelectedType = selectedType;
-    recentIdsByType.set(
+    lastVisualId = selected.id;
+    lastVisualType = selectedType;
+    recentVisualIdsByType.set(
       selectedType,
       [selected.id, ...recentIds]
-        .slice(0, selectionConfig.RECENT_ITEM_HISTORY_SIZE),
+        .slice(0, selectionConfig.VISUAL_RECENT_ITEM_HISTORY_SIZE),
+    );
+    return selected;
+  }
+
+  function selectArchiveVoice(random = Math.random, { excludeIds = [] } = {}) {
+    const excludedIds = new Set(excludeIds);
+    const candidates = sourceMemories.filter(
+      (memory) =>
+        getScheduleType(memory) === MEMORY_TYPES.AUDIO &&
+        !excludedIds.has(memory.id),
+    );
+    const selected = selectFromCandidates(
+      getEligibleCandidates(candidates, recentAudioIds, lastAudioId),
+      random,
+    );
+    if (!selected) {
+      return null;
+    }
+
+    lastAudioId = selected.id;
+    recentAudioIds = [selected.id, ...recentAudioIds].slice(
+      0,
+      selectionConfig.AUDIO_RECENT_ITEM_HISTORY_SIZE,
     );
     return selected;
   }
 
   function resetSelection() {
-    lastSelectedId = null;
-    lastSelectedType = null;
-    categoryBag = [];
-    recentIdsByType.clear();
+    lastVisualId = null;
+    lastVisualType = null;
+    visualCategoryBag = [];
+    lastAudioId = null;
+    recentAudioIds = [];
+    recentVisualIdsByType.clear();
   }
 
   return Object.freeze({
@@ -520,16 +545,19 @@ export function createMemoryPool({
     ),
     addSessionMemory,
     getById,
-    selectEcho,
+    selectVisualEcho,
+    selectArchiveVoice,
     resetSelection,
     get selectionState() {
       return Object.freeze({
-        lastSelectedId,
-        lastSelectedType,
-        categoryBag: Object.freeze([...categoryBag]),
-        recentIdsByType: Object.freeze(
+        lastVisualId,
+        lastVisualType,
+        visualCategoryBag: Object.freeze([...visualCategoryBag]),
+        lastAudioId,
+        recentAudioIds: Object.freeze([...recentAudioIds]),
+        recentVisualIdsByType: Object.freeze(
           Object.fromEntries(
-            [...recentIdsByType].map(([type, ids]) => [type, [...ids]]),
+            [...recentVisualIdsByType].map(([type, ids]) => [type, [...ids]]),
           ),
         ),
       });

@@ -31,8 +31,10 @@ import {
 } from "../src/data/memoryPool.js";
 import {
   MEMORY_UI_CONFIG,
+  getMaxActiveVisualCards,
   getMemoryEchoLabel,
   getMemoryCardUpperBand,
+  getVisualMemoryAllowance,
 } from "../src/memory/MemoryExperience.js";
 import {
   createMemoryCardElement,
@@ -924,8 +926,8 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   assert.deepEqual(memoryPool.sessionMemories, [visitorMemory]);
   assert.equal(memoryPool.getById(visitorMemory.id), visitorMemory);
 
-  const firstEcho = memoryPool.selectEcho(() => 0);
-  const secondEcho = memoryPool.selectEcho(() => 0);
+  const firstEcho = memoryPool.selectVisualEcho(() => 0);
+  const secondEcho = memoryPool.selectVisualEcho(() => 0);
   assert.notEqual(secondEcho.id, firstEcho.id);
 });
 
@@ -1003,9 +1005,11 @@ test("memory schema keeps independent archives separate and permits verified pai
     textViewModel.relationship,
     MEMORY_RELATIONSHIPS.INDEPENDENT,
   );
-  const defaultSelections = Array.from({ length: 3 }, () =>
-    memoryPool.selectEcho(() => 0),
-  );
+  const defaultSelections = [
+    memoryPool.selectVisualEcho(() => 0),
+    memoryPool.selectVisualEcho(() => 0),
+    memoryPool.selectArchiveVoice(() => 0),
+  ];
   assert.deepEqual(
     [...new Set(defaultSelections.map((memory) => memory.type))].sort(),
     [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
@@ -1200,7 +1204,7 @@ test("memory schema keeps independent archives separate and permits verified pai
   );
 });
 
-test("memory shuffle bag balances text, image, and audio without exact repeats", () => {
+test("visual memory bag balances text and image independently from audio", () => {
   const textEntries = ["one", "two"].map((id) =>
     createMemoryItem({ id: `text-${id}`, text: id }),
   );
@@ -1225,38 +1229,46 @@ test("memory shuffle bag balances text, image, and audio without exact repeats",
   const memoryPool = createMemoryPool({
     prototypeMemories: [...textEntries, ...imageEntries, ...audioEntries],
   });
-  const selections = Array.from({ length: 6 }, () =>
-    memoryPool.selectEcho(() => 0),
+  const visualSelections = Array.from({ length: 4 }, () =>
+    memoryPool.selectVisualEcho(() => 0),
   );
 
-  for (const cycle of [selections.slice(0, 3), selections.slice(3, 6)]) {
+  for (const cycle of [visualSelections.slice(0, 2), visualSelections.slice(2, 4)]) {
     assert.deepEqual(
       [...new Set(cycle.map((memory) => memory.type))].sort(),
-      [MEMORY_TYPES.TEXT, MEMORY_TYPES.IMAGE, MEMORY_TYPES.AUDIO].sort(),
+      [MEMORY_TYPES.TEXT, MEMORY_TYPES.IMAGE].sort(),
     );
   }
-  assert.notEqual(selections[2].type, selections[3].type);
-  for (const type of Object.values(MEMORY_TYPES)) {
-    const ids = selections
+  assert.notEqual(visualSelections[1].type, visualSelections[2].type);
+  for (const type of [MEMORY_TYPES.TEXT, MEMORY_TYPES.IMAGE]) {
+    const ids = visualSelections
       .filter((memory) => memory.type === type)
       .map((memory) => memory.id);
     assert.equal(new Set(ids).size, ids.length);
   }
-  assert.deepEqual(MEMORY_SELECTION_CONFIG.CATEGORY_SHUFFLE_BAG, [
+  const audioSelections = [
+    memoryPool.selectArchiveVoice(() => 0),
+    memoryPool.selectArchiveVoice(() => 0),
+  ];
+  assert.ok(audioSelections.every((memory) => memory.type === MEMORY_TYPES.AUDIO));
+  assert.notEqual(audioSelections[0].id, audioSelections[1].id);
+  assert.deepEqual(MEMORY_SELECTION_CONFIG.VISUAL_CATEGORY_SHUFFLE_BAG, [
     MEMORY_TYPES.TEXT,
     MEMORY_TYPES.IMAGE,
-    MEMORY_TYPES.AUDIO,
   ]);
   assert.deepEqual(MEMORY_SELECTION_CONFIG.TEXT_SOURCE_WEIGHTS, {
     BUILT_IN: 0.7,
     VISITOR: 0.3,
   });
-  assert.equal(MEMORY_SELECTION_CONFIG.RECENT_ITEM_HISTORY_SIZE, 1);
-  assert.equal(memoryPool.selectionState.categoryBag.length, 0);
+  assert.equal(MEMORY_SELECTION_CONFIG.VISUAL_RECENT_ITEM_HISTORY_SIZE, 1);
+  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_RECENT_ITEM_HISTORY_SIZE, 1);
+  assert.equal(memoryPool.selectionState.visualCategoryBag.length, 0);
   memoryPool.resetSelection();
-  assert.equal(memoryPool.selectionState.lastSelectedId, null);
-  assert.deepEqual(memoryPool.selectionState.categoryBag, []);
-  assert.deepEqual(memoryPool.selectionState.recentIdsByType, {});
+  assert.equal(memoryPool.selectionState.lastVisualId, null);
+  assert.equal(memoryPool.selectionState.lastAudioId, null);
+  assert.deepEqual(memoryPool.selectionState.visualCategoryBag, []);
+  assert.deepEqual(memoryPool.selectionState.recentVisualIdsByType, {});
+  assert.deepEqual(memoryPool.selectionState.recentAudioIds, []);
 });
 
 test("text selections favor restored built-ins while protecting recent visitor text", () => {
@@ -1269,8 +1281,8 @@ test("text selections favor restored built-ins while protecting recent visitor t
   const visitorMemory = memoryPool.addSessionMemory(
     "This visitor sentence must remain exactly as entered.",
   );
-  const selections = Array.from({ length: 3000 }, () =>
-    memoryPool.selectEcho(random),
+  const selections = Array.from({ length: 2000 }, () =>
+    memoryPool.selectVisualEcho(random),
   );
   const countsByType = Object.fromEntries(
     Object.values(MEMORY_TYPES).map((type) => [
@@ -1281,7 +1293,7 @@ test("text selections favor restored built-ins while protecting recent visitor t
   assert.deepEqual(countsByType, {
     [MEMORY_TYPES.TEXT]: 1000,
     [MEMORY_TYPES.IMAGE]: 1000,
-    [MEMORY_TYPES.AUDIO]: 1000,
+    [MEMORY_TYPES.AUDIO]: 0,
   });
 
   const textSelections = selections.filter(
@@ -1300,7 +1312,7 @@ test("text selections favor restored built-ins while protecting recent visitor t
   }
 });
 
-test("memory shuffle bag uses only available categories and defers busy audio", () => {
+test("visual and audio selection stay separate and honor active exclusions", () => {
   const text = createMemoryItem({ id: "text-only", text: "text" });
   const image = createMemoryItem({
     id: "image-only",
@@ -1318,7 +1330,7 @@ test("memory shuffle bag uses only available categories and defers busy audio", 
   });
   const noAudioPool = createMemoryPool({ prototypeMemories: [text, image] });
   const availableSelections = Array.from({ length: 4 }, () =>
-    noAudioPool.selectEcho(() => 0),
+    noAudioPool.selectVisualEcho(() => 0),
   );
   assert.equal(
     availableSelections.filter((memory) => memory.type === MEMORY_TYPES.TEXT).length,
@@ -1329,18 +1341,25 @@ test("memory shuffle bag uses only available categories and defers busy audio", 
     2,
   );
 
-  const busyAudioPool = createMemoryPool({
+  assert.equal(noAudioPool.selectArchiveVoice(() => 0), null);
+
+  const separatedPool = createMemoryPool({
     prototypeMemories: [text, image, audio],
   });
-  assert.equal(busyAudioPool.selectEcho(() => 0).type, MEMORY_TYPES.IMAGE);
-  const whileBusy = busyAudioPool.selectEcho(() => 0, {
-    audioAvailable: false,
+  const firstVisual = separatedPool.selectVisualEcho(() => 0);
+  const secondVisual = separatedPool.selectVisualEcho(() => 0, {
+    excludeIds: [firstVisual.id],
   });
-  assert.equal(whileBusy.type, MEMORY_TYPES.TEXT);
-  assert.ok(busyAudioPool.selectionState.categoryBag.includes(MEMORY_TYPES.AUDIO));
+  assert.notEqual(secondVisual.id, firstVisual.id);
+  assert.notEqual(firstVisual.type, MEMORY_TYPES.AUDIO);
+  assert.notEqual(secondVisual.type, MEMORY_TYPES.AUDIO);
+  const selectedAudio = separatedPool.selectArchiveVoice(() => 0);
+  assert.equal(selectedAudio.type, MEMORY_TYPES.AUDIO);
   assert.equal(
-    busyAudioPool.selectEcho(() => 0, { audioAvailable: true }).type,
-    MEMORY_TYPES.AUDIO,
+    separatedPool.selectArchiveVoice(() => 0, {
+      excludeIds: [selectedAudio.id],
+    }),
+    null,
   );
 });
 
@@ -1522,35 +1541,63 @@ test("audio configuration centralizes restrained mixing and card timing", () => 
 });
 
 test("memory gesture rhythm keeps its public tuning limits centralized", () => {
-  assert.equal(MEMORY_UI_CONFIG.MAX_MEMORIES_PER_GESTURE, 3);
-  assert.equal(MEMORY_UI_CONFIG.MAX_ACTIVE_MEMORY_CARDS, 3);
+  assert.equal(MEMORY_UI_CONFIG.MAX_VISUAL_MEMORIES_PER_GESTURE, 7);
+  assert.equal(MEMORY_UI_CONFIG.MAX_ACTIVE_VISUAL_MEMORY_CARDS, 6);
+  assert.equal(MEMORY_UI_CONFIG.MAX_ACTIVE_AUDIO_MEMORY_CARDS, 1);
+  assert.equal(getMaxActiveVisualCards(1440), 6);
+  assert.equal(getMaxActiveVisualCards(1024), 4);
+  assert.equal(getMaxActiveVisualCards(768), 4);
+  assert.equal(getMaxActiveVisualCards(390), 2);
   assert.deepEqual(
     [
-      MEMORY_UI_CONFIG.FIRST_MEMORY_ECHO_BLOOMS_MIN,
-      MEMORY_UI_CONFIG.FIRST_MEMORY_ECHO_BLOOMS_MAX,
+      MEMORY_UI_CONFIG.FIRST_AUDIO_CHECK_BLOOMS_MIN,
+      MEMORY_UI_CONFIG.FIRST_AUDIO_CHECK_BLOOMS_MAX,
     ],
     [1, 1],
   );
   assert.deepEqual(
     [
-      MEMORY_UI_CONFIG.MEMORY_ECHO_BLOOMS_MIN,
-      MEMORY_UI_CONFIG.MEMORY_ECHO_BLOOMS_MAX,
+      MEMORY_UI_CONFIG.AUDIO_CHECK_BLOOMS_MIN,
+      MEMORY_UI_CONFIG.AUDIO_CHECK_BLOOMS_MAX,
     ],
     [2, 3],
   );
+  assert.equal(MEMORY_UI_CONFIG.AUDIO_CHECK_DISTANCE, 1.75);
+  assert.equal(MEMORY_UI_CONFIG.AUDIO_CHECKS_PER_GESTURE, 3);
+  assert.deepEqual(MEMORY_UI_CONFIG.VISUAL_MEMORY_ACTIVITY_THRESHOLDS, [
+    1,
+    2,
+    3,
+    5,
+    6,
+    8,
+    10,
+  ]);
+  assert.equal(getVisualMemoryAllowance(0, 0), 0);
+  assert.equal(getVisualMemoryAllowance(3, 1.8), 3);
+  assert.equal(getVisualMemoryAllowance(5, 3.6), 4);
+  assert.equal(getVisualMemoryAllowance(6, 4.5), 5);
+  assert.equal(getVisualMemoryAllowance(8, 6.3), 6);
+  assert.equal(getVisualMemoryAllowance(10, 8.1), 7);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_ECHO_STAGGER_MIN, 280);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_ECHO_STAGGER_MAX, 650);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION, 4200);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_CARD_VISIBLE_DURATION_MIN, 4400);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_CARD_VISIBLE_DURATION_MAX, 6600);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_FADE_DURATION, 700);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_WIDTH, 270);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_IMAGE_CARD_WIDTH, 286);
   assert.equal(MEMORY_UI_CONFIG.MEMORY_AUDIO_CARD_WIDTH, 176);
-  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MIN_RATIO, 0.2);
-  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_TOP_MAX_RATIO, 0.42);
-  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_UPPER_BOTTOM_MAX_RATIO, 0.58);
-  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_WORLD_Y_INFLUENCE, 0.28);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_CARD_TOP_MIN_RATIO, 0.17);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_CARD_TOP_MAX_RATIO, 0.54);
+  assert.equal(MEMORY_UI_CONFIG.VISUAL_CARD_BOTTOM_MAX_RATIO, 0.64);
+  assert.equal(MEMORY_UI_CONFIG.MEMORY_CARD_WORLD_Y_INFLUENCE, 0.24);
   const upperBand = getMemoryCardUpperBand(720, 140, 30);
-  assert.equal(upperBand.topMin, 168);
-  assert.ok(upperBand.topMax <= 720 * 0.58 - 140);
+  assert.equal(upperBand.topMin, 156);
+  assert.ok(upperBand.topMax <= 720 * 0.64 - 140);
   assert.ok(upperBand.topMax > upperBand.topMin);
+  const audioBand = getMemoryCardUpperBand(720, 80, 30, true);
+  assert.ok(audioBand.topMax <= 720 * 0.58 - 80);
 });
 
 test("PNG public interface uses the approved English exhibition language", () => {

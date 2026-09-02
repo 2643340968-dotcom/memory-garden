@@ -62,9 +62,9 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 11. Cursor proximity within a soft world-space radius refreshes patch attention. Unattended attention decays after a guaranteed visible lifetime.
 12. An unattended patch dims and settles while the same petal/edge point slots fragment softly upward/outward, edge-first, and then release with the flower slots for reuse.
 13. Bloom growth, Memory Echo appearance, and BloomPatch decay each emit a small transient point-fragment event from the related flower world position. No fragments exist before the first BloomEvent.
-14. Each pointer-down/up gesture starts a separate memory session. A short, medium, or long gesture can reveal approximately 1, 2, or 3 Memory Echo cards.
-15. Echo cards retain BloomEvent-derived horizontal placement but use an upper-screen vertical band, collision checks, and `pointer-events: none` so the lower garden remains visible. `TEXT_MEMORY`, `IMAGE_ARCHIVE`, and `AUDIO_ARCHIVE` are independent fragments; each keeps its own source and never borrows media from another selected item.
-16. Only an explicitly declared, verified `PAIRED_MEMORY` with `relationship: "verified-pair"` may combine image/text/audio in one card. Independent text/image/audio types use a `1:1:1` shuffle-bag; a busy voice defers the audio category. Within TEXT, four restored anonymous prototype memories and page-local visitor submissions use an approximate `70% / 30%` source mix with recent-item protection. An independent archive voice uses its own small indicator and one reusable non-positional `THREE.Audio` channel, temporarily ducks the BGM bus, and remains visible through playback plus a short tail (capped at 24 seconds).
+14. Each pointer-down/up gesture starts a separate memory session. Short, medium, and long gestures reveal approximately `2–3`, `4–5`, and `5–7` staggered visual Memory Echo cards as BloomEvents accumulate.
+15. Visual Echo cards retain BloomEvent-derived projection influence but scatter across the upper `17%–64%` of the viewport using low-discrepancy candidates, collision scoring, and `pointer-events: none` so the lower garden remains visible. Desktop permits six simultaneous visual cards; responsive caps reduce this to four at `≤1100px` and two at `≤520px`.
+16. `TEXT_MEMORY`, `IMAGE_ARCHIVE`, and `AUDIO_ARCHIVE` remain independent fragments; each keeps its own source and never borrows media from another selected item. Text and image use a dedicated `1:1` shuffle-bag with active/recent ID protection. Within TEXT, four restored anonymous prototype memories and page-local visitor submissions use an approximate `70% / 30%` source mix. Archive audio has a separate, unchanged low-frequency cadence, a maximum of one opportunity per gesture and one active voice; a busy voice drops the opportunity rather than queueing or interrupting. Only an explicitly declared, verified `PAIRED_MEMORY` with `relationship: "verified-pair"` may combine media.
 17. The top-left sound toggle controls the complete mix. Its small BGM-only slider persists the current-session level and does not alter archive voice gain. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, gesture state, and current voice playback. It does not reopen the entry modal.
 18. A full reload restarts the entry flow and clears page-local submitted memories.
 
@@ -118,7 +118,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, per-selected-record image/audio warmup, optional voice playback/lifetime coordination, viewport clamping, reset cleanup.
 - `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, the smaller independent archive-voice indicator, verified pairs, concise source metadata, duration display, and graceful missing-image/audio states.
 - `src/memory/MemoryAssetPreloader.js`: small non-blocking image cache. It warms at most two prototype images during idle time and preloads only the selected memory image before presentation.
-- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, centralized `1:1:1` type shuffle-bag, category-boundary and immediate-item repeat protection, busy-voice deferral, 21 independent supplied image records, 10 independent normalized audio records, four anonymous English prototype text memories restored from repository commit `471e063`, and page-local `sessionMemories`. The first submitted memory is presented directly as `YOUR MEMORY`; later TEXT selections use an approximate `70%` built-in / `30%` visitor mix and fall back across sources to avoid repeating the most recent text. The restored copy remains explicitly generic prototype material and is not presented as survivor testimony or historical quotation. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. The supplied media records intentionally omit unverified captions, speakers, dates, locations, and sources.
+- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, a dedicated visual `1:1` text/image shuffle-bag, active/recent item exclusion, and a separate audio selector. It contains 21 independent supplied image records, 10 independent normalized audio records, four anonymous English prototype text memories restored from repository commit `471e063`, and page-local `sessionMemories`. The first submitted memory is presented directly as `YOUR MEMORY`; later TEXT selections use an approximate `70%` built-in / `30%` visitor mix and fall back across sources to avoid repeating the most recent text. The restored copy remains explicitly generic prototype material and is not presented as survivor testimony or historical quotation. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. The supplied media records intentionally omit unverified captions, speakers, dates, locations, and sources.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
 - `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.
@@ -209,17 +209,15 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 
 ### Memory UI and rhythm: `src/memory/MemoryExperience.js`
 
-- `MAX_MEMORIES_PER_GESTURE = 3`
-- `MAX_ACTIVE_MEMORY_CARDS = 3`
-- First drag echo after `1` BloomEvent
-- Later echoes every `2–3` BloomEvents or `1.75` world units
-- Echo reveal delay `180ms`; minimum visual stagger `420ms`
-- Visible duration `4200ms`; fade duration `700ms`; enter duration `480ms`
-- Text-card width `270px`; image-card width `286px`; audio-only indicator width `176px`; viewport margin `30px`; acceptable overlap target `0.22`
-- Card top band starts at `20%` and ends no lower than the tighter of `42%` viewport height or a `58%` card-bottom ceiling, with `168px` title clearance, `28%` projected-world vertical influence, `78px` candidate lane gap, and `±22px` stable jitter
+- `MAX_VISUAL_MEMORIES_PER_GESTURE = 7`; target short/medium/long gesture yield is approximately `2–3 / 4–5 / 5–7`
+- Maximum active visual cards are `6` desktop, `4` at `≤1100px`, and `2` at `≤520px`; maximum active audio cards remain `1`
+- Visual echoes start on the first BloomEvent, advance through centralized activity thresholds, and add at most one card per BloomEvent
+- Visual reveal delay `180ms`, randomized stagger `280–650ms`, visible duration `4400–6600ms`, fade `700ms`, enter `480ms`
+- Text-card width `270px`; image-card width `286px`; audio-only indicator width `176px`; viewport margin `30px`; acceptable overlap target `0.02`
+- Visual-card top band starts at `17%`, tops out at `54%`, and has a `64%` card-bottom ceiling, with `156px` title clearance, `24%` BloomEvent projection influence, `±34px` stable jitter, and `128` low-discrepancy candidate placements
 - Modal exit `850ms`
 - Entry layout uses `place-items: center` on desktop and mobile. The large input panel remains geometrically centered; only the post-bloom Memory Echo cards use the upper-screen band.
-- Text, image, and audio presentations use a centralized `1:1:1` shuffle-bag. Only available categories enter a bag; boundaries avoid repeating the previous category where practical; each category keeps a one-item recent-ID history. Within TEXT, restored built-ins and visitor submissions use an approximate `70% / 30%` source mix; when the preferred source would repeat the recent text, selection falls back to the other source. A currently loading/playing archive voice temporarily defers the audio slot rather than replacing it.
+- Text and image presentations use a dedicated `1:1` shuffle-bag with active and one-item recent-ID exclusion. Within TEXT, restored built-ins and visitor submissions use an approximate `70% / 30%` source mix. Archive audio remains independently scheduled at the previous first/`2–3` BloomEvent or `1.75`-world-unit cadence, with at most one opportunity per gesture; a busy voice drops that opportunity and is never queued or replaced.
 - Prototype images warm non-blockingly during browser idle time with an initial limit of `2`; only the selected memory image/audio may warm when a card is queued.
 
 ### Audio: `src/audio/AudioConfig.js`
@@ -277,7 +275,7 @@ npm run dev
 npm run build
 ```
 
-Active development, visual QA, and public verification now target `/png.html` only. At minimum test entry lock, submit transition, automatic first bloom, short/medium/long drag rhythms, three-card maximum, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
+Active development, visual QA, and public verification now target `/png.html` only. At minimum test entry lock, submit transition, automatic first bloom, short/medium/long visual-card rhythms, six-card desktop maximum, responsive caps, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
 
 After every completed modification round, commit the verified changes, push `main` to `origin`, wait for the GitHub Pages workflow to succeed, and verify the public `/memory-garden/png.html` URL still returns HTTP 200 with the new revision. The user expects the public URL to always show the newest completed version; do not stop after local verification.
 
@@ -288,7 +286,7 @@ After every completed modification round, commit the verified changes, push `mai
 - The current BGM is integrated as an independently supplied ambient asset; its provenance/public-use metadata still needs to be recorded by the content owner.
 - MediaPipe/HandInput is not implemented yet.
 - There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; the patch aura comes from the combined HDR flower-center contributors, with no separate large circular glow sprite.
-- Collision avoidance uses four candidate placements and simple rectangle-overlap scoring, not a full layout solver. Extremely dense edge cases may still approach the `0.22` overlap threshold.
+- Collision avoidance scores `128` low-discrepancy candidates against active cards and reserved UI. Responsive active-card caps keep narrow layouts viable, but it remains a lightweight DOM placement solver rather than a full constraint engine.
 - The production build reports a non-fatal shared-chunk size advisory above 500 kB.
 - `紫金草花田-离线版.html` is an older standalone artifact and is not the source of truth for the current PNG memory experience. Use the Vite URLs for current behavior unless the offline build script is deliberately updated and revalidated.
 - Directly double-clicking `png.html` or `model.html` is not supported because the application uses Vite/ES modules and served asset URLs.
