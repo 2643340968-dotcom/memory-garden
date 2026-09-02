@@ -49,10 +49,14 @@ mountFlowerField({
     dataset.lastVoiceElapsed = String(Math.round(diagnostics.lastVoiceElapsedMs));
     dataset.audioBufferCount = String(diagnostics.loadedBufferCount);
     dataset.audioLoadErrorCount = String(diagnostics.loadErrorCount);
-    dataset.voiceLimiterActive = String(diagnostics.voiceLimiterActive);
-    dataset.voiceLimiterThreshold = String(
-      diagnostics.voiceLimiterThresholdDb,
+    dataset.archiveVoiceGain = diagnostics.archiveVoiceGain.toFixed(2);
+    dataset.voiceFadeIn = diagnostics.voiceFadeInDuration.toFixed(2);
+    dataset.voiceFadeOut = diagnostics.voiceFadeOutDuration.toFixed(2);
+    dataset.masterLimiterActive = String(diagnostics.masterLimiterActive);
+    dataset.masterLimiterThreshold = String(
+      diagnostics.masterLimiterThresholdDb,
     );
+    dataset.masterOutputGain = diagnostics.masterOutputGain.toFixed(2);
   });
   const memoryExperience = new MemoryExperience(app).start();
   app.memoryExperience = memoryExperience;

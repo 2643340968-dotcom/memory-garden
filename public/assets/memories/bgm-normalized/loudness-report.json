@@ -1,0 +1,29 @@
+{
+  "generatedAtUtc": "2026-09-02T07:20:52.5812455Z",
+  "processor": "ffmpeg version 7.1-essentials_build-www.gyan.dev Copyright (c) 2000-2024 the FFmpeg developers",
+  "target": {
+    "integratedLufs": -25.0,
+    "truePeakDbtp": -3.0,
+    "loudnessRangeLu": 11.0
+  },
+  "source": "bgm/bgm.mp3",
+  "output": "bgm-normalized/bgm.mp3",
+  "sourceSha256": "22784632289296437fdbc142b0ee66615dd4db394d7b055b9be51fe3edd8bc9d",
+  "outputSha256": "b1d5857cbac950baceb8844fe7f9d27cfcd87559623cdb7ba23d9891e07c8042",
+  "before": {
+    "integratedLufs": -44.22,
+    "truePeakDbtp": -28.85,
+    "loudnessRangeLu": 7.9,
+    "thresholdLufs": -54.71,
+    "normalizationType": "dynamic",
+    "targetOffsetLu": -0.51
+  },
+  "after": {
+    "integratedLufs": -25.27,
+    "truePeakDbtp": -9.91,
+    "loudnessRangeLu": 7.9,
+    "thresholdLufs": -35.8,
+    "normalizationType": "dynamic",
+    "targetOffsetLu": -0.51
+  }
+}

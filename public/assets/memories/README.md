@@ -4,8 +4,9 @@ This folder contains deploy-safe derivatives or copies of media supplied by the 
 
 - `images/`: 21 optimized independent image derivatives (`nanjing-memory-283.jpg` through `nanjing-memory-303.jpg`).
 - `audio/`: 10 independent source copies (`archive-voice-01.mp3` through `archive-voice-10.mp3`); these are preserved and are not used directly at runtime.
-- `audio-normalized/`: non-destructive runtime derivatives normalized toward `-18 LUFS` with a `-1.5 dBTP` ceiling, plus `loudness-report.json` with before/after measurements and hashes.
+- `audio-normalized/`: non-destructive runtime derivatives normalized toward `-23 LUFS` with a `-3 dBTP` ceiling, plus `loudness-report.json` with before/after measurements and hashes.
 - `bgm/`: the separate ambient bed at `bgm.mp3`, configured with a document-relative URL in `src/audio/AudioConfig.js`.
+- `bgm-normalized/`: the runtime BGM derivative normalized toward `-25 LUFS / -3 dBTP`, plus its own source/output loudness report. The original `bgm/bgm.mp3` remains untouched.
 
 The runtime records for the supplied image and audio sets use `verified: false`, `isPrototype: false`, and `relationship: "independent"`. Their captions, dates, locations, speakers, and sources remain empty until verified metadata is supplied. Neutral sequence labels are identifiers only; they do not imply a relationship between files.
 
@@ -76,4 +77,10 @@ Keep every incoming source in `audio/`. Generate or refresh deployable derivativ
 .\scripts\normalize-archive-audio.ps1 -FfmpegPath "C:\path\to\ffmpeg.exe"
 ```
 
-The script uses two-pass `loudnorm`, never writes over `audio/`, strips copied metadata from the derivative, and records source/output SHA-256 hashes. Review `audio-normalized/loudness-report.json` before publishing new files. Loudness normalization is the primary consistency layer; the runtime voice limiter is only a final safety guard.
+The script uses two-pass `loudnorm`, never writes over `audio/`, strips copied metadata from the derivative, and records source/output SHA-256 hashes. Review `audio-normalized/loudness-report.json` before publishing new files. Loudness normalization is the primary consistency layer; the runtime master limiter is only a final safety guard.
+
+The supplied BGM measured about `-44.22 LUFS`, so a separate runtime copy was necessary. Refresh it with:
+
+```powershell
+.\scripts\normalize-bgm.ps1 -FfmpegPath "C:\path\to\ffmpeg.exe"
+```

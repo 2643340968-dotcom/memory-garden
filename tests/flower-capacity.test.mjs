@@ -1309,7 +1309,13 @@ test("memory images warm lazily without blocking or duplicate loads", async () =
   await preloader.preload(memories[0].image);
   assert.equal(constructedImages, 2);
 
-  for (const directory of ["images", "audio", "audio-normalized", "bgm"]) {
+  for (const directory of [
+    "images",
+    "audio",
+    "audio-normalized",
+    "bgm",
+    "bgm-normalized",
+  ]) {
     assert.equal(
       existsSync(
         new URL(`../public/assets/memories/${directory}/`, import.meta.url),
@@ -1320,22 +1326,33 @@ test("memory images warm lazily without blocking or duplicate loads", async () =
 });
 
 test("audio configuration centralizes restrained mixing and card timing", () => {
-  assert.equal(AUDIO_CONFIG.BGM_URL, "./assets/memories/bgm/bgm.mp3");
+  assert.equal(
+    AUDIO_CONFIG.BGM_URL,
+    "./assets/memories/bgm-normalized/bgm.mp3",
+  );
   assert.equal(
     existsSync(
-      new URL("../public/assets/memories/bgm/bgm.mp3", import.meta.url),
+      new URL(
+        "../public/assets/memories/bgm-normalized/bgm.mp3",
+        import.meta.url,
+      ),
     ),
     true,
   );
-  assert.equal(AUDIO_CONFIG.BGM_VOLUME, 0.28);
-  assert.equal(AUDIO_CONFIG.BGM_MAX_VOLUME, 0.36);
-  assert.equal(AUDIO_CONFIG.BGM_DUCK_RATIO, 0.33);
-  assert.equal(getBGMTargetVolume(false), 0.28);
-  assert.equal(getBGMTargetVolume(true), 0.28 * 0.33);
+  assert.equal(AUDIO_CONFIG.BGM_VOLUME, 0.52);
+  assert.equal(AUDIO_CONFIG.BGM_MAX_VOLUME, 0.64);
+  assert.equal(AUDIO_CONFIG.BGM_DUCK_RATIO, 0.72);
+  assert.equal(getBGMTargetVolume(false), 0.52);
+  assert.equal(getBGMTargetVolume(true), 0.52 * 0.72);
   assert.equal(getBGMTargetVolume(false, 0.17), 0.17);
-  assert.equal(getBGMTargetVolume(true, 0.17), 0.17 * 0.33);
-  assert.equal(AUDIO_CONFIG.VOICE_LIMITER_THRESHOLD_DB, -4.5);
-  assert.equal(AUDIO_CONFIG.VOICE_LIMITER_RATIO, 12);
+  assert.equal(getBGMTargetVolume(true, 0.17), 0.17 * 0.72);
+  assert.equal(AUDIO_CONFIG.ARCHIVE_VOICE_GAIN, 0.38);
+  assert.equal(AUDIO_CONFIG.VOICE_FADE_IN_DURATION, 0.65);
+  assert.equal(AUDIO_CONFIG.VOICE_FADE_OUT_DURATION, 0.75);
+  assert.equal(AUDIO_CONFIG.MASTER_LIMITER_THRESHOLD_DB, -18);
+  assert.equal(AUDIO_CONFIG.MASTER_LIMITER_KNEE_DB, 6);
+  assert.equal(AUDIO_CONFIG.MASTER_LIMITER_RATIO, 4);
+  assert.equal(AUDIO_CONFIG.MASTER_OUTPUT_GAIN, 0.82);
   assert.equal(getVoiceCardVisibleDuration(9000, 4200), 9900);
   assert.equal(getVoiceCardVisibleDuration(30000, 4200), 24000);
   assert.equal("BLOOM_SFX_VOLUME" in AUDIO_CONFIG, false);
@@ -1353,10 +1370,11 @@ test("audio configuration centralizes restrained mixing and card timing", () => 
   );
   assert.doesNotMatch(audioManagerSource, /playBloomSfx|playMemorySfx|createOscillator/);
   assert.match(audioManagerSource, /createDynamicsCompressor/);
+  assert.match(audioManagerSource, /scheduleVoiceEnvelope/);
   assert.match(audioManagerSource, /BGM_SESSION_STORAGE_KEY/);
   assert.doesNotMatch(memoryExperienceSource, /playBloomSfx|playMemorySfx/);
 
-  const loudnessReport = JSON.parse(
+  const voiceLoudnessReport = JSON.parse(
     readFileSync(
       new URL(
         "../public/assets/memories/audio-normalized/loudness-report.json",
@@ -1365,13 +1383,65 @@ test("audio configuration centralizes restrained mixing and card timing", () => 
       "utf8",
     ),
   );
-  assert.equal(loudnessReport.files.length, AUDIO_ARCHIVE_MEMORIES.length);
-  assert.equal(loudnessReport.target.integratedLufs, -18);
-  assert.equal(loudnessReport.target.truePeakDbtp, -1.5);
-  loudnessReport.files.forEach((entry) => {
-    assert.ok(Math.abs(entry.after.integratedLufs + 18) < 1);
-    assert.ok(entry.after.truePeakDbtp <= -1.5);
+  assert.equal(
+    voiceLoudnessReport.files.length,
+    AUDIO_ARCHIVE_MEMORIES.length,
+  );
+  assert.equal(voiceLoudnessReport.target.integratedLufs, -23);
+  assert.equal(voiceLoudnessReport.target.truePeakDbtp, -3);
+  voiceLoudnessReport.files.forEach((entry) => {
+    assert.ok(Math.abs(entry.after.integratedLufs + 23) < 1);
+    assert.ok(entry.after.truePeakDbtp <= -3);
     assert.notEqual(entry.sourceSha256, entry.outputSha256);
+  });
+
+  const bgmLoudnessReport = JSON.parse(
+    readFileSync(
+      new URL(
+        "../public/assets/memories/bgm-normalized/loudness-report.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(bgmLoudnessReport.target.integratedLufs, -25);
+  assert.equal(bgmLoudnessReport.target.truePeakDbtp, -3);
+  assert.ok(Math.abs(bgmLoudnessReport.after.integratedLufs + 25) < 1);
+  assert.ok(bgmLoudnessReport.after.truePeakDbtp <= -3);
+  assert.equal(bgmLoudnessReport.after.loudnessRangeLu, 7.9);
+  assert.notEqual(
+    bgmLoudnessReport.sourceSha256,
+    bgmLoudnessReport.outputSha256,
+  );
+
+  const gainToDecibels = (gain) => 20 * Math.log10(gain);
+  const duckedBgmLufs =
+    bgmLoudnessReport.after.integratedLufs +
+    gainToDecibels(AUDIO_CONFIG.BGM_VOLUME * AUDIO_CONFIG.BGM_DUCK_RATIO);
+  const sortedVoices = [...voiceLoudnessReport.files].sort(
+    (left, right) => left.after.integratedLufs - right.after.integratedLufs,
+  );
+  const meanVoiceLufs = sortedVoices.reduce(
+    (sum, entry) => sum + entry.after.integratedLufs,
+    0,
+  ) / sortedVoices.length;
+  const representativeVoices = [
+    sortedVoices[0],
+    sortedVoices.at(-1),
+    sortedVoices.reduce((closest, entry) =>
+      Math.abs(entry.after.integratedLufs - meanVoiceLufs) <
+      Math.abs(closest.after.integratedLufs - meanVoiceLufs)
+        ? entry
+        : closest,
+    ),
+  ];
+  representativeVoices.forEach((entry) => {
+    const runtimeVoiceLufs =
+      entry.after.integratedLufs +
+      gainToDecibels(AUDIO_CONFIG.ARCHIVE_VOICE_GAIN);
+    const prominenceOverDuckedBgm = runtimeVoiceLufs - duckedBgmLufs;
+    assert.ok(prominenceOverDuckedBgm >= 1.4);
+    assert.ok(prominenceOverDuckedBgm <= 2.4);
   });
 });
 

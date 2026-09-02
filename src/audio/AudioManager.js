@@ -44,11 +44,9 @@ export class AudioManager {
     this.loader = new THREE.AudioLoader();
     this.bgm = new THREE.Audio(this.listener);
     this.voice = new THREE.Audio(this.listener);
-    this.voiceLimiter = this.context.createDynamicsCompressor();
-    this.configureVoiceLimiter();
-    this.voice.gain.disconnect();
-    this.voice.gain.connect(this.voiceLimiter);
-    this.voiceLimiter.connect(this.listener.getInput());
+    this.masterLimiter = this.context.createDynamicsCompressor();
+    this.masterOutput = this.context.createGain();
+    this.configureMasterOutput();
     this.bufferCache = new Map();
     this.stateListeners = new Set();
     this.unlocked = false;
@@ -72,28 +70,33 @@ export class AudioManager {
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
   }
 
-  configureVoiceLimiter() {
+  configureMasterOutput() {
     const now = this.context.currentTime;
-    this.voiceLimiter.threshold.setValueAtTime(
-      this.config.VOICE_LIMITER_THRESHOLD_DB,
+    this.masterLimiter.threshold.setValueAtTime(
+      this.config.MASTER_LIMITER_THRESHOLD_DB,
       now,
     );
-    this.voiceLimiter.knee.setValueAtTime(
-      this.config.VOICE_LIMITER_KNEE_DB,
+    this.masterLimiter.knee.setValueAtTime(
+      this.config.MASTER_LIMITER_KNEE_DB,
       now,
     );
-    this.voiceLimiter.ratio.setValueAtTime(
-      this.config.VOICE_LIMITER_RATIO,
+    this.masterLimiter.ratio.setValueAtTime(
+      this.config.MASTER_LIMITER_RATIO,
       now,
     );
-    this.voiceLimiter.attack.setValueAtTime(
-      this.config.VOICE_LIMITER_ATTACK_SECONDS,
+    this.masterLimiter.attack.setValueAtTime(
+      this.config.MASTER_LIMITER_ATTACK_SECONDS,
       now,
     );
-    this.voiceLimiter.release.setValueAtTime(
-      this.config.VOICE_LIMITER_RELEASE_SECONDS,
+    this.masterLimiter.release.setValueAtTime(
+      this.config.MASTER_LIMITER_RELEASE_SECONDS,
       now,
     );
+    this.masterOutput.gain.setValueAtTime(this.config.MASTER_OUTPUT_GAIN, now);
+    this.listener.gain.disconnect();
+    this.listener.gain.connect(this.masterLimiter);
+    this.masterLimiter.connect(this.masterOutput);
+    this.masterOutput.connect(this.context.destination);
   }
 
   start() {
@@ -143,9 +146,13 @@ export class AudioManager {
       lastVoiceElapsedMs: this.lastVoiceElapsedMs,
       loadedBufferCount: this.bufferCache.size,
       loadErrorCount: this.loadErrorCount,
-      voiceLimiterActive: true,
-      voiceLimiterThresholdDb: this.config.VOICE_LIMITER_THRESHOLD_DB,
-      voiceLimiterRatio: this.config.VOICE_LIMITER_RATIO,
+      archiveVoiceGain: this.config.ARCHIVE_VOICE_GAIN,
+      voiceFadeInDuration: this.config.VOICE_FADE_IN_DURATION,
+      voiceFadeOutDuration: this.config.VOICE_FADE_OUT_DURATION,
+      masterLimiterActive: true,
+      masterLimiterThresholdDb: this.config.MASTER_LIMITER_THRESHOLD_DB,
+      masterLimiterRatio: this.config.MASTER_LIMITER_RATIO,
+      masterOutputGain: this.config.MASTER_OUTPUT_GAIN,
     });
   }
 
@@ -329,6 +336,33 @@ export class AudioManager {
     );
   }
 
+  scheduleVoiceEnvelope(startTime, mediaDurationSeconds) {
+    const parameter = this.voice.gain.gain;
+    const now = this.context.currentTime;
+    const mediaEnd = startTime + mediaDurationSeconds;
+    const fadeInDuration = Math.min(
+      this.config.VOICE_FADE_IN_DURATION,
+      mediaDurationSeconds * 0.4,
+    );
+    const fadeOutDuration = Math.min(
+      this.config.VOICE_FADE_OUT_DURATION,
+      mediaDurationSeconds * 0.4,
+    );
+    const fadeInEnd = startTime + fadeInDuration;
+    const fadeOutStart = Math.max(fadeInEnd, mediaEnd - fadeOutDuration);
+    parameter.cancelScheduledValues(now);
+    parameter.setValueAtTime(0, now);
+    parameter.setValueAtTime(0, startTime);
+    parameter.linearRampToValueAtTime(
+      this.config.ARCHIVE_VOICE_GAIN,
+      fadeInEnd,
+    );
+    if (fadeOutStart < mediaEnd) {
+      parameter.setValueAtTime(this.config.ARCHIVE_VOICE_GAIN, fadeOutStart);
+      parameter.linearRampToValueAtTime(0, mediaEnd);
+    }
+  }
+
   async startBGM(url = this.config.BGM_URL) {
     if (!this.unlocked || !url) {
       return false;
@@ -414,8 +448,6 @@ export class AudioManager {
     this.voice.setLoop(false);
     const delaySeconds = this.config.VOICE_START_DELAY * 0.001;
     const now = this.context.currentTime;
-    this.voice.gain.gain.cancelScheduledValues(now);
-    this.voice.gain.gain.setValueAtTime(0, now);
 
     let finishVoice;
     const finished = new Promise((resolve) => {
@@ -431,12 +463,7 @@ export class AudioManager {
     this.currentVoice = activeVoice;
     this.setBGMDucked(true);
     this.voice.play(delaySeconds);
-    this.rampAudioVolume(
-      this.voice,
-      this.config.VOICE_VOLUME,
-      this.config.VOICE_FADE_IN_DURATION,
-      now + delaySeconds,
-    );
+    this.scheduleVoiceEnvelope(now + delaySeconds, buffer.duration);
     const source = this.voice.source;
     const threeOnEnded = source.onended;
     source.onended = (event) => {
@@ -474,8 +501,11 @@ export class AudioManager {
       return;
     }
 
-    this.rampAudioVolume(this.voice, 0, this.config.VOICE_REPLACE_FADE_DURATION);
-    await delay(this.config.VOICE_REPLACE_FADE_DURATION * 1000);
+    const fadeDuration = reason === "replaced"
+      ? this.config.VOICE_REPLACE_FADE_DURATION
+      : this.config.VOICE_FADE_OUT_DURATION;
+    this.rampAudioVolume(this.voice, 0, fadeDuration);
+    await delay(fadeDuration * 1000);
     if (this.currentVoice !== activeVoice) {
       return;
     }
@@ -538,7 +568,8 @@ export class AudioManager {
     void this.stopCurrentVoice("destroyed", false);
     void this.stopBGM();
     this.camera.remove(this.listener);
-    this.voiceLimiter.disconnect();
+    this.masterLimiter.disconnect();
+    this.masterOutput.disconnect();
     this.stateListeners.clear();
   }
 }

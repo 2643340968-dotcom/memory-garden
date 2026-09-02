@@ -1,9 +1,9 @@
 {
-  "generatedAtUtc": "2026-09-02T05:37:57.5134278Z",
+  "generatedAtUtc": "2026-09-02T07:20:16.8107014Z",
   "processor": "ffmpeg version 7.1-essentials_build-www.gyan.dev Copyright (c) 2000-2024 the FFmpeg developers",
   "target": {
-    "integratedLufs": -18.0,
-    "truePeakDbtp": -1.5,
+    "integratedLufs": -23.0,
+    "truePeakDbtp": -3.0,
     "loudnessRangeLu": 7.0
   },
   "files": [
@@ -11,7 +11,7 @@
       "source": "audio/archive-voice-01.mp3",
       "output": "audio-normalized/archive-voice-01.mp3",
       "sourceSha256": "d8fab79cc8e964d27e19c816f87892abe0eb8463517098c8b50c252da138cf8c",
-      "outputSha256": "79d63f4fef88849a5f425a7ee65957fcd9c5f3cfb96d42a6a4c73e5f73b30aa2",
+      "outputSha256": "e4e38254a55bf76358028c92f1f303dc7bb39ed23c1b86ae21314a79f8eb845d",
       "before": {
         "integratedLufs": -14.76,
         "truePeakDbtp": -2.02,
@@ -21,10 +21,10 @@
         "targetOffsetLu": -0.5
       },
       "after": {
-        "integratedLufs": -18.25,
-        "truePeakDbtp": -5.52,
+        "integratedLufs": -23.25,
+        "truePeakDbtp": -10.51,
         "loudnessRangeLu": 2.0,
-        "thresholdLufs": -28.95,
+        "thresholdLufs": -33.95,
         "normalizationType": "dynamic",
         "targetOffsetLu": -0.49
       }
@@ -33,29 +33,29 @@
       "source": "audio/archive-voice-02.mp3",
       "output": "audio-normalized/archive-voice-02.mp3",
       "sourceSha256": "4c20551921f0c11406d5feac095028b6407cc6ca4006e3f0bebef29f542a7c8b",
-      "outputSha256": "0714fd21f607a318b2dd5c887b39a30fceb0cc751dd90591ce59cbd36fa5d62d",
+      "outputSha256": "6a189abc2f1153d752c21717475687b828149607780a5bb58be72e74e4935f02",
       "before": {
         "integratedLufs": -20.35,
         "truePeakDbtp": -4.41,
         "loudnessRangeLu": 3.5,
         "thresholdLufs": -31.3,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.07
+        "targetOffsetLu": 0.01
       },
       "after": {
-        "integratedLufs": -18.27,
-        "truePeakDbtp": -2.33,
+        "integratedLufs": -23.27,
+        "truePeakDbtp": -7.33,
         "loudnessRangeLu": 3.5,
-        "thresholdLufs": -29.22,
+        "thresholdLufs": -34.14,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.06
+        "targetOffsetLu": 0.0
       }
     },
     {
       "source": "audio/archive-voice-03.mp3",
       "output": "audio-normalized/archive-voice-03.mp3",
       "sourceSha256": "661d2bbb64e4b0f7a0c8e1d9b241f8b9fd1e6fefa24f9f6de5d2a3e1602587bf",
-      "outputSha256": "68d11f095668f88e5e06e35ddaf048af7f6efab950db52d948d68c8f6a439caa",
+      "outputSha256": "99274e157f73a7a11c47b5c390e955f859e5d8b9c547d1dea6fd2da0e4452c7a",
       "before": {
         "integratedLufs": -17.76,
         "truePeakDbtp": -1.9,
@@ -65,10 +65,10 @@
         "targetOffsetLu": 0.97
       },
       "after": {
-        "integratedLufs": -18.82,
-        "truePeakDbtp": -3.39,
+        "integratedLufs": -23.82,
+        "truePeakDbtp": -8.38,
         "loudnessRangeLu": 7.4,
-        "thresholdLufs": -29.85,
+        "thresholdLufs": -34.77,
         "normalizationType": "dynamic",
         "targetOffsetLu": 0.73
       }
@@ -77,7 +77,7 @@
       "source": "audio/archive-voice-04.mp3",
       "output": "audio-normalized/archive-voice-04.mp3",
       "sourceSha256": "676c724ff7629e5a72c104a7870c602247c3e8a1526e01d972ab6a12b427c271",
-      "outputSha256": "d84bc97edbd04648e56585924aa85f5e3eef63f79cb52752e34713eef7946e97",
+      "outputSha256": "96bdbde3846544616b7a14069f4d4d7af928cfa6a74cb328a3ae0a5370f27691",
       "before": {
         "integratedLufs": -20.78,
         "truePeakDbtp": -7.57,
@@ -87,10 +87,10 @@
         "targetOffsetLu": -0.16
       },
       "after": {
-        "integratedLufs": -18.27,
-        "truePeakDbtp": -5.05,
+        "integratedLufs": -23.27,
+        "truePeakDbtp": -10.06,
         "loudnessRangeLu": 6.4,
-        "thresholdLufs": -29.92,
+        "thresholdLufs": -34.92,
         "normalizationType": "dynamic",
         "targetOffsetLu": -0.16
       }
@@ -99,7 +99,7 @@
       "source": "audio/archive-voice-05.mp3",
       "output": "audio-normalized/archive-voice-05.mp3",
       "sourceSha256": "89dedf66efed577f5ff427fba6cfbddd78afbf158e5dbe530c57d63fd2a4a3de",
-      "outputSha256": "38d634947c585db697517fd18aa84a9719b23f0880990e038f177b46bddafad9",
+      "outputSha256": "b3d91b09045c2c101b2314a8e74c4a69adfdad267392b31c487eff7ac703a228",
       "before": {
         "integratedLufs": -25.06,
         "truePeakDbtp": -11.94,
@@ -109,10 +109,10 @@
         "targetOffsetLu": 0.67
       },
       "after": {
-        "integratedLufs": -18.27,
-        "truePeakDbtp": -5.14,
+        "integratedLufs": -23.26,
+        "truePeakDbtp": -10.14,
         "loudnessRangeLu": 6.7,
-        "thresholdLufs": -29.86,
+        "thresholdLufs": -34.86,
         "normalizationType": "dynamic",
         "targetOffsetLu": 0.67
       }
@@ -121,29 +121,29 @@
       "source": "audio/archive-voice-06.mp3",
       "output": "audio-normalized/archive-voice-06.mp3",
       "sourceSha256": "1ef6380c7aa7508135304e4d637c89ccf585a15dc7a268cda3cb6ed28d2a5e07",
-      "outputSha256": "b0d3a01211f0e29db645707c4d83fad1d1a4981acd511fa4c63823299b4600b5",
+      "outputSha256": "00e0c170afc0699e6d5e2d78475d053e444564473ecd5efce9ff5239cf147567",
       "before": {
         "integratedLufs": -36.44,
         "truePeakDbtp": -17.53,
         "loudnessRangeLu": 2.6,
         "thresholdLufs": -46.87,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.18
+        "targetOffsetLu": 0.07
       },
       "after": {
-        "integratedLufs": -18.51,
-        "truePeakDbtp": -1.72,
-        "loudnessRangeLu": 2.1,
-        "thresholdLufs": -29.08,
+        "integratedLufs": -23.26,
+        "truePeakDbtp": -4.35,
+        "loudnessRangeLu": 2.5,
+        "thresholdLufs": -33.83,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.26
+        "targetOffsetLu": 0.06
       }
     },
     {
       "source": "audio/archive-voice-07.mp3",
       "output": "audio-normalized/archive-voice-07.mp3",
       "sourceSha256": "28bcfe8ec742cfd64d07ff3a43f68e16e7599616c5c78e2685eeb6b40f653c11",
-      "outputSha256": "7555a23d257b6927ec48606fd1f606bec096c2473bc9f6874bc4596fee1477f5",
+      "outputSha256": "942103d255f78ea7ea978847eeb9fe8bb90e61524729c46db3314fb0fa853ea6",
       "before": {
         "integratedLufs": -27.52,
         "truePeakDbtp": -13.15,
@@ -153,19 +153,19 @@
         "targetOffsetLu": 0.02
       },
       "after": {
-        "integratedLufs": -18.26,
-        "truePeakDbtp": -3.88,
-        "loudnessRangeLu": 4.0,
-        "thresholdLufs": -29.18,
+        "integratedLufs": -23.26,
+        "truePeakDbtp": -8.85,
+        "loudnessRangeLu": 3.9,
+        "thresholdLufs": -34.18,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.03
+        "targetOffsetLu": 0.02
       }
     },
     {
       "source": "audio/archive-voice-08.mp3",
       "output": "audio-normalized/archive-voice-08.mp3",
       "sourceSha256": "33fa65f5148139e6be6c0fed8ab50a6fe295f5d905ded0a3e4df975fb2210e74",
-      "outputSha256": "c5245d5fc7de817acc9067c7f0f24ea3b38119ac00a7c468dd98ef106095d18a",
+      "outputSha256": "5591b8c167784c18e9239d4a933a321a810ee7bf808faecd1539799eae944a46",
       "before": {
         "integratedLufs": -23.29,
         "truePeakDbtp": -7.15,
@@ -175,10 +175,10 @@
         "targetOffsetLu": 0.54
       },
       "after": {
-        "integratedLufs": -18.32,
-        "truePeakDbtp": -2.13,
+        "integratedLufs": -23.32,
+        "truePeakDbtp": -7.13,
         "loudnessRangeLu": 4.6,
-        "thresholdLufs": -29.48,
+        "thresholdLufs": -34.48,
         "normalizationType": "dynamic",
         "targetOffsetLu": 0.54
       }
@@ -187,29 +187,29 @@
       "source": "audio/archive-voice-09.mp3",
       "output": "audio-normalized/archive-voice-09.mp3",
       "sourceSha256": "9c592ca0c0c6a1bc9f0b32c187a667be344b0abc2b6c6763b87b232e27905866",
-      "outputSha256": "ba9bb09c9e9aa2b3304fc41429ff1adff20242b994d643a5d4ee6a1c43353102",
+      "outputSha256": "64c6e7c28de9c3c7b996558dab8c96ff52a652345027f0d69ac674f3f696802a",
       "before": {
         "integratedLufs": -33.6,
         "truePeakDbtp": -18.26,
         "loudnessRangeLu": 2.8,
         "thresholdLufs": -44.65,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.07
+        "targetOffsetLu": 0.02
       },
       "after": {
-        "integratedLufs": -18.27,
-        "truePeakDbtp": -2.93,
+        "integratedLufs": -23.27,
+        "truePeakDbtp": -7.93,
         "loudnessRangeLu": 2.8,
-        "thresholdLufs": -29.32,
+        "thresholdLufs": -34.32,
         "normalizationType": "dynamic",
-        "targetOffsetLu": 0.07
+        "targetOffsetLu": 0.02
       }
     },
     {
       "source": "audio/archive-voice-10.mp3",
       "output": "audio-normalized/archive-voice-10.mp3",
       "sourceSha256": "0f42e06e6f2cf8e925e5c46142e4c18b19c970d485abf852cbf6bf62e2736cd8",
-      "outputSha256": "19e971ecf20330faba3afac7aa85046b45dc3a5bf00bdb3fc8b75b101d26d62e",
+      "outputSha256": "e41ad558bb5892db1fbdfd564eb31ff2c35a1e596bdf81b5560aa8b56fe25084",
       "before": {
         "integratedLufs": -44.06,
         "truePeakDbtp": -27.82,
@@ -219,10 +219,10 @@
         "targetOffsetLu": 0.32
       },
       "after": {
-        "integratedLufs": -18.26,
-        "truePeakDbtp": -2.02,
+        "integratedLufs": -23.26,
+        "truePeakDbtp": -7.02,
         "loudnessRangeLu": 4.3,
-        "thresholdLufs": -29.23,
+        "thresholdLufs": -34.23,
         "normalizationType": "dynamic",
         "targetOffsetLu": 0.32
       }

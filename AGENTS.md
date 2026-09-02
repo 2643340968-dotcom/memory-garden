@@ -113,8 +113,8 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, audio manager and memory experience mount, plus canvas audio diagnostics.
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
-- `src/audio/AudioConfig.js`: centralized BGM user range/default, relative ducking, voice limiter, card-lifetime, master fade, and visibility fade tuning. `BGM_URL` points to the document-relative deployed copy of `bgm/bgm.mp3`.
-- `src/audio/AudioManager.js`: PNG-only Web Audio owner. Attaches one `AudioListener` to the camera, caches `AudioLoader` buffers, owns one looping BGM channel and one reusable voice channel, persists the BGM-only slider in `sessionStorage`, routes archive voice through a safety limiter, schedules gain fades/relative ducking, handles mute/visibility, and exposes diagnostics. It does not generate bloom, growth, or card cues.
+- `src/audio/AudioConfig.js`: centralized normalized-BGM URL, BGM user range/default, relative ducking, archive gain/envelope, master limiter/output headroom, card-lifetime, master fade, and visibility fade tuning.
+- `src/audio/AudioManager.js`: PNG-only Web Audio owner. Attaches one `AudioListener` to the camera, caches `AudioLoader` buffers, owns one looping BGM channel and one reusable voice channel, persists the BGM-only slider in `sessionStorage`, schedules the archive voice envelope and relative ducking, routes the final mix through one master safety compressor plus output-headroom gain, handles mute/visibility, and exposes diagnostics. It does not generate bloom, growth, or card cues.
 - `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, per-selected-record image/audio warmup, optional voice playback/lifetime coordination, viewport clamping, reset cleanup.
 - `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, the smaller independent archive-voice indicator, verified pairs, concise source metadata, duration display, and graceful missing-image/audio states.
 - `src/memory/MemoryAssetPreloader.js`: small non-blocking image cache. It warms at most two prototype images during idle time and preloads only the selected memory image before presentation.
@@ -156,6 +156,7 @@ Required runtime assets are inside the repository:
   - `public/assets/memories/audio/archive-voice-01.mp3` through `archive-voice-10.mp3`
   - `public/assets/memories/audio-normalized/archive-voice-01.mp3` through `archive-voice-10.mp3`, plus `loudness-report.json`
   - `public/assets/memories/bgm/bgm.mp3`
+  - `public/assets/memories/bgm-normalized/bgm.mp3`, plus `loudness-report.json`
   - `public/assets/memories/README.md` documents independent asset intake, explicit verified pairing, provenance, and safety requirements.
 - Additional source/reference assets: `图片素材/`, `音频素材/`, and `模型/`.
 - Historical snapshot: `版本存档/原版-花田-20000容量-2026-08-30.zip`.
@@ -224,10 +225,10 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 ### Audio: `src/audio/AudioConfig.js`
 
 - Initial page state is silent. Audio unlock occurs only inside the first valid memory-form submission gesture.
-- BGM uses `./assets/memories/bgm/bgm.mp3`; the looping channel defaults to `0.28` within a `0–0.36` BGM-only slider range, uses a `5s` fade-in and `1.4s` fade-out, and stores the current-session setting in `sessionStorage`.
-- During archive voice, BGM ducks to `33%` of the current user level and restores to that same level. One reusable voice channel uses volume `0.72`, a `480ms` start delay, a `180ms` fade-in, and a `280ms` replacement fade. Only one archive voice can load/play at once.
-- Ten runtime voice derivatives in `audio-normalized/` target `-18 LUFS / -1.5 dBTP`; their two-pass measurements and hashes are committed in `loudness-report.json`. The source copies in `audio/` remain unchanged.
-- Archive voice alone passes through a Web Audio compressor used as a light safety limiter (`-4.5 dB` threshold, `12:1`, `3ms` attack, `180ms` release). BGM bypasses this node.
+- The source BGM measured about `-44.22 LUFS`, so runtime uses the separate `./assets/memories/bgm-normalized/bgm.mp3` derivative at `-25.27 LUFS / -9.91 dBTP`. Its original remains unchanged. The looping channel defaults to `0.52` within a `0–0.64` BGM-only slider range, uses a `5s` fade-in and `1.4s` fade-out, and stores the current-session setting under the v2 `sessionStorage` key.
+- During archive voice, BGM ducks mildly to `72%` of the current user level and restores to that same level. One reusable voice channel uses gain `0.38`, a `480ms` start delay, a `650ms` fade-in, a `750ms` natural/stop fade-out, and a `650ms` replacement fade. Only one archive voice can load/play at once.
+- Ten runtime voice derivatives in `audio-normalized/` target `-23 LUFS / -3 dBTP`; their two-pass measurements and hashes are committed in `loudness-report.json`. The source copies in `audio/` remain unchanged.
+- The combined BGM/voice output passes through one Web Audio safety compressor (`-18 dB` threshold, `6 dB` knee, `4:1`, `10ms` attack, `220ms` release), followed by a `0.82` master output-headroom gain.
 - Voice cards remain through the decoded clip duration plus a `900ms` tail, with a `24s` maximum card lifetime.
 - Flower growth and Memory Echo appearance are acoustically silent. No prerecorded or procedural bloom/growth/card cue system remains.
 - The sound toggle ramps the listener master gain instead of destroying playback state. Page visibility also fades the master gain down/up.

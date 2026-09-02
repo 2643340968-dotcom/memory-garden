@@ -3,8 +3,8 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$FfmpegPath,
   [string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot),
-  [double]$IntegratedLufs = -18.0,
-  [double]$TruePeakDbtp = -1.5,
+  [double]$IntegratedLufs = -23.0,
+  [double]$TruePeakDbtp = -3.0,
   [double]$LoudnessRangeLu = 7.0
 )
 
