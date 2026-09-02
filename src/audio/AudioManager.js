@@ -4,22 +4,51 @@ import { AUDIO_CONFIG, getBGMTargetVolume } from "./AudioConfig.js";
 const delay = (durationMilliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, durationMilliseconds));
 
+function getSessionStorage() {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredBGMVolume(storage, config) {
+  const rawValue = storage?.getItem(config.BGM_SESSION_STORAGE_KEY);
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return config.BGM_VOLUME;
+  }
+  const storedValue = Number(rawValue);
+  if (!Number.isFinite(storedValue)) {
+    return config.BGM_VOLUME;
+  }
+  return THREE.MathUtils.clamp(storedValue, 0, config.BGM_MAX_VOLUME);
+}
+
 export class AudioManager {
   constructor(
     camera,
     {
       config = AUDIO_CONFIG,
       toggleButton = document.querySelector("#audio-toggle"),
+      bgmSlider = document.querySelector("#bgm-volume"),
+      storage = getSessionStorage(),
     } = {},
   ) {
     this.camera = camera;
     this.config = config;
     this.toggleButton = toggleButton;
     this.toggleLabel = toggleButton?.querySelector("#audio-toggle-label") ?? null;
+    this.bgmSlider = bgmSlider;
+    this.storage = storage;
     this.listener = new THREE.AudioListener();
     this.loader = new THREE.AudioLoader();
     this.bgm = new THREE.Audio(this.listener);
     this.voice = new THREE.Audio(this.listener);
+    this.voiceLimiter = this.context.createDynamicsCompressor();
+    this.configureVoiceLimiter();
+    this.voice.gain.disconnect();
+    this.voice.gain.connect(this.voiceLimiter);
+    this.voiceLimiter.connect(this.listener.getInput());
     this.bufferCache = new Map();
     this.stateListeners = new Set();
     this.unlocked = false;
@@ -28,6 +57,7 @@ export class AudioManager {
     this.unlockPromise = null;
     this.bgmLoadToken = 0;
     this.voiceRequestId = 0;
+    this.pendingVoiceRequestId = 0;
     this.currentVoice = null;
     this.bgmStartCount = 0;
     this.voiceStartCount = 0;
@@ -35,9 +65,35 @@ export class AudioManager {
     this.lastVoiceEndReason = null;
     this.lastVoiceElapsedMs = 0;
     this.loadErrorCount = 0;
+    this.userBGMVolume = readStoredBGMVolume(this.storage, this.config);
 
     this.handleToggle = this.handleToggle.bind(this);
+    this.handleBGMVolumeInput = this.handleBGMVolumeInput.bind(this);
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+  }
+
+  configureVoiceLimiter() {
+    const now = this.context.currentTime;
+    this.voiceLimiter.threshold.setValueAtTime(
+      this.config.VOICE_LIMITER_THRESHOLD_DB,
+      now,
+    );
+    this.voiceLimiter.knee.setValueAtTime(
+      this.config.VOICE_LIMITER_KNEE_DB,
+      now,
+    );
+    this.voiceLimiter.ratio.setValueAtTime(
+      this.config.VOICE_LIMITER_RATIO,
+      now,
+    );
+    this.voiceLimiter.attack.setValueAtTime(
+      this.config.VOICE_LIMITER_ATTACK_SECONDS,
+      now,
+    );
+    this.voiceLimiter.release.setValueAtTime(
+      this.config.VOICE_LIMITER_RELEASE_SECONDS,
+      now,
+    );
   }
 
   start() {
@@ -48,7 +104,9 @@ export class AudioManager {
     this.voice.setVolume(0);
     this.listener.setMasterVolume(0);
     this.toggleButton?.addEventListener("click", this.handleToggle);
+    this.bgmSlider?.addEventListener("input", this.handleBGMVolumeInput);
     document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    this.updateBGMControl();
     this.updateToggle();
     this.notifyState();
     return this;
@@ -68,10 +126,15 @@ export class AudioManager {
       bgmLoop: this.bgm.getLoop(),
       bgmTargetVolume: getBGMTargetVolume(
         Boolean(this.currentVoice),
+        this.userBGMVolume,
         this.config,
       ),
+      bgmUserVolume: this.userBGMVolume,
+      bgmDuckRatio: this.config.BGM_DUCK_RATIO,
+      bgmSliderPercent: this.getBGMSliderPercent(),
       bgmStartCount: this.bgmStartCount,
       voicePlaying: this.voice.isPlaying,
+      voiceBusy: this.archiveVoiceBusy,
       currentVoiceId: this.currentVoice?.memoryId ?? null,
       voiceStartCount: this.voiceStartCount,
       voiceReplacementCount: this.voiceReplacementCount,
@@ -80,7 +143,74 @@ export class AudioManager {
       lastVoiceElapsedMs: this.lastVoiceElapsedMs,
       loadedBufferCount: this.bufferCache.size,
       loadErrorCount: this.loadErrorCount,
+      voiceLimiterActive: true,
+      voiceLimiterThresholdDb: this.config.VOICE_LIMITER_THRESHOLD_DB,
+      voiceLimiterRatio: this.config.VOICE_LIMITER_RATIO,
     });
+  }
+
+  get archiveVoiceBusy() {
+    return Boolean(this.currentVoice || this.pendingVoiceRequestId);
+  }
+
+  getBGMSliderPercent() {
+    if (this.config.BGM_MAX_VOLUME <= 0) {
+      return 0;
+    }
+    return Math.round((this.userBGMVolume / this.config.BGM_MAX_VOLUME) * 100);
+  }
+
+  updateBGMControl() {
+    if (!this.bgmSlider) {
+      return;
+    }
+    const sliderPercent = this.getBGMSliderPercent();
+    this.bgmSlider.value = String(sliderPercent);
+    this.bgmSlider.style.setProperty("--bgm-level", `${sliderPercent}%`);
+    this.bgmSlider.setAttribute("aria-valuetext", `BGM ${sliderPercent}%`);
+  }
+
+  handleBGMVolumeInput() {
+    const sliderPercent = THREE.MathUtils.clamp(
+      Number(this.bgmSlider?.value) || 0,
+      0,
+      100,
+    );
+    this.setBGMVolume(
+      (sliderPercent / 100) * this.config.BGM_MAX_VOLUME,
+      true,
+    );
+  }
+
+  setBGMVolume(volume, persist = false) {
+    this.userBGMVolume = THREE.MathUtils.clamp(
+      Number(volume) || 0,
+      0,
+      this.config.BGM_MAX_VOLUME,
+    );
+    if (persist) {
+      try {
+        this.storage?.setItem(
+          this.config.BGM_SESSION_STORAGE_KEY,
+          String(this.userBGMVolume),
+        );
+      } catch {
+        // Session storage is optional; audio remains fully functional without it.
+      }
+    }
+    this.updateBGMControl();
+    if (this.bgm.isPlaying) {
+      this.rampAudioVolume(
+        this.bgm,
+        getBGMTargetVolume(
+          Boolean(this.currentVoice),
+          this.userBGMVolume,
+          this.config,
+        ),
+        this.config.BGM_VOLUME_RAMP_DURATION,
+      );
+    }
+    this.notifyState();
   }
 
   subscribe(listener) {
@@ -220,7 +350,11 @@ export class AudioManager {
     this.bgmStartCount += 1;
     this.rampAudioVolume(
       this.bgm,
-      getBGMTargetVolume(Boolean(this.currentVoice), this.config),
+      getBGMTargetVolume(
+        Boolean(this.currentVoice),
+        this.userBGMVolume,
+        this.config,
+      ),
       this.config.BGM_FADE_IN_DURATION,
     );
     this.notifyState();
@@ -243,7 +377,7 @@ export class AudioManager {
   setBGMDucked(ducked) {
     this.rampAudioVolume(
       this.bgm,
-      getBGMTargetVolume(ducked, this.config),
+      getBGMTargetVolume(ducked, this.userBGMVolume, this.config),
       ducked
         ? this.config.DUCK_FADE_DURATION
         : this.config.RESTORE_FADE_DURATION,
@@ -256,8 +390,14 @@ export class AudioManager {
     }
 
     const requestId = ++this.voiceRequestId;
+    this.pendingVoiceRequestId = requestId;
+    this.notifyState();
     const buffer = await this.loadBuffer(archive.audio);
+    if (this.pendingVoiceRequestId === requestId) {
+      this.pendingVoiceRequestId = 0;
+    }
     if (!buffer || requestId !== this.voiceRequestId || signal?.aborted) {
+      this.notifyState();
       return null;
     }
 
@@ -355,6 +495,7 @@ export class AudioManager {
 
   resetArchiveAudio() {
     this.voiceRequestId += 1;
+    this.pendingVoiceRequestId = 0;
     return this.stopCurrentVoice("reset", true);
   }
 
@@ -390,11 +531,14 @@ export class AudioManager {
 
   destroy() {
     this.toggleButton?.removeEventListener("click", this.handleToggle);
+    this.bgmSlider?.removeEventListener("input", this.handleBGMVolumeInput);
     document.removeEventListener("visibilitychange", this.handleVisibilityChange);
     this.voiceRequestId += 1;
+    this.pendingVoiceRequestId = 0;
     void this.stopCurrentVoice("destroyed", false);
     void this.stopBGM();
     this.camera.remove(this.listener);
+    this.voiceLimiter.disconnect();
     this.stateListeners.clear();
   }
 }

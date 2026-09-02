@@ -26,16 +26,29 @@
           <span id="input-state">FLOWER ASSET · LOADING</span>
         </div>
 
-        <button
-          id="audio-toggle"
-          class="audio-toggle"
-          type="button"
-          aria-pressed="false"
-          disabled
-        >
-          <span class="audio-toggle-mark" aria-hidden="true"></span>
-          <span id="audio-toggle-label">SOUND · WAITING</span>
-        </button>
+        <div class="audio-controls" aria-label="声音控制">
+          <button
+            id="audio-toggle"
+            class="audio-toggle"
+            type="button"
+            aria-pressed="false"
+            disabled
+          >
+            <span class="audio-toggle-mark" aria-hidden="true"></span>
+            <span id="audio-toggle-label">SOUND · WAITING</span>
+          </button>
+          <label class="bgm-volume-control" for="bgm-volume">
+            <span>BGM</span>
+            <input
+              id="bgm-volume"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              aria-label="BGM 音量"
+            />
+          </label>
+        </div>
 
         <section class="planting-guide">
           <p class="guide-main">按住鼠标，拖出一条花径</p>

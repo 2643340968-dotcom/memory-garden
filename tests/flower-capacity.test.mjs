@@ -1169,9 +1169,18 @@ test("memory schema keeps independent archives separate and permits verified pai
   );
 });
 
-test("audio memory selection remains rare and enforces silent spacing", () => {
-  const silentEntries = ["one", "two", "three"].map((id) =>
-    createMemoryItem({ id: `silent-${id}`, text: id }),
+test("memory shuffle bag balances text, image, and audio without exact repeats", () => {
+  const textEntries = ["one", "two"].map((id) =>
+    createMemoryItem({ id: `text-${id}`, text: id }),
+  );
+  const imageEntries = ["one", "two"].map((id) =>
+    createMemoryItem({
+      id: `image-${id}`,
+      kind: MEMORY_KINDS.IMAGE_ARCHIVE,
+      image: `./assets/memories/images/${id}.jpg`,
+      verified: true,
+      isPrototype: false,
+    }),
   );
   const audioEntries = ["one", "two"].map((id) =>
     createMemoryItem({
@@ -1183,26 +1192,80 @@ test("audio memory selection remains rare and enforces silent spacing", () => {
     }),
   );
   const memoryPool = createMemoryPool({
-    prototypeMemories: [...silentEntries, ...audioEntries],
+    prototypeMemories: [...textEntries, ...imageEntries, ...audioEntries],
   });
-  const values = [0.1, 0, 0, 0, 0.1, 0];
-  const random = () => values.shift() ?? 0;
+  const selections = Array.from({ length: 6 }, () =>
+    memoryPool.selectEcho(() => 0),
+  );
 
-  const first = memoryPool.selectEcho(random);
-  const second = memoryPool.selectEcho(random);
-  const third = memoryPool.selectEcho(random);
-  const fourth = memoryPool.selectEcho(random);
-
-  assert.match(first.id, /^audio-/);
-  assert.match(second.id, /^silent-/);
-  assert.match(third.id, /^silent-/);
-  assert.match(fourth.id, /^audio-/);
-  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_ARCHIVE_COOLDOWN_EVENTS, 2);
-  assert.equal(MEMORY_SELECTION_CONFIG.MIN_EVENTS_BETWEEN_AUDIO, 2);
-  assert.equal(MEMORY_SELECTION_CONFIG.AUDIO_ARCHIVE_PROBABILITY, 0.12);
-  assert.equal(memoryPool.selectionState.audioCooldownRemaining, 2);
+  for (const cycle of [selections.slice(0, 3), selections.slice(3, 6)]) {
+    assert.deepEqual(
+      [...new Set(cycle.map((memory) => memory.type))].sort(),
+      [MEMORY_TYPES.TEXT, MEMORY_TYPES.IMAGE, MEMORY_TYPES.AUDIO].sort(),
+    );
+  }
+  assert.notEqual(selections[2].type, selections[3].type);
+  for (const type of Object.values(MEMORY_TYPES)) {
+    const ids = selections
+      .filter((memory) => memory.type === type)
+      .map((memory) => memory.id);
+    assert.equal(new Set(ids).size, ids.length);
+  }
+  assert.deepEqual(MEMORY_SELECTION_CONFIG.CATEGORY_SHUFFLE_BAG, [
+    MEMORY_TYPES.TEXT,
+    MEMORY_TYPES.IMAGE,
+    MEMORY_TYPES.AUDIO,
+  ]);
+  assert.equal(MEMORY_SELECTION_CONFIG.RECENT_ITEM_HISTORY_SIZE, 1);
+  assert.equal(memoryPool.selectionState.categoryBag.length, 0);
   memoryPool.resetSelection();
-  assert.equal(memoryPool.selectionState.audioCooldownRemaining, 0);
+  assert.equal(memoryPool.selectionState.lastSelectedId, null);
+  assert.deepEqual(memoryPool.selectionState.categoryBag, []);
+  assert.deepEqual(memoryPool.selectionState.recentIdsByType, {});
+});
+
+test("memory shuffle bag uses only available categories and defers busy audio", () => {
+  const text = createMemoryItem({ id: "text-only", text: "text" });
+  const image = createMemoryItem({
+    id: "image-only",
+    kind: MEMORY_KINDS.IMAGE_ARCHIVE,
+    image: "./assets/memories/images/one.jpg",
+    verified: true,
+    isPrototype: false,
+  });
+  const audio = createMemoryItem({
+    id: "audio-only",
+    kind: MEMORY_KINDS.AUDIO_ARCHIVE,
+    audio: "./assets/memories/audio/one.mp3",
+    verified: true,
+    isPrototype: false,
+  });
+  const noAudioPool = createMemoryPool({ prototypeMemories: [text, image] });
+  const availableSelections = Array.from({ length: 4 }, () =>
+    noAudioPool.selectEcho(() => 0),
+  );
+  assert.equal(
+    availableSelections.filter((memory) => memory.type === MEMORY_TYPES.TEXT).length,
+    2,
+  );
+  assert.equal(
+    availableSelections.filter((memory) => memory.type === MEMORY_TYPES.IMAGE).length,
+    2,
+  );
+
+  const busyAudioPool = createMemoryPool({
+    prototypeMemories: [text, image, audio],
+  });
+  assert.equal(busyAudioPool.selectEcho(() => 0).type, MEMORY_TYPES.IMAGE);
+  const whileBusy = busyAudioPool.selectEcho(() => 0, {
+    audioAvailable: false,
+  });
+  assert.equal(whileBusy.type, MEMORY_TYPES.TEXT);
+  assert.ok(busyAudioPool.selectionState.categoryBag.includes(MEMORY_TYPES.AUDIO));
+  assert.equal(
+    busyAudioPool.selectEcho(() => 0, { audioAvailable: true }).type,
+    MEMORY_TYPES.AUDIO,
+  );
 });
 
 test("memory images warm lazily without blocking or duplicate loads", async () => {
@@ -1246,7 +1309,7 @@ test("memory images warm lazily without blocking or duplicate loads", async () =
   await preloader.preload(memories[0].image);
   assert.equal(constructedImages, 2);
 
-  for (const directory of ["images", "audio", "bgm"]) {
+  for (const directory of ["images", "audio", "audio-normalized", "bgm"]) {
     assert.equal(
       existsSync(
         new URL(`../public/assets/memories/${directory}/`, import.meta.url),
@@ -1264,10 +1327,15 @@ test("audio configuration centralizes restrained mixing and card timing", () => 
     ),
     true,
   );
-  assert.equal(AUDIO_CONFIG.BGM_VOLUME, 0.18);
-  assert.equal(AUDIO_CONFIG.BGM_DUCK_VOLUME, 0.06);
-  assert.equal(getBGMTargetVolume(false), 0.18);
-  assert.equal(getBGMTargetVolume(true), 0.06);
+  assert.equal(AUDIO_CONFIG.BGM_VOLUME, 0.28);
+  assert.equal(AUDIO_CONFIG.BGM_MAX_VOLUME, 0.36);
+  assert.equal(AUDIO_CONFIG.BGM_DUCK_RATIO, 0.33);
+  assert.equal(getBGMTargetVolume(false), 0.28);
+  assert.equal(getBGMTargetVolume(true), 0.28 * 0.33);
+  assert.equal(getBGMTargetVolume(false, 0.17), 0.17);
+  assert.equal(getBGMTargetVolume(true, 0.17), 0.17 * 0.33);
+  assert.equal(AUDIO_CONFIG.VOICE_LIMITER_THRESHOLD_DB, -4.5);
+  assert.equal(AUDIO_CONFIG.VOICE_LIMITER_RATIO, 12);
   assert.equal(getVoiceCardVisibleDuration(9000, 4200), 9900);
   assert.equal(getVoiceCardVisibleDuration(30000, 4200), 24000);
   assert.equal("BLOOM_SFX_VOLUME" in AUDIO_CONFIG, false);
@@ -1284,7 +1352,27 @@ test("audio configuration centralizes restrained mixing and card timing", () => 
     "utf8",
   );
   assert.doesNotMatch(audioManagerSource, /playBloomSfx|playMemorySfx|createOscillator/);
+  assert.match(audioManagerSource, /createDynamicsCompressor/);
+  assert.match(audioManagerSource, /BGM_SESSION_STORAGE_KEY/);
   assert.doesNotMatch(memoryExperienceSource, /playBloomSfx|playMemorySfx/);
+
+  const loudnessReport = JSON.parse(
+    readFileSync(
+      new URL(
+        "../public/assets/memories/audio-normalized/loudness-report.json",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(loudnessReport.files.length, AUDIO_ARCHIVE_MEMORIES.length);
+  assert.equal(loudnessReport.target.integratedLufs, -18);
+  assert.equal(loudnessReport.target.truePeakDbtp, -1.5);
+  loudnessReport.files.forEach((entry) => {
+    assert.ok(Math.abs(entry.after.integratedLufs + 18) < 1);
+    assert.ok(entry.after.truePeakDbtp <= -1.5);
+    assert.notEqual(entry.sourceSha256, entry.outputSha256);
+  });
 });
 
 test("memory gesture rhythm keeps its public tuning limits centralized", () => {

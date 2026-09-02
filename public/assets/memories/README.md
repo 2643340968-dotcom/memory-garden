@@ -3,7 +3,8 @@
 This folder contains deploy-safe derivatives or copies of media supplied by the project owner. Provenance and public-use permission still need to be recorded separately before the material is treated as verified archive content.
 
 - `images/`: 21 optimized independent image derivatives (`nanjing-memory-283.jpg` through `nanjing-memory-303.jpg`).
-- `audio/`: 10 independent audio copies (`archive-voice-01.mp3` through `archive-voice-10.mp3`).
+- `audio/`: 10 independent source copies (`archive-voice-01.mp3` through `archive-voice-10.mp3`); these are preserved and are not used directly at runtime.
+- `audio-normalized/`: non-destructive runtime derivatives normalized toward `-18 LUFS` with a `-1.5 dBTP` ceiling, plus `loudness-report.json` with before/after measurements and hashes.
 - `bgm/`: the separate ambient bed at `bgm.mp3`, configured with a document-relative URL in `src/audio/AudioConfig.js`.
 
 The runtime records for the supplied image and audio sets use `verified: false`, `isPrototype: false`, and `relationship: "independent"`. Their captions, dates, locations, speakers, and sources remain empty until verified metadata is supplied. Neutral sequence labels are identifiers only; they do not imply a relationship between files.
@@ -34,7 +35,7 @@ createMemoryItem({
 createMemoryItem({
   id: "voice_001",
   kind: MEMORY_KINDS.AUDIO_ARCHIVE,
-  audio: "./assets/memories/audio/voice_001.mp3",
+  audio: "./assets/memories/audio-normalized/voice_001.mp3",
   audioCaption: "Short archive-voice label",
   date: "Provided date",
   location: "Provided location",
@@ -55,7 +56,7 @@ createMemoryItem({
   id: "pair_001",
   kind: MEMORY_KINDS.PAIRED_MEMORY,
   image: "./assets/memories/images/pair_001.jpg",
-  audio: "./assets/memories/audio/pair_001.mp3",
+  audio: "./assets/memories/audio-normalized/pair_001.mp3",
   caption: "Verified shared context",
   source: "Image source",
   audioSource: "Audio source",
@@ -66,3 +67,13 @@ createMemoryItem({
 ```
 
 Do not infer testimony, quotations, dates, captions, archive names, speaker identity, or media relationships from filenames. Prototype entries must keep `verified: false` and `isPrototype: true`.
+
+## Loudness workflow
+
+Keep every incoming source in `audio/`. Generate or refresh deployable derivatives with:
+
+```powershell
+.\scripts\normalize-archive-audio.ps1 -FfmpegPath "C:\path\to\ffmpeg.exe"
+```
+
+The script uses two-pass `loudnorm`, never writes over `audio/`, strips copied metadata from the derivative, and records source/output SHA-256 hashes. Review `audio-normalized/loudness-report.json` before publishing new files. Loudness normalization is the primary consistency layer; the runtime voice limiter is only a final safety guard.

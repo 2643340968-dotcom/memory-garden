@@ -33,8 +33,12 @@ mountFlowerField({
     dataset.bgmPlaying = String(diagnostics.bgmPlaying);
     dataset.bgmLoop = String(diagnostics.bgmLoop);
     dataset.bgmTargetVolume = diagnostics.bgmTargetVolume.toFixed(2);
+    dataset.bgmUserVolume = diagnostics.bgmUserVolume.toFixed(2);
+    dataset.bgmSliderPercent = String(diagnostics.bgmSliderPercent);
+    dataset.bgmDuckRatio = diagnostics.bgmDuckRatio.toFixed(2);
     dataset.bgmStartCount = String(diagnostics.bgmStartCount);
     dataset.voicePlaying = String(diagnostics.voicePlaying);
+    dataset.voiceBusy = String(diagnostics.voiceBusy);
     dataset.currentVoiceId = diagnostics.currentVoiceId ?? "";
     dataset.voiceStartCount = String(diagnostics.voiceStartCount);
     dataset.voiceReplacementCount = String(diagnostics.voiceReplacementCount);
@@ -45,6 +49,10 @@ mountFlowerField({
     dataset.lastVoiceElapsed = String(Math.round(diagnostics.lastVoiceElapsedMs));
     dataset.audioBufferCount = String(diagnostics.loadedBufferCount);
     dataset.audioLoadErrorCount = String(diagnostics.loadErrorCount);
+    dataset.voiceLimiterActive = String(diagnostics.voiceLimiterActive);
+    dataset.voiceLimiterThreshold = String(
+      diagnostics.voiceLimiterThresholdDb,
+    );
   });
   const memoryExperience = new MemoryExperience(app).start();
   app.memoryExperience = memoryExperience;

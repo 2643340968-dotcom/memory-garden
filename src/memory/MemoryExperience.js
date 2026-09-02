@@ -276,7 +276,9 @@ export class MemoryExperience {
       return;
     }
 
-    const memory = this.memoryPool.selectEcho(this.random);
+    const memory = this.memoryPool.selectEcho(this.random, {
+      audioAvailable: !this.app.audioManager?.archiveVoiceBusy,
+    });
     if (!memory) {
       return;
     }

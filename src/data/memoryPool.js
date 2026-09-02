@@ -17,9 +17,13 @@ export const MEMORY_RELATIONSHIPS = Object.freeze({
 });
 
 export const MEMORY_SELECTION_CONFIG = Object.freeze({
-  AUDIO_ARCHIVE_PROBABILITY: 0.12,
-  AUDIO_ARCHIVE_COOLDOWN_EVENTS: 2,
-  MIN_EVENTS_BETWEEN_AUDIO: 2,
+  CATEGORY_SHUFFLE_BAG: Object.freeze([
+    MEMORY_TYPES.TEXT,
+    MEMORY_TYPES.IMAGE,
+    MEMORY_TYPES.AUDIO,
+  ]),
+  RECENT_ITEM_HISTORY_SIZE: 1,
+  AVOID_CATEGORY_REPEAT_AT_BAG_BOUNDARY: true,
 });
 
 export const MEMORY_ITEM_SCHEMA_FIELDS = Object.freeze([
@@ -287,7 +291,7 @@ export const AUDIO_ARCHIVE_MEMORIES = Object.freeze(
       id: `archive-voice-${sequence}`,
       kind: MEMORY_KINDS.AUDIO_ARCHIVE,
       label: "ARCHIVE VOICE",
-      audio: `./assets/memories/audio/archive-voice-${sequence}.mp3`,
+      audio: `./assets/memories/audio-normalized/archive-voice-${sequence}.mp3`,
       audioId: `archive-voice-${sequence}`,
       audioType: "audio/mpeg",
       verified: false,
@@ -314,6 +318,36 @@ function selectFromCandidates(candidates, random) {
   return candidates[Math.floor(clampRandom(random) * candidates.length)] ?? null;
 }
 
+function getScheduleType(memory) {
+  return isAudioPresentation(memory) ? MEMORY_TYPES.AUDIO : memory.type;
+}
+
+function shuffleCategoryTypes(types, random, lastSelectedType, avoidRepeat) {
+  const shuffled = [...types];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(clampRandom(random) * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [
+      shuffled[swapIndex],
+      shuffled[index],
+    ];
+  }
+
+  if (
+    avoidRepeat &&
+    shuffled.length > 1 &&
+    shuffled[0] === lastSelectedType
+  ) {
+    const swapIndex = shuffled.findIndex((type) => type !== lastSelectedType);
+    if (swapIndex > 0) {
+      [shuffled[0], shuffled[swapIndex]] = [
+        shuffled[swapIndex],
+        shuffled[0],
+      ];
+    }
+  }
+  return shuffled;
+}
+
 export function createMemoryPool({
   prototypeMemories = PROTOTYPE_MEMORIES,
   selectionConfig = MEMORY_SELECTION_CONFIG,
@@ -322,7 +356,9 @@ export function createMemoryPool({
   const sourceMemories = Object.freeze([...prototypeMemories]);
   let sessionMemorySequence = 0;
   let lastSelectedId = null;
-  let audioCooldownRemaining = 0;
+  let lastSelectedType = null;
+  let categoryBag = [];
+  const recentIdsByType = new Map();
 
   function addSessionMemory(rawText) {
     const text = String(rawText ?? "").trim();
@@ -351,46 +387,77 @@ export function createMemoryPool({
     );
   }
 
-  function selectEcho(random = Math.random) {
+  function selectEcho(random = Math.random, { audioAvailable = true } = {}) {
     const allMemories = [...sessionMemories, ...sourceMemories];
-    const candidates =
-      allMemories.length > 1
-        ? allMemories.filter((memory) => memory.id !== lastSelectedId)
-        : allMemories;
-    const audioCandidates = candidates.filter(isAudioPresentation);
-    const nonAudioCandidates = candidates.filter(
-      (memory) => !isAudioPresentation(memory),
+    const availableTypes = selectionConfig.CATEGORY_SHUFFLE_BAG.filter((type) =>
+      allMemories.some((memory) => getScheduleType(memory) === type),
     );
-
-    let eligibleCandidates = candidates;
-    if (audioCooldownRemaining > 0) {
-      eligibleCandidates = nonAudioCandidates;
-    } else if (audioCandidates.length > 0 && nonAudioCandidates.length > 0) {
-      const chooseAudio =
-        clampRandom(random) < selectionConfig.AUDIO_ARCHIVE_PROBABILITY;
-      eligibleCandidates = chooseAudio ? audioCandidates : nonAudioCandidates;
+    if (availableTypes.length === 0) {
+      return null;
     }
 
-    const selected = selectFromCandidates(eligibleCandidates, random);
+    categoryBag = categoryBag.filter((type) => availableTypes.includes(type));
+    if (categoryBag.length === 0) {
+      categoryBag = shuffleCategoryTypes(
+        availableTypes,
+        random,
+        lastSelectedType,
+        selectionConfig.AVOID_CATEGORY_REPEAT_AT_BAG_BOUNDARY,
+      );
+    }
+
+    const allowedTypes = audioAvailable
+      ? availableTypes
+      : availableTypes.filter((type) => type !== MEMORY_TYPES.AUDIO);
+    if (allowedTypes.length === 0) {
+      return null;
+    }
+
+    const scheduledIndex = categoryBag.findIndex((type) =>
+      allowedTypes.includes(type),
+    );
+    const selectedType = scheduledIndex >= 0
+      ? categoryBag.splice(scheduledIndex, 1)[0]
+      : selectFromCandidates(
+          allowedTypes.filter((type) => type !== lastSelectedType).length > 0
+            ? allowedTypes.filter((type) => type !== lastSelectedType)
+            : allowedTypes,
+          random,
+        );
+    const typeCandidates = allMemories.filter(
+      (memory) => getScheduleType(memory) === selectedType,
+    );
+    const recentIds = recentIdsByType.get(selectedType) ?? [];
+    const withoutRecent = typeCandidates.filter(
+      (memory) => !recentIds.includes(memory.id),
+    );
+    const candidates = withoutRecent.length > 0 ? withoutRecent : typeCandidates;
+    const withoutImmediateRepeat = candidates.filter(
+      (memory) => memory.id !== lastSelectedId,
+    );
+    const selected = selectFromCandidates(
+      withoutImmediateRepeat.length > 0 ? withoutImmediateRepeat : candidates,
+      random,
+    );
     if (!selected) {
       return null;
     }
 
-    if (isAudioPresentation(selected)) {
-      audioCooldownRemaining = Math.max(
-        selectionConfig.AUDIO_ARCHIVE_COOLDOWN_EVENTS,
-        selectionConfig.MIN_EVENTS_BETWEEN_AUDIO,
-      );
-    } else {
-      audioCooldownRemaining = Math.max(0, audioCooldownRemaining - 1);
-    }
     lastSelectedId = selected.id;
+    lastSelectedType = selectedType;
+    recentIdsByType.set(
+      selectedType,
+      [selected.id, ...recentIds]
+        .slice(0, selectionConfig.RECENT_ITEM_HISTORY_SIZE),
+    );
     return selected;
   }
 
   function resetSelection() {
     lastSelectedId = null;
-    audioCooldownRemaining = 0;
+    lastSelectedType = null;
+    categoryBag = [];
+    recentIdsByType.clear();
   }
 
   return Object.freeze({
@@ -401,7 +468,16 @@ export function createMemoryPool({
     selectEcho,
     resetSelection,
     get selectionState() {
-      return Object.freeze({ lastSelectedId, audioCooldownRemaining });
+      return Object.freeze({
+        lastSelectedId,
+        lastSelectedType,
+        categoryBag: Object.freeze([...categoryBag]),
+        recentIdsByType: Object.freeze(
+          Object.fromEntries(
+            [...recentIdsByType].map(([type, ids]) => [type, [...ids]]),
+          ),
+        ),
+      });
     },
   });
 }
