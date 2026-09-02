@@ -120,11 +120,13 @@ function appendImageCardContent(card, viewModel, documentRef) {
     figure.classList.add("is-missing");
   }
 
-  const caption = documentRef.createElement("p");
-  caption.className = "memory-echo-caption";
-  caption.textContent = viewModel.caption;
-
-  card.append(figure, caption);
+  card.append(figure);
+  if (viewModel.caption) {
+    const caption = documentRef.createElement("p");
+    caption.className = "memory-echo-caption";
+    caption.textContent = viewModel.caption;
+    card.append(caption);
+  }
 }
 
 function appendMetadata(card, viewModel, documentRef) {

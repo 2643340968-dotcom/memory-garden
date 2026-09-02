@@ -1,10 +1,5 @@
 import * as THREE from "three";
-import {
-  AUDIO_CONFIG,
-  getBloomSfxParameters,
-  getBGMTargetVolume,
-  shouldTriggerBloomSfx,
-} from "./AudioConfig.js";
+import { AUDIO_CONFIG, getBGMTargetVolume } from "./AudioConfig.js";
 
 const delay = (durationMilliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, durationMilliseconds));
@@ -14,13 +9,11 @@ export class AudioManager {
     camera,
     {
       config = AUDIO_CONFIG,
-      random = Math.random,
       toggleButton = document.querySelector("#audio-toggle"),
     } = {},
   ) {
     this.camera = camera;
     this.config = config;
-    this.random = random;
     this.toggleButton = toggleButton;
     this.toggleLabel = toggleButton?.querySelector("#audio-toggle-label") ?? null;
     this.listener = new THREE.AudioListener();
@@ -36,16 +29,11 @@ export class AudioManager {
     this.bgmLoadToken = 0;
     this.voiceRequestId = 0;
     this.currentVoice = null;
-    this.noiseBuffer = null;
-    this.lastBloomSfxAt = Number.NEGATIVE_INFINITY;
-    this.lastMemorySfxAt = Number.NEGATIVE_INFINITY;
     this.bgmStartCount = 0;
     this.voiceStartCount = 0;
     this.voiceReplacementCount = 0;
     this.lastVoiceEndReason = null;
     this.lastVoiceElapsedMs = 0;
-    this.bloomSfxCount = 0;
-    this.memorySfxCount = 0;
     this.loadErrorCount = 0;
 
     this.handleToggle = this.handleToggle.bind(this);
@@ -90,8 +78,6 @@ export class AudioManager {
       currentVoiceDurationMs: this.currentVoice?.durationMs ?? 0,
       lastVoiceEndReason: this.lastVoiceEndReason,
       lastVoiceElapsedMs: this.lastVoiceElapsedMs,
-      bloomSfxCount: this.bloomSfxCount,
-      memorySfxCount: this.memorySfxCount,
       loadedBufferCount: this.bufferCache.size,
       loadErrorCount: this.loadErrorCount,
     });
@@ -370,166 +356,6 @@ export class AudioManager {
   resetArchiveAudio() {
     this.voiceRequestId += 1;
     return this.stopCurrentVoice("reset", true);
-  }
-
-  getNoiseBuffer() {
-    if (this.noiseBuffer) {
-      return this.noiseBuffer;
-    }
-    const frameCount = Math.ceil(
-      this.context.sampleRate * (this.config.BLOOM_SFX_MAX_DURATION + 0.04),
-    );
-    const buffer = this.context.createBuffer(1, frameCount, this.context.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let index = 0; index < frameCount; index += 1) {
-      data[index] = Math.random() * 2 - 1;
-    }
-    this.noiseBuffer = buffer;
-    return buffer;
-  }
-
-  playBloomSfx(nowMilliseconds = performance.now()) {
-    if (!this.unlocked || this.muted || this.pageHidden) {
-      return false;
-    }
-    if (
-      !shouldTriggerBloomSfx(
-        nowMilliseconds,
-        this.lastBloomSfxAt,
-        this.random(),
-        this.config,
-      )
-    ) {
-      return false;
-    }
-
-    const parameters = getBloomSfxParameters(this.random, this.config);
-    const now = this.context.currentTime;
-    const end = now + parameters.durationSeconds;
-    const airSource = this.context.createBufferSource();
-    const airHighpass = this.context.createBiquadFilter();
-    const airLowpass = this.context.createBiquadFilter();
-    const airGain = this.context.createGain();
-    const tone = this.context.createOscillator();
-    const toneGain = this.context.createGain();
-    const overtone = this.context.createOscillator();
-    const overtoneGain = this.context.createGain();
-
-    airSource.buffer = this.getNoiseBuffer();
-    airSource.playbackRate.value = 0.96 + this.random() * 0.08;
-    airHighpass.type = "highpass";
-    airHighpass.frequency.setValueAtTime(
-      parameters.airHighpassFrequencyHz,
-      now,
-    );
-    airHighpass.Q.value = 0.42;
-    airLowpass.type = "lowpass";
-    airLowpass.frequency.setValueAtTime(parameters.airFrequencyHz * 1.7, now);
-    airLowpass.Q.value = 0.34;
-
-    const airPeak = parameters.volume * parameters.airMix * 0.72;
-    airGain.gain.setValueAtTime(0, now);
-    airGain.gain.linearRampToValueAtTime(
-      airPeak,
-      now + parameters.attackSeconds * 1.35,
-    );
-    airGain.gain.exponentialRampToValueAtTime(0.000001, end);
-
-    tone.type = "sine";
-    tone.frequency.setValueAtTime(parameters.toneFrequencyHz, now);
-    tone.frequency.exponentialRampToValueAtTime(
-      parameters.toneFrequencyHz * 0.975,
-      end,
-    );
-    const tonePeak = parameters.volume * parameters.toneMix;
-    toneGain.gain.setValueAtTime(0, now);
-    toneGain.gain.linearRampToValueAtTime(
-      tonePeak,
-      now + parameters.attackSeconds,
-    );
-    toneGain.gain.exponentialRampToValueAtTime(
-      0.000001,
-      now + parameters.durationSeconds * 0.78,
-    );
-
-    overtone.type = "sine";
-    overtone.frequency.setValueAtTime(parameters.overtoneFrequencyHz, now);
-    overtone.frequency.exponentialRampToValueAtTime(
-      parameters.overtoneFrequencyHz * 0.985,
-      end,
-    );
-    overtoneGain.gain.setValueAtTime(0, now);
-    overtoneGain.gain.linearRampToValueAtTime(
-      tonePeak * parameters.overtoneLevel,
-      now + parameters.attackSeconds * 1.8,
-    );
-    overtoneGain.gain.exponentialRampToValueAtTime(0.000001, end);
-
-    airSource.connect(airHighpass);
-    airHighpass.connect(airLowpass);
-    airLowpass.connect(airGain);
-    airGain.connect(this.listener.getInput());
-    tone.connect(toneGain);
-    toneGain.connect(this.listener.getInput());
-    overtone.connect(overtoneGain);
-    overtoneGain.connect(this.listener.getInput());
-
-    airSource.start(now);
-    tone.start(now);
-    overtone.start(now + parameters.attackSeconds * 0.45);
-    airSource.stop(end);
-    tone.stop(end);
-    overtone.stop(end);
-    overtone.onended = () => {
-      airSource.disconnect();
-      airHighpass.disconnect();
-      airLowpass.disconnect();
-      airGain.disconnect();
-      tone.disconnect();
-      toneGain.disconnect();
-      overtone.disconnect();
-      overtoneGain.disconnect();
-    };
-    this.lastBloomSfxAt = nowMilliseconds;
-    this.bloomSfxCount += 1;
-    return true;
-  }
-
-  playMemorySfx(nowMilliseconds = performance.now()) {
-    if (
-      !this.unlocked ||
-      this.muted ||
-      this.pageHidden ||
-      nowMilliseconds - this.lastMemorySfxAt < this.config.MEMORY_SFX_COOLDOWN
-    ) {
-      return false;
-    }
-
-    const now = this.context.currentTime;
-    const oscillator = this.context.createOscillator();
-    const filter = this.context.createBiquadFilter();
-    const gain = this.context.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(390, now);
-    oscillator.frequency.exponentialRampToValueAtTime(330, now + 0.24);
-    filter.type = "lowpass";
-    filter.frequency.value = 900;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(this.config.MEMORY_SFX_VOLUME, now + 0.035);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
-    oscillator.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.listener.getInput());
-    oscillator.start(now);
-    oscillator.stop(now + 0.28);
-    oscillator.onended = () => {
-      oscillator.disconnect();
-      filter.disconnect();
-      gain.disconnect();
-    };
-    this.lastMemorySfxAt = nowMilliseconds;
-    this.memorySfxCount += 1;
-    return true;
   }
 
   handleToggle() {

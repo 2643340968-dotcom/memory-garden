@@ -239,8 +239,6 @@ export class MemoryExperience {
       return;
     }
 
-    this.app.audioManager?.playBloomSfx();
-
     if (bloomEvent.memoryId === this.firstBloomMemoryId) {
       const memory = this.memoryPool.getById(bloomEvent.memoryId);
       this.queueMemoryCard(memory, bloomEvent.anchorPosition, "YOUR MEMORY");
@@ -447,7 +445,6 @@ export class MemoryExperience {
       { horizontalBias: entry.horizontalBias },
     );
     window.requestAnimationFrame(() => card.classList.add("is-visible"));
-    this.app.audioManager?.playMemorySfx();
     this.scheduleCardDismiss(
       entry,
       MEMORY_UI_CONFIG.MEMORY_CARD_VISIBLE_DURATION,

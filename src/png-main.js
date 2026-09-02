@@ -43,8 +43,6 @@ mountFlowerField({
     );
     dataset.lastVoiceEndReason = diagnostics.lastVoiceEndReason ?? "";
     dataset.lastVoiceElapsed = String(Math.round(diagnostics.lastVoiceElapsedMs));
-    dataset.bloomSfxCount = String(diagnostics.bloomSfxCount);
-    dataset.memorySfxCount = String(diagnostics.memorySfxCount);
     dataset.audioBufferCount = String(diagnostics.loadedBufferCount);
     dataset.audioLoadErrorCount = String(diagnostics.loadErrorCount);
   });

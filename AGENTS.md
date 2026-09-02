@@ -99,9 +99,9 @@ BloomEvent subscription
 
 First memory submission
   → AudioManager unlock
-  → optional looping BGM bus (currently unconfigured)
+  → looping BGM bus
   → one reusable archive-voice channel
-  → restrained bloom / card cues
+  → BGM duck / restore during archive voice
 ```
 
 Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific renderer and scene configuration are supplied by the entry modules, so the pages have independent runtime state.
@@ -113,12 +113,12 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 - `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, audio manager and memory experience mount, plus canvas audio diagnostics.
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
-- `src/audio/AudioConfig.js`: centralized BGM, ducking, voice, card-lifetime, cue probability/cooldown, master fade, and visibility fade tuning. `BGM_URL` is intentionally `null` until a suitable track is supplied.
-- `src/audio/AudioManager.js`: PNG-only Web Audio owner. Attaches one `AudioListener` to the camera, caches `AudioLoader` buffers, owns one looping BGM channel and one reusable voice channel, schedules gain fades/ducking, generates restrained cues, handles mute/visibility, and exposes diagnostics.
+- `src/audio/AudioConfig.js`: centralized BGM, ducking, voice, card-lifetime, master fade, and visibility fade tuning. `BGM_URL` points to the document-relative deployed copy of `bgm/bgm.mp3`.
+- `src/audio/AudioManager.js`: PNG-only Web Audio owner. Attaches one `AudioListener` to the camera, caches `AudioLoader` buffers, owns one looping BGM channel and one reusable voice channel, schedules gain fades/ducking, handles mute/visibility, and exposes diagnostics. It does not generate bloom, growth, or card cues.
 - `src/memory/MemoryExperience.js`: centered entry flow, gesture sessions, memory triggers, automatic first bloom, upper-band card projection, collision avoidance, transient memory-fragment trigger, per-selected-record image/audio warmup, optional voice playback/lifetime coordination, viewport clamping, reset cleanup.
 - `src/memory/MemoryCardRenderer.js`: type-aware DOM renderer and pure view-model builder for compact text, archival-image, the smaller independent archive-voice indicator, verified pairs, concise source metadata, duration display, and graceful missing-image/audio states.
 - `src/memory/MemoryAssetPreloader.js`: small non-blocking image cache. It warms at most two prototype images during idle time and preloads only the selected memory image before presentation.
-- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, rare-audio probability, two-non-audio-event cooldown, generic silent prototypes, and in-memory `sessionMemories`. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. Do not present prototype text as real survivor testimony or a historical quotation, and do not claim unverified recording provenance.
+- `src/data/memoryPool.js`: four-mode archive schema (`TEXT_MEMORY`, `IMAGE_ARCHIVE`, `AUDIO_ARCHIVE`, `PAIRED_MEMORY`) with explicit `independent | verified-pair` relationships, internal `verified`/`isPrototype` safety flags, rare-audio probability, two-non-audio-event cooldown, 21 independent supplied image records, 10 independent supplied audio records, generic silent text prototypes, and in-memory `sessionMemories`. Independent image/audio/text records cannot contain each other's media; only a verified pair may combine them. The supplied media records intentionally omit unverified captions, speakers, dates, locations, and sources.
 - `src/flowers/BloomEvent.js`: BloomEvent descriptor, including optional `memoryId`.
 - `src/flowers/BloomPatchConfig.js`: centralized attention, lifetime, decay, particle, and glow tuning.
 - `src/flowers/BloomPatchSystem.js`: reusable patch entities and `growing → alive → decaying → dead` lifecycle.
@@ -151,13 +151,10 @@ Required runtime assets are inside the repository:
   - `public/assets/flowers/png/zijincao_04.png`
   - `public/assets/flowers/png/zijincao_05.png`
 - Preserved GLB: `public/assets/flowers/zijincao.glb`
-- Temporary image-memory placeholders:
-  - `public/assets/memories/archive-placeholder-01.svg`
-  - `public/assets/memories/archive-placeholder-02.svg`
-- Verified memory intake structure:
-  - `public/assets/memories/images/`
-  - `public/assets/memories/audio/`
-  - `public/assets/memories/bgm/`
+- Memory runtime assets:
+  - `public/assets/memories/images/nanjing-memory-283.jpg` through `nanjing-memory-303.jpg`
+  - `public/assets/memories/audio/archive-voice-01.mp3` through `archive-voice-10.mp3`
+  - `public/assets/memories/bgm/bgm.mp3`
   - `public/assets/memories/README.md` documents independent asset intake, explicit verified pairing, provenance, and safety requirements.
 - Additional source/reference assets: `图片素材/`, `音频素材/`, and `模型/`.
 - Historical snapshot: `版本存档/原版-花田-20000容量-2026-08-30.zip`.
@@ -226,13 +223,13 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 ### Audio: `src/audio/AudioConfig.js`
 
 - Initial page state is silent. Audio unlock occurs only inside the first valid memory-form submission gesture.
-- No BGM is currently configured: `BGM_URL = null`, so the project performs no missing-track request. When supplied later, the BGM channel is looping and uses `0.18` normal volume, `0.06` ducked volume, a `5s` fade-in, and a `1.4s` fade-out.
+- BGM uses `./assets/memories/bgm/bgm.mp3`; the looping channel uses `0.18` normal volume, `0.06` ducked volume, a `5s` fade-in, and a `1.4s` fade-out.
 - One reusable voice channel uses volume `0.72`, a `480ms` start delay, a `180ms` fade-in, and a `280ms` replacement fade. Only one archive voice can play at once.
 - Voice cards remain through the decoded clip duration plus a `900ms` tail, with a `24s` maximum card lifetime.
-- Bloom cues are procedural high-passed air plus a faint `1450–1850Hz` sine resonance and a `14%` overtone. They use volume `0.006`, last `220–380ms`, have a `1050ms` cooldown, and a `0.28` probability. Memory-card cues use volume `0.012` and a `360ms` cooldown.
+- Flower growth and Memory Echo appearance are acoustically silent. No prerecorded or procedural bloom/growth/card cue system remains.
 - The sound toggle ramps the listener master gain instead of destroying playback state. Page visibility also fades the master gain down/up.
 - Audio transitions use Web Audio `AudioParam` gain automation, not `AnimationMixer`; visual animation timing remains unchanged.
-- The runtime database currently has zero audio-bearing memories, and no voice or BGM asset is requested. `AudioManager` remains ready for later verified records.
+- The runtime database contains 10 independent audio-bearing records and 21 independent image records. Their public cards intentionally omit metadata that has not been independently verified.
 
 ### BloomPatch lifecycle and flower-body particles: `src/flowers/BloomPatchConfig.js`
 
@@ -283,8 +280,7 @@ After every completed modification round, commit the verified changes, push `mai
 ## KNOWN LIMITATIONS
 
 - Submitted memories are page-local only; reload clears them. There is no backend, database, login, or moderation layer.
-- Image-memory entries currently use two clearly marked local placeholders, not final historical photographs. Verified source assets and attribution are a later content step.
-- No historical voice file is currently published or bound to a runtime memory. Future audio must be supplied and verified by the content owner before it is copied into `public/assets/memories/audio/`.
+- The supplied image and audio assets are integrated as independent records without invented captions, attribution, or pairing. Verified source metadata and public-use attribution remain a later content step.
 - A suitable BGM has not yet been supplied, so the BGM architecture is present but intentionally silent.
 - MediaPipe/HandInput is not implemented yet.
 - There is no real volumetric light or DOF. The PNG entry uses restrained high-threshold screen-space bloom; the patch aura comes from the combined HDR flower-center contributors, with no separate large circular glow sprite.

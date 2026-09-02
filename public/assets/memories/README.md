@@ -1,10 +1,12 @@
 # Memory asset intake
 
-Only place content here after its provenance and public-use permission have been checked.
+This folder contains deploy-safe derivatives or copies of media supplied by the project owner. Provenance and public-use permission still need to be recorded separately before the material is treated as verified archive content.
 
-- `images/`: independent verified photographs or archival images.
-- `audio/`: independent verified historical voice/audio excerpts.
-- `bgm/`: an approved ambient bed. Configure its document-relative URL in `src/audio/AudioConfig.js`.
+- `images/`: 21 optimized independent image derivatives (`nanjing-memory-283.jpg` through `nanjing-memory-303.jpg`).
+- `audio/`: 10 independent audio copies (`archive-voice-01.mp3` through `archive-voice-10.mp3`).
+- `bgm/`: the separate ambient bed at `bgm.mp3`, configured with a document-relative URL in `src/audio/AudioConfig.js`.
+
+The runtime records for the supplied image and audio sets use `verified: false`, `isPrototype: false`, and `relationship: "independent"`. Their captions, dates, locations, speakers, and sources remain empty until verified metadata is supplied. Neutral sequence labels are identifiers only; they do not imply a relationship between files.
 
 Images, audio, and text are independent by default. Similar filenames, dates, subjects, or locations do not create a relationship. Never combine them in one card unless the relationship itself has been verified.
 

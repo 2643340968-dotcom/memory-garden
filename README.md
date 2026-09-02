@@ -77,9 +77,9 @@ pnpm run dev
   → 卡片淡出；Reset 不重开入口
 ```
 
-Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构支持 `text` 和 `image` 两种记忆，并可附加 `audio`、`audioId`、`audioType`、`audioCaption`：文字卡保持轻量，图片卡包含一张图、短说明和可选的日期/地点/来源行，音频卡只增加克制的播放状态行。当前两张图片是明确标注的本地占位资源，并非真实史料。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
+Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构分别支持文字、独立图片档案和独立声音档案：文字卡保持轻量，图片卡只显示已提供的真实图片与已核实的可选元数据，声音卡使用克制的独立播放指示。当前接入 `21` 张用户提供的南京记忆图片与 `10` 条用户提供的档案声音；因为尚未提供完整可核实元数据，公开卡片不添加人物、时间、地点、说明或来源。卡片保留 BloomEvent 世界坐标投影产生的水平关系，但顶部约束从视口高度 `20%` 开始，最迟结束在 `42%`，同时卡片底部不超过约 `58%`；之后再尝试四个候选位置并进行简单重叠检测。它们始终使用 `pointer-events: none`。
 
-页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。当前没有合适 BGM，因此 `BGM_URL` 有意保持为空，不会请求缺失资源；BGM 循环、淡入淡出和语音 ducking 接口已经保留。当前运行时数据库不包含历史语音，未核实 MP3 不进入公开页面。历史图片、历史声音与文字记忆现在默认是彼此独立的档案片段，各自保留来源；只有显式声明为 `PAIRED_MEMORY`、标记 `relationship: "verified-pair"` 且 `verified: true` 的素材才会出现在同一张卡中。
+页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。`bgm/bgm.mp3` 的部署副本作为独立环境底层循环播放；档案声音出现时 BGM 自动 duck，结束后恢复。同一时间只有一条档案声音。花朵生长和记忆卡出现均不播放提示音，所有程序化 cue 已移除。历史图片、历史声音与文字记忆默认是彼此独立的档案片段；只有显式声明为 `PAIRED_MEMORY`、标记 `relationship: "verified-pair"` 且 `verified: true` 的素材才会出现在同一张卡中。
 
 ## 核心数据流
 
@@ -108,9 +108,9 @@ BloomEvent
 
 First memory submission
   → AudioManager unlock
-  → optional BGM bus (currently unconfigured)
+  → looping BGM bus
   → one reusable archive-voice channel
-  → restrained bloom / card cues
+  → BGM duck / restore during archive voice
 ```
 
 输入层与花朵系统解耦。未来的 `HandInput` 应与 `MouseInput` 一样，只更新 `PointerController`；鼠标模式需要继续作为摄像头不可用时的 fallback。
@@ -163,12 +163,10 @@ public/assets/flowers/
   zijincao.glb
   png/zijincao_01.png … zijincao_05.png
 public/assets/memories/
-  archive-placeholder-01.svg
-  archive-placeholder-02.svg
   README.md
-  images/
-  audio/
-  bgm/
+  images/nanjing-memory-283.jpg … nanjing-memory-303.jpg
+  audio/archive-voice-01.mp3 … archive-voice-10.mp3
+  bgm/bgm.mp3
 ```
 
 ## 关键配置
@@ -176,7 +174,7 @@ public/assets/memories/
 - 全局容量：`src/config.js` → `MAX_FLOWERS = 20000`
 - PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
 - 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
-- 音频混音、淡入淡出、ducking、语音卡片时长和提示音冷却：`src/audio/AudioConfig.js` → `AUDIO_CONFIG`
+- 音频混音、淡入淡出、ducking 与语音卡片时长：`src/audio/AudioConfig.js` → `AUDIO_CONFIG`
 - 花簇注意力、消散和粒子：`src/flowers/BloomPatchConfig.js` → `BLOOM_PATCH_CONFIG`
 - 事件驱动花形碎片：`src/effects/AirborneFlowerSystem.js` → `AIRBORNE_FLOWER_CONFIG`
 - Vite 多入口：`vite.config.js`
@@ -194,12 +192,12 @@ public/assets/memories/
 当前声音节奏：
 
 - 初始页不自动播放；第一次有效提交后状态从 `SOUND · WAITING` 变为 `SOUND ON`
-- 当前没有 BGM 文件；未来 BGM 正常音量 `0.18`、语音期间 duck 到 `0.06`、淡入 `5s`、淡出 `1.4s`
+- BGM 使用 `public/assets/memories/bgm/bgm.mp3`；正常音量 `0.18`、语音期间 duck 到 `0.06`、淡入 `5s`、淡出 `1.4s`
 - 语音音量 `0.72`，开始延迟 `480ms`，替换淡出 `280ms`，同一时间只保留一段
 - 语音卡停留至音频结束后 `900ms`，最长 `24s`
 - 独立档案声音和含声音的 verified pair 选择概率门槛为 `12%`；播放一条后至少经过 `2` 条非音频 memory 才能再次选择声音
 - 不在启动时批量加载音频；仅对已经选中的 memory 进行轻量预载。图片在浏览器空闲时最多预热 `2` 张，并在卡片排队时预载对应图片
-- 开花提示音改为 `220–380ms` 的轻量程序化声音：高通空气噪声叠加 `1450–1850Hz` 微弱玻璃质感正弦与极轻泛音；音量 `0.006`、冷却 `1050ms`、触发概率 `28%`。记忆卡提示音冷却 `360ms`
+- 花朵生长与记忆卡出现保持静音；没有预录或程序化提示音，声音仅来自 BGM 与偶发独立档案声音
 - 页面左上角按钮控制全局声音；切页隐藏和恢复会渐变主音量，不直接破坏播放状态
 
 正式 multimedia memory 数据位于 `src/data/memoryPool.js`，字段包括：

@@ -203,7 +203,7 @@ export function createMemoryItem({
   });
 }
 
-const PROTOTYPE_MEMORIES = Object.freeze([
+const TEXT_PROTOTYPE_MEMORIES = Object.freeze([
   createMemoryItem({
     id: "prototype-rain",
     kind: MEMORY_KINDS.TEXT_MEMORY,
@@ -228,22 +228,79 @@ const PROTOTYPE_MEMORIES = Object.freeze([
     text: "那天没有说很多话，只记得离开前又回头看了一次。",
     isQuote: true,
   }),
-  createMemoryItem({
-    id: "prototype-archive-jiangdongmen",
-    kind: MEMORY_KINDS.IMAGE_ARCHIVE,
-    image: "./assets/memories/archive-placeholder-01.svg",
-    caption: "江东门影像档案 · 待补充",
-    location: "南京 · 江东门",
-    source: "ARCHIVE PLACEHOLDER",
-  }),
-  createMemoryItem({
-    id: "prototype-archive-memorial",
-    kind: MEMORY_KINDS.IMAGE_ARCHIVE,
-    image: "./assets/memories/archive-placeholder-02.svg",
-    caption: "纪念空间影像档案 · 待补充",
-    location: "南京",
-    source: "ARCHIVE PLACEHOLDER",
-  }),
+]);
+
+const IMAGE_ARCHIVE_SEQUENCE = Object.freeze([
+  "283",
+  "284",
+  "285",
+  "286",
+  "287",
+  "288",
+  "289",
+  "290",
+  "291",
+  "292",
+  "293",
+  "294",
+  "295",
+  "296",
+  "297",
+  "298",
+  "299",
+  "300",
+  "301",
+  "302",
+  "303",
+]);
+
+export const IMAGE_ARCHIVE_MEMORIES = Object.freeze(
+  IMAGE_ARCHIVE_SEQUENCE.map((sequence, index) =>
+    createMemoryItem({
+      id: `nanjing-memory-image-${sequence}`,
+      kind: MEMORY_KINDS.IMAGE_ARCHIVE,
+      label: `ARCHIVE IMAGE · ${String(index + 1).padStart(2, "0")}`,
+      image: `./assets/memories/images/nanjing-memory-${sequence}.jpg`,
+      verified: false,
+      isPrototype: false,
+      relationship: MEMORY_RELATIONSHIPS.INDEPENDENT,
+    }),
+  ),
+);
+
+const AUDIO_ARCHIVE_SEQUENCE = Object.freeze([
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07",
+  "08",
+  "09",
+  "10",
+]);
+
+export const AUDIO_ARCHIVE_MEMORIES = Object.freeze(
+  AUDIO_ARCHIVE_SEQUENCE.map((sequence) =>
+    createMemoryItem({
+      id: `archive-voice-${sequence}`,
+      kind: MEMORY_KINDS.AUDIO_ARCHIVE,
+      label: "ARCHIVE VOICE",
+      audio: `./assets/memories/audio/archive-voice-${sequence}.mp3`,
+      audioId: `archive-voice-${sequence}`,
+      audioType: "audio/mpeg",
+      verified: false,
+      isPrototype: false,
+      relationship: MEMORY_RELATIONSHIPS.INDEPENDENT,
+    }),
+  ),
+);
+
+const PROTOTYPE_MEMORIES = Object.freeze([
+  ...TEXT_PROTOTYPE_MEMORIES,
+  ...IMAGE_ARCHIVE_MEMORIES,
+  ...AUDIO_ARCHIVE_MEMORIES,
 ]);
 
 function clampRandom(random) {

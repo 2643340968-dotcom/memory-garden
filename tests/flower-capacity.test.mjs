@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import * as THREE from "three";
 
@@ -19,6 +19,8 @@ import { createLights } from "../src/scene/createLights.js";
 import {
   createMemoryItem,
   createMemoryPool,
+  AUDIO_ARCHIVE_MEMORIES,
+  IMAGE_ARCHIVE_MEMORIES,
   isAudioPresentation,
   MEMORY_ITEM_SCHEMA_FIELDS,
   MEMORY_KINDS,
@@ -49,10 +51,8 @@ import {
 } from "../src/effects/AirborneFlowerSystem.js";
 import {
   AUDIO_CONFIG,
-  getBloomSfxParameters,
   getBGMTargetVolume,
   getVoiceCardVisibleDuration,
-  shouldTriggerBloomSfx,
 } from "../src/audio/AudioConfig.js";
 
 const VIEWPORT_WIDTH = 1280;
@@ -935,7 +935,7 @@ test("memory schema keeps independent archives separate and permits verified pai
   );
   assert.deepEqual(
     [...prototypeTypes].sort(),
-    [MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
+    [MEMORY_TYPES.AUDIO, MEMORY_TYPES.IMAGE, MEMORY_TYPES.TEXT].sort(),
   );
   assert.deepEqual(MEMORY_ITEM_SCHEMA_FIELDS, [
     "id",
@@ -969,13 +969,13 @@ test("memory schema keeps independent archives separate and permits verified pai
     "MEMORY · 007",
   );
   assert.equal(imageViewModel.type, MEMORY_TYPES.IMAGE);
-  assert.match(imageViewModel.image, /archive-placeholder-\d+\.svg$/);
-  assert.match(imageViewModel.caption, /待补充/);
-  assert.match(imageViewModel.metadata, /南京/);
-  assert.equal(imageViewModel.sourceLabel, "SOURCE · ARCHIVE PLACEHOLDER");
+  assert.match(imageViewModel.image, /nanjing-memory-\d+\.jpg$/);
+  assert.equal(imageViewModel.caption, "");
+  assert.equal(imageViewModel.metadata, "");
+  assert.equal(imageViewModel.sourceLabel, "");
   assert.equal(imageViewModel.label, "MEMORY · 007");
   assert.equal(imageViewModel.verified, false);
-  assert.equal(imageViewModel.isPrototype, true);
+  assert.equal(imageViewModel.isPrototype, false);
   assert.equal(imageViewModel.kind, MEMORY_KINDS.IMAGE_ARCHIVE);
   assert.equal(
     imageViewModel.relationship,
@@ -994,10 +994,38 @@ test("memory schema keeps independent archives separate and permits verified pai
     MEMORY_RELATIONSHIPS.INDEPENDENT,
   );
 
-  memoryPool.prototypeMemories.forEach((memory) => {
+  assert.equal(IMAGE_ARCHIVE_MEMORIES.length, 21);
+  assert.equal(AUDIO_ARCHIVE_MEMORIES.length, 10);
+  IMAGE_ARCHIVE_MEMORIES.forEach((memory) => {
+    assert.equal(memory.kind, MEMORY_KINDS.IMAGE_ARCHIVE);
+    assert.equal(memory.relationship, MEMORY_RELATIONSHIPS.INDEPENDENT);
     assert.equal(memory.audio, null);
+    assert.equal(memory.caption, null);
+    assert.equal(memory.source, null);
     assert.equal(memory.verified, false);
-    assert.equal(memory.isPrototype, true);
+    assert.equal(memory.isPrototype, false);
+    assert.equal(
+      existsSync(
+        new URL(`../public/${memory.image.replace("./", "")}`, import.meta.url),
+      ),
+      true,
+    );
+  });
+  AUDIO_ARCHIVE_MEMORIES.forEach((memory) => {
+    assert.equal(memory.kind, MEMORY_KINDS.AUDIO_ARCHIVE);
+    assert.equal(memory.relationship, MEMORY_RELATIONSHIPS.INDEPENDENT);
+    assert.equal(memory.image, null);
+    assert.equal(memory.text, null);
+    assert.equal(memory.audioCaption, null);
+    assert.equal(memory.audioSource, null);
+    assert.equal(memory.verified, false);
+    assert.equal(memory.isPrototype, false);
+    assert.equal(
+      existsSync(
+        new URL(`../public/${memory.audio.replace("./", "")}`, import.meta.url),
+      ),
+      true,
+    );
   });
 
   const independentAudio = createMemoryItem({
@@ -1229,28 +1257,34 @@ test("memory images warm lazily without blocking or duplicate loads", async () =
 });
 
 test("audio configuration centralizes restrained mixing and card timing", () => {
-  assert.equal(AUDIO_CONFIG.BGM_URL, null);
+  assert.equal(AUDIO_CONFIG.BGM_URL, "./assets/memories/bgm/bgm.mp3");
+  assert.equal(
+    existsSync(
+      new URL("../public/assets/memories/bgm/bgm.mp3", import.meta.url),
+    ),
+    true,
+  );
   assert.equal(AUDIO_CONFIG.BGM_VOLUME, 0.18);
   assert.equal(AUDIO_CONFIG.BGM_DUCK_VOLUME, 0.06);
   assert.equal(getBGMTargetVolume(false), 0.18);
   assert.equal(getBGMTargetVolume(true), 0.06);
   assert.equal(getVoiceCardVisibleDuration(9000, 4200), 9900);
   assert.equal(getVoiceCardVisibleDuration(30000, 4200), 24000);
-  assert.equal(AUDIO_CONFIG.BLOOM_SFX_VOLUME, 0.006);
-  assert.equal(AUDIO_CONFIG.BLOOM_SFX_COOLDOWN, 1050);
-  assert.equal(AUDIO_CONFIG.BLOOM_SFX_PROBABILITY, 0.28);
-  assert.equal(shouldTriggerBloomSfx(1100, 0, 0.2), true);
-  assert.equal(shouldTriggerBloomSfx(1000, 0, 0.2), false);
-  assert.equal(shouldTriggerBloomSfx(1100, 0, 0.9), false);
-  const bloomSound = getBloomSfxParameters(() => 0.5);
-  assert.equal(bloomSound.durationSeconds, 0.3);
-  assert.equal(bloomSound.toneFrequencyHz, 1650);
-  assert.equal(bloomSound.airFrequencyHz, 3550);
-  assert.ok(bloomSound.durationSeconds >= 0.18);
-  assert.ok(bloomSound.durationSeconds <= 0.45);
-  assert.ok(bloomSound.toneFrequencyHz >= 1400);
-  assert.ok(bloomSound.airHighpassFrequencyHz >= 1400);
-  assert.ok(bloomSound.overtoneFrequencyHz > bloomSound.toneFrequencyHz);
+  assert.equal("BLOOM_SFX_VOLUME" in AUDIO_CONFIG, false);
+  assert.equal("BLOOM_SFX_COOLDOWN" in AUDIO_CONFIG, false);
+  assert.equal("BLOOM_SFX_PROBABILITY" in AUDIO_CONFIG, false);
+  assert.equal("MEMORY_SFX_VOLUME" in AUDIO_CONFIG, false);
+
+  const audioManagerSource = readFileSync(
+    new URL("../src/audio/AudioManager.js", import.meta.url),
+    "utf8",
+  );
+  const memoryExperienceSource = readFileSync(
+    new URL("../src/memory/MemoryExperience.js", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(audioManagerSource, /playBloomSfx|playMemorySfx|createOscillator/);
+  assert.doesNotMatch(memoryExperienceSource, /playBloomSfx|playMemorySfx/);
 });
 
 test("memory gesture rhythm keeps its public tuning limits centralized", () => {
