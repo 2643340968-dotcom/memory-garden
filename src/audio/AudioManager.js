@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { AUDIO_CONFIG, getBGMTargetVolume } from "./AudioConfig.js";
+import { t } from "../i18n/LanguageController.js";
 
 const delay = (durationMilliseconds) =>
   new Promise((resolve) => window.setTimeout(resolve, durationMilliseconds));
@@ -176,7 +177,7 @@ export class AudioManager {
     this.bgmSlider.style.setProperty("--bgm-level", `${sliderPercent}%`);
     this.bgmSlider.setAttribute(
       "aria-valuetext",
-      `Ambience ${sliderPercent}%`,
+      t("audio.ambienceValue", { percent: sliderPercent }),
     );
   }
 
@@ -243,10 +244,10 @@ export class AudioManager {
     const state = !this.unlocked ? "waiting" : this.muted ? "muted" : "active";
     const label =
       state === "waiting"
-        ? "SOUND OFF"
+        ? t("audio.soundOff")
         : state === "muted"
-          ? "SOUND OFF"
-          : "SOUND ON";
+          ? t("audio.soundOff")
+          : t("audio.soundOn");
     this.toggleButton.dataset.audioState = state;
     this.toggleButton.classList.toggle(
       "is-voice-playing",
@@ -255,6 +256,11 @@ export class AudioManager {
     this.toggleButton.disabled = !this.unlocked;
     this.toggleButton.setAttribute("aria-pressed", String(this.unlocked && !this.muted));
     this.toggleLabel.textContent = label;
+  }
+
+  refreshLanguage() {
+    this.updateBGMControl();
+    this.updateToggle();
   }
 
   async unlock() {

@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。页面上半幅使用英文标题“SITE OF MEMORY”，初始没有装饰粒子；只有花朵生长、记忆卡出现或花簇消散时，才会从对应花簇位置释放少量残缺花形碎片。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。公开界面使用 gaze 语义，但当前实际输入适配器仍然是鼠标。
+基于 Vite、Vanilla JavaScript 和 Three.js 的互动纪念花田原型。当前主版本把五种透明 PNG 紫金草作为轮廓、颜色与花心采样蓝图，由一个固定容量的 `THREE.Points` 池绘制所有可见花体；很弱的 InstancedMesh 花卡只保留根部与轮廓连续性。页面支持英文 `SITE OF MEMORY` 与中文 `记忆之场` 一键切换，初始没有装饰粒子；只有花朵生长、记忆卡出现或花簇消散时，才会从对应花簇位置释放少量残缺花形碎片。访客先留下记忆，再通过鼠标拖拽让粒子以不规则花簇的形式聚合、生长，最后从花瓣边缘重新碎裂并释放实例槽。公开界面使用 gaze 语义，但当前实际输入适配器仍然是鼠标。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -62,6 +62,7 @@ pnpm run dev
 
 ```text
 进入 /png.html
+  → 右上角可随时使用 中文 / EN 控件切换界面语言
   → 记忆输入弹窗；种植锁定
   → 提交文字；记忆保存在本页 sessionMemories，同时由这次访客手势解锁声音
   → 弹窗淡出
@@ -78,6 +79,8 @@ pnpm run dev
 ```
 
 Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构分别支持文字、独立图片档案和独立声音档案：文字卡保持轻量，图片卡只显示已提供的真实图片与已核实的可选元数据，声音卡使用克制的独立播放指示。当前接入 `21` 张用户提供的南京记忆图片与 `10` 条用户提供的档案声音；因为尚未提供完整可核实元数据，公开卡片不添加人物、时间、地点、说明或来源。文字/图片卡保留 BloomEvent 世界坐标投影关系，并分散在视口顶部约 `17%–64%` 的天空范围内；每次放置从 `128` 个低差异候选位置中进行碰撞评分，避让现有卡片、标题、状态和声音控件。桌面端同时最多 `6` 张视觉卡，窄屏会自适应降至 `4` 或 `2` 张；卡片始终使用 `pointer-events: none`。
+
+右上角语言按钮在入口弹窗显示期间也可以操作。首次访问默认英文；选择通过 `localStorage` 的 `memory-garden-language-v1` 保存，刷新后继续使用上次语言。标题、弹窗、状态、声音控件、HUD、辅助文本和当前可见的 Memory Echo 标签会同步切换。观众输入的留言、历史图片、声音与未核实档案信息始终保留原文，不做自动翻译；只有项目内四条明确标为原型的通用留言配置了人工中文对应文本。
 
 页面初始完全静音，只有第一次有效提交留言时才解锁 Web Audio。运行时使用单独的 `-25 LUFS` BGM 副本；档案声音出现时 BGM 按观众所选音量的 `72%` 轻度 duck，结束后恢复。同一时间只有一条档案声音。归档声音使用不覆盖原件的 `-23 LUFS / -3 dBTP` 标准化副本，运行时增益 `0.38`，以 `650ms` 渐入、`750ms` 渐出。最终混音经过保留余量的轻量 master limiter。花朵生长和记忆卡出现均不播放提示音，所有程序化 cue 已移除。
 
@@ -178,6 +181,7 @@ public/assets/memories/
 - 全局容量：`src/config.js` → `MAX_FLOWERS = 20000`
 - PNG 花朵与暗夜场景：`src/flowers/renderers/PNGFlowerConfig.js`
 - 记忆卡与单次拖拽节奏：`src/memory/MemoryExperience.js` → `MEMORY_UI_CONFIG`
+- 中英文文案、原型留言译文与语言持久化：`src/i18n/LanguageController.js`
 - 音频混音、淡入淡出、ducking 与语音卡片时长：`src/audio/AudioConfig.js` → `AUDIO_CONFIG`
 - 花簇注意力、消散和粒子：`src/flowers/BloomPatchConfig.js` → `BLOOM_PATCH_CONFIG`
 - 事件驱动花形碎片：`src/effects/AirborneFlowerSystem.js` → `AIRBORNE_FLOWER_CONFIG`
@@ -263,7 +267,7 @@ npm run build
 - 记忆手势配置上限
 - 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
-当前自动化套件共 `22` 项，并额外覆盖统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、视觉 `1:1` shuffle-bag、视觉/声音分离调度、TEXT 内部来源配比与近期重复保护、LUFS 报告、相对 ducking、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `22` 项，并额外覆盖中英文界面文案、原型留言译文与访客原文保护、统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、视觉 `1:1` shuffle-bag、视觉/声音分离调度、TEXT 内部来源配比与近期重复保护、LUFS 报告、相对 ducking、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

@@ -5,29 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
+      data-i18n-content="document.description"
       content="An interactive site where attention lets flowers and memories bloom."
     />
     <meta name="theme-color" content="#2b2335" />
     <link rel="icon" href="./assets/flowers/png/zijincao_01.png" />
-    <title>Site of Memory · Memory Blooms</title>
+    <title data-i18n="document.title">Site of Memory · Memory Blooms</title>
   </head>
   <body class="png-page">
-    <main id="app" aria-label="Site of Memory interactive garden">
-      <canvas id="scene" aria-label="Interactive Three.js memory field"></canvas>
+    <main
+      id="app"
+      data-i18n-aria-label="app.aria"
+      aria-label="Site of Memory interactive garden"
+    >
+      <canvas
+        id="scene"
+        data-i18n-aria-label="scene.aria"
+        aria-label="Interactive Three.js memory field"
+      ></canvas>
 
       <div class="interface" aria-live="polite">
         <header class="brand-block">
-          <p class="eyebrow">INTERACTIVE MEMORY GARDEN</p>
-          <h1>SITE OF MEMORY</h1>
-          <p class="subtitle">MEMORY BLOOMS</p>
+          <p class="eyebrow" data-i18n="brand.eyebrow">
+            INTERACTIVE MEMORY GARDEN
+          </p>
+          <h1 data-i18n="brand.title">SITE OF MEMORY</h1>
+          <p class="subtitle" data-i18n="brand.subtitle">MEMORY BLOOMS</p>
         </header>
 
-        <div class="system-status" aria-label="System status">
+        <div
+          class="system-status"
+          data-i18n-aria-label="status.aria"
+          aria-label="System status"
+        >
           <span class="status-dot" aria-hidden="true"></span>
           <span id="input-state">FLOWER ASSET · LOADING</span>
         </div>
 
-        <div class="audio-controls" aria-label="Sound controls">
+        <div
+          class="audio-controls"
+          data-i18n-aria-label="audio.controlsAria"
+          aria-label="Sound controls"
+        >
           <button
             id="audio-toggle"
             class="audio-toggle"
@@ -36,46 +55,65 @@
             disabled
           >
             <span class="audio-toggle-mark" aria-hidden="true"></span>
-            <span id="audio-toggle-label">SOUND OFF</span>
+            <span id="audio-toggle-label" data-i18n="audio.soundOff">
+              SOUND OFF
+            </span>
           </button>
           <label class="bgm-volume-control" for="bgm-volume">
-            <span>AMBIENCE</span>
+            <span data-i18n="audio.ambience">AMBIENCE</span>
             <input
               id="bgm-volume"
               type="range"
               min="0"
               max="100"
               step="1"
+              data-i18n-aria-label="audio.ambienceAria"
               aria-label="Ambience volume"
             />
           </label>
         </div>
 
         <section class="planting-guide">
-          <p class="guide-main">GAZE TO LET MEMORIES BLOOM</p>
+          <p class="guide-main" data-i18n="guide.main">
+            GAZE TO LET MEMORIES BLOOM
+          </p>
           <span class="guide-line" aria-hidden="true"></span>
         </section>
 
-        <aside class="field-meta" aria-label="Field data">
+        <aside
+          class="field-meta"
+          data-i18n-aria-label="field.aria"
+          aria-label="Field data"
+        >
           <div>
-            <span class="meta-label">MEMORIES</span>
+            <span class="meta-label" data-i18n="field.memories">MEMORIES</span>
             <strong id="flower-count">00000</strong>
           </div>
           <div>
-            <span class="meta-label">RENDER</span>
-            <strong>INSTANCED</strong>
+            <span class="meta-label" data-i18n="field.render">RENDER</span>
+            <strong data-i18n="field.renderMode">INSTANCED</strong>
           </div>
           <div>
-            <span class="meta-label">ASSET</span>
-            <strong id="asset-mode">LOADING</strong>
+            <span class="meta-label" data-i18n="field.asset">ASSET</span>
+            <strong id="asset-mode" data-i18n="field.assetLoading">LOADING</strong>
           </div>
         </aside>
 
         <button id="reset-button" class="reset-button" type="button">
           <span aria-hidden="true">↺</span>
-          RESET FIELD
+          <span data-i18n="field.reset">RESET FIELD</span>
         </button>
       </div>
+
+      <button
+        id="language-toggle"
+        class="language-toggle"
+        type="button"
+        data-i18n-aria-label="language.switchAria"
+        aria-label="Switch to Chinese"
+      >
+        <span data-i18n="language.switchLabel">中文</span>
+      </button>
 
       <div
         id="memory-card-layer"
@@ -92,31 +130,47 @@
         aria-labelledby="memory-entry-title"
       >
         <form id="memory-entry-form" class="memory-entry-panel">
-          <p class="memory-entry-index">MEMORY ARCHIVE · 001</p>
-          <h2 id="memory-entry-title">Leave a memory you wish to preserve</h2>
-          <p class="memory-entry-description">
-            A memory of the Nanjing Massacre, Jiangdongmen,<br />
-            or a moment that connects you to this place.
+          <p class="memory-entry-index" data-i18n="entry.index">
+            MEMORY ARCHIVE · 001
           </p>
-          <label class="sr-only" for="memory-text">Write your memory</label>
+          <h2 id="memory-entry-title" data-i18n="entry.title">
+            Leave a memory you wish to preserve
+          </h2>
+          <p class="memory-entry-description">
+            <span data-i18n="entry.descriptionLine1">
+              A memory of the Nanjing Massacre, Jiangdongmen,
+            </span>
+            <br />
+            <span data-i18n="entry.descriptionLine2">
+              or a moment that connects you to this place.
+            </span>
+          </p>
+          <label
+            class="sr-only"
+            for="memory-text"
+            data-i18n="entry.inputLabel"
+          >Write your memory</label>
           <textarea
             id="memory-text"
             name="memory"
             maxlength="180"
             rows="4"
             required
+            data-i18n-placeholder="entry.placeholder"
             placeholder="It can be a sentence, a place,&#10;a sound, or the moment you first encountered this history."
           ></textarea>
           <button id="memory-submit" class="memory-submit" type="submit" disabled>
-            <span>Leave this memory in the field</span>
+            <span data-i18n="entry.submit">Leave this memory in the field</span>
             <span aria-hidden="true">→</span>
           </button>
         </form>
       </section>
 
       <div id="fatal-error" class="fatal-error" role="alert" hidden>
-        <strong>THE FIELD COULD NOT OPEN</strong>
-        <span>Check that this browser supports WebGL, then refresh the page.</span>
+        <strong data-i18n="fatal.title">THE FIELD COULD NOT OPEN</strong>
+        <span data-i18n="fatal.description">
+          Check that this browser supports WebGL, then refresh the page.
+        </span>
       </div>
 
       <noscript>This interactive field requires JavaScript.</noscript>

@@ -7,6 +7,13 @@ import { createBloomPatchSystem } from "./flowers/BloomPatchSystem.js";
 import { createPNGBloomPipeline } from "./effects/PNGBloomPipeline.js";
 import { createAirborneFlowerSystem } from "./effects/AirborneFlowerSystem.js";
 import { AudioManager } from "./audio/AudioManager.js";
+import {
+  createLanguageController,
+  subscribeLanguage,
+  t,
+} from "./i18n/LanguageController.js";
+
+const languageController = createLanguageController().start();
 
 mountFlowerField({
   version: "png",
@@ -15,10 +22,14 @@ mountFlowerField({
   interactionEnabled: false,
   counterMode: "blooms",
   inputStatusLabels: {
-    waiting: "GAZE INPUT · WAITING",
-    ready: "GAZE INPUT · READY",
-    active: "GAZE INPUT · READY",
+    loading: () => t("status.flowerLoading"),
+    waiting: () => t("status.inputWaiting"),
+    ready: () => t("status.inputReady"),
+    active: () => t("status.inputActive"),
+    limit: () => t("status.flowerLimit"),
   },
+  assetModeFormatter: (_assetMode, { loading }) =>
+    t(loading ? "field.assetLoading" : "field.assetMode"),
   createPatchSystem: createBloomPatchSystem,
   createRenderPipeline: createPNGBloomPipeline,
   createAtmosphereSystem: createAirborneFlowerSystem,
@@ -65,4 +76,10 @@ mountFlowerField({
   });
   const memoryExperience = new MemoryExperience(app).start();
   app.memoryExperience = memoryExperience;
+  app.languageController = languageController;
+  app.unsubscribeLanguage = subscribeLanguage(() => {
+    app.refreshLocalizedInterface();
+    audioManager.refreshLanguage();
+    memoryExperience.refreshLanguage();
+  });
 });

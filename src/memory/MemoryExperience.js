@@ -11,8 +11,10 @@ import {
 import {
   createMemoryCardElement,
   updateMemoryCardAudioDuration,
+  updateMemoryCardLanguage,
 } from "./MemoryCardRenderer.js";
 import { MemoryImagePreloader } from "./MemoryAssetPreloader.js";
+import { getLanguage, translate } from "../i18n/LanguageController.js";
 
 export const MEMORY_UI_CONFIG = Object.freeze({
   MODAL_EXIT_DURATION: 850,
@@ -59,17 +61,21 @@ export const MEMORY_UI_CONFIG = Object.freeze({
   AUDIO_ECHO_REVEAL_DELAY: 180,
 });
 
-export function getMemoryEchoLabel(memory, bloomNumber) {
+export function getMemoryEchoLabel(
+  memory,
+  bloomNumber,
+  language = getLanguage(),
+) {
   if (memory?.kind === MEMORY_KINDS.AUDIO_ARCHIVE) {
-    return "ARCHIVE VOICE";
+    return translate("memory.archiveVoice", {}, language);
   }
   if (memory?.kind === MEMORY_KINDS.IMAGE_ARCHIVE) {
-    return `ARCHIVE IMAGE · ${bloomNumber}`;
+    return translate("memory.archiveImage", { number: bloomNumber }, language);
   }
   if (memory?.kind === MEMORY_KINDS.PAIRED_MEMORY) {
-    return `VERIFIED MEMORY · ${bloomNumber}`;
+    return translate("memory.verified", { number: bloomNumber }, language);
   }
-  return `MEMORY · ${bloomNumber}`;
+  return translate("memory.echo", { number: bloomNumber }, language);
 }
 
 const wait = (duration) =>
@@ -306,7 +312,11 @@ export class MemoryExperience {
 
     if (bloomEvent.memoryId === this.firstBloomMemoryId) {
       const memory = this.memoryPool.getById(bloomEvent.memoryId);
-      this.queueMemoryCard(memory, bloomEvent.anchorPosition, "YOUR MEMORY");
+      this.queueMemoryCard(
+        memory,
+        bloomEvent.anchorPosition,
+        () => translate("memory.your"),
+      );
       return;
     }
 
@@ -374,7 +384,7 @@ export class MemoryExperience {
     this.queueMemoryCard(
       memory,
       bloomEvent.anchorPosition,
-      getMemoryEchoLabel(memory, bloomNumber),
+      () => getMemoryEchoLabel(memory, bloomNumber),
       Math.max(0, revealTime - now),
     );
   }
@@ -432,7 +442,7 @@ export class MemoryExperience {
     this.queueMemoryCard(
       memory,
       bloomEvent.anchorPosition,
-      getMemoryEchoLabel(memory, bloomNumber),
+      () => getMemoryEchoLabel(memory, bloomNumber),
       Math.max(0, revealTime - performance.now()),
     );
   }
@@ -505,7 +515,7 @@ export class MemoryExperience {
   queueMemoryCard(
     memory,
     worldPosition,
-    displayLabel = memory?.label,
+    displayLabel = null,
     revealDelay = 0,
   ) {
     if (!memory) {
@@ -573,12 +583,16 @@ export class MemoryExperience {
       );
     }
 
-    const card = createMemoryCardElement(memory, displayLabel);
+    const resolveDisplayLabel = () =>
+      typeof displayLabel === "function" ? displayLabel(memory) : displayLabel;
+    const card = createMemoryCardElement(memory, resolveDisplayLabel());
     this.cardLayer.append(card);
 
     const entry = {
       element: card,
+      memory,
       memoryId: memory.id,
+      displayLabel,
       audioCard,
       worldPosition,
       hideTimer: null,
@@ -587,6 +601,7 @@ export class MemoryExperience {
       shownAt: performance.now(),
       voiceActive: false,
       audioAbortController: memory.audio ? new AbortController() : null,
+      audioDisplayDuration: 0,
       placementOffset: this.randomInteger(
         0,
         MEMORY_UI_CONFIG.MEMORY_CARD_PLACEMENT_CANDIDATES - 1,
@@ -689,9 +704,10 @@ export class MemoryExperience {
     entry.voiceActive = true;
     entry.element.classList.add("is-audio-playing");
     entry.element.dataset.audioDuration = String(Math.round(playback.durationMs));
+    entry.audioDisplayDuration = playback.mediaDurationMs ?? playback.durationMs;
     updateMemoryCardAudioDuration(
       entry.element,
-      playback.mediaDurationMs ?? playback.durationMs,
+      entry.audioDisplayDuration,
     );
     const visibleDurationFromPlayback = getVoiceCardVisibleDuration(
       playback.durationMs,
@@ -839,6 +855,7 @@ export class MemoryExperience {
       ".brand-block",
       ".system-status",
       ".audio-controls",
+      ".language-toggle",
     ]) {
       const reservedElement = document.querySelector(selector);
       if (reservedElement) {
@@ -940,5 +957,26 @@ export class MemoryExperience {
     window.requestAnimationFrame(() => {
       this.activeCards.forEach((entry) => this.positionCard(entry));
     });
+  }
+
+  refreshLanguage() {
+    this.activeCards.forEach((entry) => {
+      const displayLabel =
+        typeof entry.displayLabel === "function"
+          ? entry.displayLabel(entry.memory)
+          : entry.displayLabel;
+      updateMemoryCardLanguage(
+        entry.element,
+        entry.memory,
+        displayLabel,
+      );
+      if (entry.audioDisplayDuration > 0) {
+        updateMemoryCardAudioDuration(
+          entry.element,
+          entry.audioDisplayDuration,
+        );
+      }
+    });
+    this.onResize();
   }
 }

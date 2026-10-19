@@ -23,6 +23,7 @@ export async function createFlowerFieldApp({
   createRenderPipeline = null,
   createAtmosphereSystem = null,
   inputStatusLabels = null,
+  assetModeFormatter = null,
 }) {
   if (typeof createFlowerRenderer !== "function") {
     throw new TypeError("createFlowerFieldApp requires a flower renderer factory.");
@@ -56,8 +57,24 @@ export async function createFlowerFieldApp({
   const groundRaycaster = new GroundRaycaster(camera, CONFIG.GROUND_SIZE);
   const hitPoint = new THREE.Vector3();
 
-  inputState.textContent = "FLOWER ASSET · LOADING";
-  assetMode.textContent = "LOADING";
+  const inputStatus = {
+    loading: "FLOWER ASSET · LOADING",
+    waiting: "MOUSE INPUT · WAITING",
+    ready: "MOUSE INPUT · READY",
+    active: "MOUSE INPUT · PLANTING",
+    limit: "FLOWER LIMIT · REACHED",
+    ...inputStatusLabels,
+  };
+  const resolveInterfaceCopy = (value, ...parameters) =>
+    typeof value === "function" ? value(...parameters) : value;
+  const getInputStatus = (state) => resolveInterfaceCopy(inputStatus[state]);
+  const formatAssetMode = (value, loading = false) =>
+    typeof assetModeFormatter === "function"
+      ? assetModeFormatter(value, { loading })
+      : value;
+
+  inputState.textContent = getInputStatus("loading");
+  assetMode.textContent = formatAssetMode("LOADING", true);
 
   const flowerRenderer = await createFlowerRenderer(renderer);
   const flowerSystem = new FlowerSystem(
@@ -88,18 +105,11 @@ export async function createFlowerFieldApp({
         })
       : null;
   const maxFlowers = flowerSystem.maxFlowers;
-  const inputStatus = {
-    waiting: "MOUSE INPUT · WAITING",
-    ready: "MOUSE INPUT · READY",
-    active: "MOUSE INPUT · PLANTING",
-    ...inputStatusLabels,
-  };
-
-  assetMode.textContent = flowerRenderer.assetMode;
+  assetMode.textContent = formatAssetMode(flowerRenderer.assetMode);
   let inputEnabled = Boolean(interactionEnabled);
   inputState.textContent = inputEnabled
-    ? inputStatus.ready
-    : inputStatus.waiting;
+    ? getInputStatus("ready")
+    : getInputStatus("waiting");
 
   let lastDisplayedCount = -1;
   let lastPlantingState = false;
@@ -108,6 +118,21 @@ export async function createFlowerFieldApp({
   let previousFrameTimeSeconds = null;
   let resetCount = 0;
   const flowerCountDigits = String(maxFlowers).length;
+
+  function refreshInputStatus() {
+    inputState.textContent = lastPlantingState
+      ? getInputStatus("active")
+      : flowerSystem.isFull()
+        ? getInputStatus("limit")
+        : inputEnabled
+          ? getInputStatus("ready")
+          : getInputStatus("waiting");
+  }
+
+  function refreshLocalizedInterface() {
+    assetMode.textContent = formatAssetMode(flowerRenderer.assetMode);
+    refreshInputStatus();
+  }
 
   function getDisplayedCount() {
     return counterMode === "blooms"
@@ -127,9 +152,7 @@ export async function createFlowerFieldApp({
       document.body.classList.remove("is-planting");
       lastPlantingState = false;
     }
-    inputState.textContent = inputEnabled
-      ? inputStatus.ready
-      : inputStatus.waiting;
+    refreshInputStatus();
   }
 
   function resize() {
@@ -157,12 +180,10 @@ export async function createFlowerFieldApp({
     flowerSystem.reset();
     flowerSpawner.reset();
     flowerCount.textContent = formatFlowerCount(0);
-    inputState.textContent = inputEnabled
-      ? inputStatus.ready
-      : inputStatus.waiting;
     document.body.classList.remove("is-planting");
     lastDisplayedCount = 0;
     lastPlantingState = false;
+    refreshInputStatus();
   }
 
   function render(timeMilliseconds) {
@@ -202,14 +223,8 @@ export async function createFlowerFieldApp({
 
     if (isPlanting !== lastPlantingState) {
       document.body.classList.toggle("is-planting", isPlanting);
-      inputState.textContent = isPlanting
-        ? inputStatus.active
-        : flowerSystem.isFull()
-          ? "FLOWER LIMIT · REACHED"
-          : inputEnabled
-            ? inputStatus.ready
-            : inputStatus.waiting;
       lastPlantingState = isPlanting;
+      refreshInputStatus();
     }
 
     if (renderPipeline) {
@@ -341,6 +356,7 @@ export async function createFlowerFieldApp({
     atmosphereSystem,
     resetField,
     setInputEnabled,
+    refreshLocalizedInterface,
     isInputEnabled: () => inputEnabled,
   };
   window.__flowerField = app;

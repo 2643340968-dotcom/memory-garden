@@ -57,6 +57,12 @@ import {
   getBGMTargetVolume,
   getVoiceCardVisibleDuration,
 } from "../src/audio/AudioConfig.js";
+import {
+  getLocalizedMemoryText,
+  LANGUAGES,
+  LANGUAGE_STORAGE_KEY,
+  translate,
+} from "../src/i18n/LanguageController.js";
 
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT_HEIGHT = 720;
@@ -1600,7 +1606,7 @@ test("memory gesture rhythm keeps its public tuning limits centralized", () => {
   assert.ok(audioBand.topMax <= 720 * 0.58 - 80);
 });
 
-test("PNG public interface uses the approved English exhibition language", () => {
+test("PNG public interface supports persistent English and Chinese exhibition copy", () => {
   const pngHtml = readFileSync(
     new URL("../png.html", import.meta.url),
     "utf8",
@@ -1621,6 +1627,10 @@ test("PNG public interface uses the approved English exhibition language", () =>
     new URL("../src/memory/MemoryExperience.js", import.meta.url),
     "utf8",
   );
+  const languageSource = readFileSync(
+    new URL("../src/i18n/LanguageController.js", import.meta.url),
+    "utf8",
+  );
 
   for (const approvedCopy of [
     "SITE OF MEMORY",
@@ -1639,12 +1649,57 @@ test("PNG public interface uses the approved English exhibition language", () =>
     assert.ok(pngHtml.includes(approvedCopy));
   }
 
-  assert.match(pngEntrySource, /GAZE INPUT · WAITING/);
-  assert.match(pngEntrySource, /GAZE INPUT · READY/);
+  assert.match(pngEntrySource, /status\.inputWaiting/);
+  assert.match(pngEntrySource, /status\.inputReady/);
+  assert.match(pngHtml, /id="language-toggle"/);
+  assert.match(pngHtml, /data-i18n="brand\.title"/);
+  assert.match(pngHtml, /data-i18n-placeholder="entry\.placeholder"/);
+  assert.equal(LANGUAGE_STORAGE_KEY, "memory-garden-language-v1");
+  assert.equal(
+    translate("brand.title", {}, LANGUAGES.ENGLISH),
+    "SITE OF MEMORY",
+  );
+  assert.equal(
+    translate("brand.title", {}, LANGUAGES.CHINESE),
+    "记忆之场",
+  );
+  assert.equal(
+    translate("entry.submit", {}, LANGUAGES.CHINESE),
+    "将这段记忆留在花田",
+  );
+  assert.equal(
+    getMemoryEchoLabel(
+      IMAGE_ARCHIVE_MEMORIES[0],
+      "007",
+      LANGUAGES.CHINESE,
+    ),
+    "档案图像 · 007",
+  );
+  assert.equal(
+    getLocalizedMemoryText(BUILT_IN_TEXT_MEMORIES[0], LANGUAGES.CHINESE),
+    "纪念馆外的石阶上落着雨。我们走在其中，每一步似乎都慢了下来。",
+  );
+  const visitorMemory = createMemoryItem({
+    id: "session-memory-language-fixture",
+    text: "Keep this visitor memory unchanged.",
+    isQuote: true,
+    isPrototype: false,
+  });
+  assert.equal(
+    getLocalizedMemoryText(visitorMemory, LANGUAGES.CHINESE),
+    visitorMemory.text,
+  );
+  const chineseAudioViewModel = getMemoryCardViewModel(
+    AUDIO_ARCHIVE_MEMORIES[0],
+    null,
+    LANGUAGES.CHINESE,
+  );
+  assert.equal(chineseAudioViewModel.label, "档案声音");
+  assert.equal(chineseAudioViewModel.audioLabel, "档案声音");
   assert.doesNotMatch(pngHtml, />\s*BGM\s*</i);
   assert.doesNotMatch(pngHtml, /HOLD\s*\+\s*DRAG|MOUSE|POINTER/i);
-  assert.doesNotMatch(pngHtml, /[\u3400-\u9fff]/u);
   assert.doesNotMatch(cardRendererSource, /[\u3400-\u9fff]/u);
+  assert.match(languageSource, /记忆之场/u);
   assert.match(memoryPoolSource, /BUILT_IN_TEXT_MEMORIES/);
-  assert.match(memoryExperienceSource, /"YOUR MEMORY"/);
+  assert.match(memoryExperienceSource, /memory\.your/);
 });
