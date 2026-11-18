@@ -2,176 +2,229 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta
       name="description"
       data-i18n-content="document.description"
-      content="An interactive site where attention lets flowers and memories bloom."
+      content="Explore a map of China and visit the memory garden at Jiangdongmen in Nanjing."
     />
     <meta name="theme-color" content="#2b2335" />
     <link rel="icon" href="./assets/flowers/png/zijincao_01.png" />
-    <title data-i18n="document.title">Site of Memory · Memory Blooms</title>
+    <title data-i18n="document.title">Site of Memory · Memory Atlas</title>
   </head>
-  <body class="png-page">
+  <body class="png-page" data-view="atlas">
     <main
       id="app"
       data-i18n-aria-label="app.aria"
-      aria-label="Site of Memory interactive garden"
+      aria-label="Site of Memory"
     >
-      <canvas
-        id="scene"
-        data-i18n-aria-label="scene.aria"
-        aria-label="Interactive Three.js memory field"
-      ></canvas>
-
-      <div class="interface" aria-live="polite">
-        <header class="brand-block">
-          <p class="eyebrow" data-i18n="brand.eyebrow">
-            INTERACTIVE MEMORY GARDEN
-          </p>
-          <h1 data-i18n="brand.title">SITE OF MEMORY</h1>
-          <p class="subtitle" data-i18n="brand.subtitle">MEMORY BLOOMS</p>
+      <section id="memory-atlas" class="atlas" aria-labelledby="atlas-title">
+        <header class="atlas-header">
+          <a class="atlas-wordmark" href="#atlas">
+            <span class="atlas-emblem" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span data-i18n="atlas.wordmark">Site of Memory</span>
+          </a>
+          <nav id="atlas-breadcrumbs" data-i18n-aria-label="atlas.navigation" aria-label="Map location"></nav>
         </header>
 
-        <div
-          class="system-status"
-          data-i18n-aria-label="status.aria"
-          aria-label="System status"
-        >
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="input-state">FLOWER ASSET · LOADING</span>
+        <div class="atlas-body">
+          <div class="atlas-info">
+            <div class="atlas-intro">
+              <p id="atlas-kicker" class="atlas-kicker"></p>
+              <h1 id="atlas-title" tabindex="-1"></h1>
+              <p id="atlas-description" class="atlas-description"></p>
+            </div>
+            <div class="atlas-directory">
+              <p id="atlas-index-label" class="atlas-index-label"></p>
+              <div id="atlas-choices"></div>
+            </div>
+          </div>
+          <div id="atlas-map" class="atlas-map" role="group" data-i18n-aria-label="atlas.mapAria" aria-label="Interactive geographic map">
+            <canvas id="atlas-canvas" aria-hidden="true"></canvas>
+            <div id="atlas-markers"></div>
+            <div class="atlas-compass" aria-hidden="true"><span>N</span><i></i></div>
+            <div class="atlas-tools">
+              <button id="atlas-zoom-in" type="button" data-i18n-aria-label="atlas.zoomIn" aria-label="Zoom in">+</button>
+              <button id="atlas-zoom-out" type="button" data-i18n-aria-label="atlas.zoomOut" aria-label="Zoom out">−</button>
+              <button id="atlas-fit" type="button" data-i18n-aria-label="atlas.fit" aria-label="Recenter map"><i aria-hidden="true"></i></button>
+            </div>
+            <div id="atlas-scale" class="atlas-scale" aria-hidden="true"><span></span><i></i></div>
+          </div>
         </div>
 
-        <div
-          class="audio-controls"
-          data-i18n-aria-label="audio.controlsAria"
-          aria-label="Sound controls"
-        >
-          <button
-            id="audio-toggle"
-            class="audio-toggle"
-            type="button"
-            aria-pressed="false"
-            disabled
-          >
-            <span class="audio-toggle-mark" aria-hidden="true"></span>
-            <span id="audio-toggle-label" data-i18n="audio.soundOff">
-              SOUND OFF
-            </span>
-          </button>
-          <label class="bgm-volume-control" for="bgm-volume">
-            <span data-i18n="audio.ambience">AMBIENCE</span>
-            <input
-              id="bgm-volume"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              data-i18n-aria-label="audio.ambienceAria"
-              aria-label="Ambience volume"
-            />
-          </label>
-        </div>
-
-        <section class="planting-guide">
-          <p class="guide-main" data-i18n="guide.main">
-            GAZE TO LET MEMORIES BLOOM
-          </p>
-          <span class="guide-line" aria-hidden="true"></span>
-        </section>
-
-        <aside
-          class="field-meta"
-          data-i18n-aria-label="field.aria"
-          aria-label="Field data"
-        >
-          <div>
-            <span class="meta-label" data-i18n="field.memories">MEMORIES</span>
-            <strong id="flower-count">00000</strong>
+        <footer class="atlas-footer">
+          <span class="atlas-legend"><i aria-hidden="true"></i><span data-i18n="atlas.legend">Open memory garden</span></span>
+          <div class="atlas-attribution">
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
+            <details class="atlas-credits">
+              <summary data-i18n="atlas.credits">Map sources</summary>
+              <div>
+                <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a>
+                <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap</a>
+                <a href="https://openmaptiles.org/" target="_blank" rel="noreferrer">© OpenMapTiles</a>
+                <a href="https://www.wikidata.org/wiki/Q32391" target="_blank" rel="noreferrer">Wikidata · Q32391</a>
+              </div>
+            </details>
           </div>
-          <div>
-            <span class="meta-label" data-i18n="field.render">RENDER</span>
-            <strong data-i18n="field.renderMode">INSTANCED</strong>
-          </div>
-          <div>
-            <span class="meta-label" data-i18n="field.asset">ASSET</span>
-            <strong id="asset-mode" data-i18n="field.assetLoading">LOADING</strong>
-          </div>
-        </aside>
-
-        <button id="reset-button" class="reset-button" type="button">
-          <span aria-hidden="true">↺</span>
-          <span data-i18n="field.reset">RESET FIELD</span>
-        </button>
-      </div>
-
-      <button
-        id="language-toggle"
-        class="language-toggle"
-        type="button"
-        data-i18n-aria-label="language.switchAria"
-        aria-label="Switch to Chinese"
-      >
-        <span data-i18n="language.switchLabel">中文</span>
-      </button>
-
-      <div
-        id="memory-card-layer"
-        class="memory-card-layer"
-        aria-live="polite"
-        aria-atomic="false"
-      ></div>
-
-      <section
-        id="memory-entry-overlay"
-        class="memory-entry-overlay"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="memory-entry-title"
-      >
-        <form id="memory-entry-form" class="memory-entry-panel">
-          <p class="memory-entry-index" data-i18n="entry.index">
-            MEMORY ARCHIVE · 001
-          </p>
-          <h2 id="memory-entry-title" data-i18n="entry.title">
-            Leave a memory you wish to preserve
-          </h2>
-          <p class="memory-entry-description">
-            <span data-i18n="entry.descriptionLine1">
-              A memory of the Nanjing Massacre, Jiangdongmen,
-            </span>
-            <br />
-            <span data-i18n="entry.descriptionLine2">
-              or a moment that connects you to this place.
-            </span>
-          </p>
-          <label
-            class="sr-only"
-            for="memory-text"
-            data-i18n="entry.inputLabel"
-          >Write your memory</label>
-          <textarea
-            id="memory-text"
-            name="memory"
-            maxlength="180"
-            rows="4"
-            required
-            data-i18n-placeholder="entry.placeholder"
-            placeholder="It can be a sentence, a place,&#10;a sound, or the moment you first encountered this history."
-          ></textarea>
-          <button id="memory-submit" class="memory-submit" type="submit" disabled>
-            <span data-i18n="entry.submit">Leave this memory in the field</span>
-            <span aria-hidden="true">→</span>
-          </button>
-        </form>
+        </footer>
       </section>
 
-      <div id="fatal-error" class="fatal-error" role="alert" hidden>
-        <strong data-i18n="fatal.title">THE FIELD COULD NOT OPEN</strong>
-        <span data-i18n="fatal.description">
-          Check that this browser supports WebGL, then refresh the page.
-        </span>
-      </div>
+      <section id="garden-view" hidden data-i18n-aria-label="garden.aria" aria-label="Jiangdongmen memory garden">
+        <p id="garden-loading" role="status" data-i18n="garden.loading" hidden>Opening the garden…</p>
+        <div id="garden-field">
+          <canvas
+            id="scene"
+            tabindex="0"
+            data-i18n-aria-label="scene.aria"
+            aria-label="Interactive Three.js memory field"
+          ></canvas>
+
+          <div class="interface" aria-live="polite">
+            <header class="brand-block">
+              <p class="eyebrow" data-i18n="brand.eyebrow">
+                INTERACTIVE MEMORY GARDEN
+              </p>
+              <h1 data-i18n="brand.title">SITE OF MEMORY</h1>
+              <p class="subtitle" data-i18n="garden.location">NANJING · JIANGDONGMEN</p>
+            </header>
+
+            <div
+              class="system-status"
+              data-i18n-aria-label="status.aria"
+              aria-label="System status"
+            >
+              <span class="status-dot" aria-hidden="true"></span>
+              <span id="input-state">FLOWER ASSET · LOADING</span>
+            </div>
+
+            <div
+              class="audio-controls"
+              data-i18n-aria-label="audio.controlsAria"
+              aria-label="Sound controls"
+            >
+              <button
+                id="audio-toggle"
+                class="audio-toggle"
+                type="button"
+                aria-pressed="false"
+                disabled
+              >
+                <span class="audio-toggle-mark" aria-hidden="true"></span>
+                <span id="audio-toggle-label" data-i18n="audio.soundOff">
+                  SOUND OFF
+                </span>
+              </button>
+              <label class="bgm-volume-control" for="bgm-volume">
+                <span data-i18n="audio.ambience">AMBIENCE</span>
+                <input
+                  id="bgm-volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  data-i18n-aria-label="audio.ambienceAria"
+                  aria-label="Ambience volume"
+                />
+              </label>
+            </div>
+
+            <a class="garden-back" id="garden-back" href="#atlas/nanjing/jiangdongmen">
+              <span aria-hidden="true">←</span><span data-i18n="garden.back">Back to map</span>
+            </a>
+            <section class="planting-guide">
+              <p class="guide-main" data-i18n="guide.main">
+                Touch a flower to read its memory. Drag to grow more.
+              </p>
+              <span class="guide-line" aria-hidden="true"></span>
+            </section>
+
+            <aside
+              class="field-meta"
+              data-i18n-aria-label="field.aria"
+              aria-label="Field data"
+            >
+              <div>
+                <span class="meta-label" data-i18n="field.memories">MEMORIES</span>
+                <strong id="flower-count">00000</strong>
+              </div>
+              <span id="asset-mode" hidden></span>
+            </aside>
+
+            <button id="reset-button" class="reset-button" type="button">
+              <span aria-hidden="true">↺</span>
+              <span data-i18n="field.reset">RESET FIELD</span>
+            </button>
+            <button type="button" id="garden-write" class="garden-write" disabled>
+              <span aria-hidden="true">＋</span><span data-i18n="garden.write">Leave a memory</span>
+            </button>
+          </div>
+
+          <div
+            id="memory-card-layer"
+            class="memory-card-layer"
+            aria-live="polite"
+            aria-atomic="false"
+          ></div>
+        </div>
+
+        <section
+          id="memory-entry-overlay"
+          hidden
+          class="memory-entry-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="memory-entry-title"
+        >
+          <form id="memory-entry-form" class="memory-entry-panel">
+            <p class="memory-entry-index" data-i18n="entry.index">
+              NANJING · JIANGDONGMEN
+            </p>
+            <button id="memory-cancel" class="memory-cancel" type="button" data-i18n-aria-label="entry.cancel" aria-label="Return to the garden">×</button>
+            <h2 id="memory-entry-title" data-i18n="entry.title">
+              What do you remember of this place?
+            </h2>
+            <p class="memory-entry-description">
+              <span data-i18n="entry.descriptionLine1">
+                A visit to the memorial hall, a familiar street, or an ordinary afternoon in Jiangdongmen.
+              </span>
+              <br />
+              <span data-i18n="entry.descriptionLine2">
+                Your words stay in this visit and clear when you reload.
+              </span>
+            </p>
+            <label
+              class="sr-only"
+              for="memory-text"
+              data-i18n="entry.inputLabel"
+            >Write your memory</label>
+            <textarea
+              id="memory-text"
+              name="memory"
+              maxlength="180"
+              rows="4"
+              required
+              data-i18n-placeholder="entry.placeholder"
+              placeholder="I remember…"
+            ></textarea>
+            <button id="memory-submit" class="memory-submit" type="submit" disabled>
+              <span data-i18n="entry.submit">Leave this memory in the field</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </form>
+        </section>
+
+        <div id="fatal-error" class="fatal-error" role="alert" hidden>
+          <strong data-i18n="fatal.title">THE FIELD COULD NOT OPEN</strong>
+          <span data-i18n="fatal.description">
+            Check that this browser supports WebGL, then refresh the page.
+          </span>
+        </div>
+      </section>
+
+      <button id="language-toggle" class="language-toggle" type="button"
+        data-i18n-aria-label="language.switchAria" aria-label="Switch to Chinese">
+        <span data-i18n="language.switchLabel">中文</span>
+      </button>
 
       <noscript>This interactive field requires JavaScript.</noscript>
     </main>

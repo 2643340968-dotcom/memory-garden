@@ -367,8 +367,8 @@ export function createMemoryPool({
   const recentVisualIdsByType = new Map();
 
   function addSessionMemory(rawText) {
-    const text = String(rawText ?? "").trim();
-    if (!text) {
+    const text = String(rawText ?? "");
+    if (!text.trim()) {
       throw new TypeError("A memory cannot be empty.");
     }
 

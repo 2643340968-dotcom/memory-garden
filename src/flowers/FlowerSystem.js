@@ -320,6 +320,12 @@ export class FlowerSystem {
     return () => this.bloomListeners.delete(listener);
   }
 
+  emphasizeBloom(bloom, scale) {
+    for (const index of bloom.flowerIndices) {
+      this.scales[index] *= scale;
+    }
+  }
+
   spawnFlower(x, z, bloomStartTime, duration, waveDelay, random) {
     return (
       this.spawnFlowerIndex(

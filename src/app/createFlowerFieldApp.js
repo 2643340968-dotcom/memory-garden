@@ -334,6 +334,13 @@ export async function createFlowerFieldApp({
 
   window.addEventListener("resize", resize);
   resetButton.addEventListener("click", resetField);
+  function setRendering(enabled) {
+    previousFrameTimeSeconds = null;
+    performanceSampleStart = performance.now();
+    performanceSampleFrames = 0;
+    if (enabled) resize();
+    renderer.setAnimationLoop(enabled ? render : null);
+  }
   renderer.setAnimationLoop(render);
 
   const app = {
@@ -355,6 +362,7 @@ export async function createFlowerFieldApp({
     renderPipeline,
     atmosphereSystem,
     resetField,
+    setRendering,
     setInputEnabled,
     refreshLocalizedInterface,
     isInputEnabled: () => inputEnabled,

@@ -253,7 +253,7 @@ export class AudioManager {
       "is-voice-playing",
       Boolean(this.currentVoice),
     );
-    this.toggleButton.disabled = !this.unlocked;
+    this.toggleButton.disabled = false;
     this.toggleButton.setAttribute("aria-pressed", String(this.unlocked && !this.muted));
     this.toggleLabel.textContent = label;
   }
@@ -264,6 +264,7 @@ export class AudioManager {
   }
 
   async unlock() {
+    if (this.unlocked) return true;
     if (this.unlockPromise) {
       return this.unlockPromise;
     }
@@ -540,6 +541,7 @@ export class AudioManager {
 
   handleToggle() {
     if (!this.unlocked) {
+      void this.unlock();
       return;
     }
     this.setMuted(!this.muted);
@@ -555,7 +557,7 @@ export class AudioManager {
   }
 
   handleVisibilityChange() {
-    this.pageHidden = document.hidden;
+    this.pageHidden = document.hidden || this.gardenVisible === false;
     if (!this.unlocked) {
       return;
     }
@@ -566,6 +568,11 @@ export class AudioManager {
       this.pageHidden || this.muted ? 0 : 1,
       this.config.VISIBILITY_FADE_DURATION,
     );
+  }
+
+  setGardenVisible(visible) {
+    this.gardenVisible = visible;
+    this.handleVisibilityChange();
   }
 
   destroy() {

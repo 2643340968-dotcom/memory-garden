@@ -920,7 +920,8 @@ test("memory pool stores session input and avoids immediate echo repetition", ()
   const memoryPool = createMemoryPool();
   const visitorMemory = memoryPool.addSessionMemory("  一段被保留的记忆。  ");
 
-  assert.equal(visitorMemory.text, "一段被保留的记忆。");
+  assert.equal(visitorMemory.text, "  一段被保留的记忆。  ");
+  assert.throws(() => memoryPool.addSessionMemory(" \n "), /empty/);
   assert.equal(visitorMemory.type, MEMORY_TYPES.TEXT);
   assert.equal(visitorMemory.label, "YOUR MEMORY");
   assert.equal(visitorMemory.audio, null);
@@ -953,7 +954,7 @@ test("memory schema keeps independent archives separate and permits verified pai
     assert.equal(memory.isQuote, false);
     assert.equal(memory.isPrototype, true);
     assert.doesNotMatch(memory.text, /[\u3400-\u9fff]/u);
-    assert.equal(getMemoryEchoLabel(memory, "007"), "MEMORY · 007");
+    assert.equal(getMemoryEchoLabel(memory, "007"), "ILLUSTRATIVE MEMORY");
   });
   assert.deepEqual(MEMORY_ITEM_SCHEMA_FIELDS, [
     "id",
@@ -1612,7 +1613,7 @@ test("PNG public interface supports persistent English and Chinese exhibition co
     "utf8",
   );
   const pngEntrySource = readFileSync(
-    new URL("../src/png-main.js", import.meta.url),
+    new URL("../src/png-garden.js", import.meta.url),
     "utf8",
   );
   const cardRendererSource = readFileSync(
@@ -1634,13 +1635,12 @@ test("PNG public interface supports persistent English and Chinese exhibition co
 
   for (const approvedCopy of [
     "SITE OF MEMORY",
-    "Leave a memory you wish to preserve",
-    "A memory of the Nanjing Massacre, Jiangdongmen,",
-    "or a moment that connects you to this place.",
-    "It can be a sentence, a place,",
-    "a sound, or the moment you first encountered this history.",
+    "Jiangdongmen memory garden",
+    "Back to map",
+    "What do you remember of this place?",
+    "Your words stay in this visit and clear when you reload.",
     "Leave this memory in the field",
-    "GAZE TO LET MEMORIES BLOOM",
+    "Touch a flower to read its memory. Drag to grow more.",
     "AMBIENCE",
     "SOUND OFF",
     "MEMORIES",

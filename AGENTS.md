@@ -16,16 +16,16 @@ This repository is an interactive Three.js exhibition prototype about memory and
 
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
-- `/` still opens the preserved model entry through `src/main.js`.
-- The last verified automated suite has 22 passing tests.
+- The project root redirects to `./png.html`.
+- The automated suite has 24 tests, including atlas routing and place-scoped memory sources.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
 ## ENTRY POINTS
 
-- `/png.html` → `src/png-main.js` → current PNG flower version with the complete memory interaction.
+- `/png.html` → `src/png-main.js` → national atlas, then the lazy-loaded Jiangdongmen PNG garden.
 - `/model.html` → `src/model-main.js` → preserved GLB flower version.
-- `/` → `src/main.js` → preserved GLB behavior.
+- `/` → `./png.html` → national atlas.
 
 Local URLs:
 
@@ -40,7 +40,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
-- Centered, restrained bilingual title: English `INTERACTIVE MEMORY GARDEN / SITE OF MEMORY / MEMORY BLOOMS` and Chinese `互动记忆花园 / 记忆之场 / 记忆绽放`, controlled by the small top-right language switch.
+- Centered, restrained bilingual title: English `INTERACTIVE MEMORY GARDEN / SITE OF MEMORY / NANJING · JIANGDONGMEN` and Chinese `互动记忆花园 / 记忆之场 / 南京 · 江东门`, controlled by the small top-right language switch.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards, slightly wider archival-image cards, or a smaller independent archive-voice indicator.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
@@ -49,14 +49,14 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 
 ## CURRENT INTERACTION FLOW
 
-1. The visitor enters `/png.html`.
-2. A memory-entry modal appears over the visible garden. The top-right `中文 / EN` control remains available above the modal and switches all interface copy immediately; the choice persists in `localStorage` under `memory-garden-language-v1`.
-3. The visitor writes a memory related to 南京大屠杀、江东门, or a personal connection to the place.
-4. Planting remains disabled and the public-facing status reads `GAZE INPUT · WAITING`; the actual input adapter is still mouse-based.
-5. Submission stores the text in the page-local `sessionMemories` array; there is no backend or persistence. The same visitor gesture unlocks the Web Audio context. The page never autoplays audio on entry.
-6. The modal fades and the submitted memory triggers one automatic BloomEvent near the lower center.
-7. A `YOUR MEMORY` glass card appears beside that bloom.
-8. Mouse planting becomes enabled and the public-facing status changes to `GAZE INPUT · READY`.
+1. The visitor enters the national atlas at `/png.html`.
+2. Country, city and place use one pannable, zoomable map. Nanjing opens the city view and Jiangdongmen selects the site. The language switch is available throughout.
+3. Entering the site loads the PNG field. Three clusters carry a historical record, a public commemoration and a personal example or the latest visitor memory. The opening card presents the public commemoration.
+4. Visitors can tap an existing cluster to read its memory, drag to grow more clusters or focus the canvas and press Enter to discover another memory.
+5. The optional writing dialog locks planting while open. A visitor can cancel or submit any memory related to Jiangdongmen. Each submission blooms and appears as YOUR MEMORY.
+6. The garden starts silent. Explicit sound activation or a valid submission can unlock Web Audio.
+7. Historical and public editorial summaries have named sources and slightly larger flowers in the same field. Prototype and visitor texts have distinct labels.
+8. Returning to the atlas restores its location and zoom, stops the WebGL loop and silences the garden. A return visit keeps the page-local collection; a reload clears visitor submissions.
 9. Dragging creates irregular, clustered BloomEvent patches rather than a linear flower trail.
 10. Each BloomEvent also becomes one BloomPatch. Every flower receives a stable-slot point cloud sampled from the matching PNG alpha silhouette and source colors. The points gather from the flower roots into a persistent particulate flower body; the PNG card remains only a very faint continuity layer.
 11. Cursor proximity within a soft world-space radius refreshes patch attention. Unattended attention decays after a guaranteed visible lifetime.
@@ -64,9 +64,9 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 13. Bloom growth, Memory Echo appearance, and BloomPatch decay each emit a small transient point-fragment event from the related flower world position. No fragments exist before the first BloomEvent.
 14. Each pointer-down/up gesture starts a separate memory session. Short, medium, and long gestures reveal approximately `2–3`, `4–5`, and `5–7` staggered visual Memory Echo cards as BloomEvents accumulate.
 15. Visual Echo cards retain BloomEvent-derived projection influence but scatter across the upper `17%–64%` of the viewport using low-discrepancy candidates, collision scoring, and `pointer-events: none` so the lower garden remains visible. Desktop permits six simultaneous visual cards; responsive caps reduce this to four at `≤1100px` and two at `≤520px`.
-16. `TEXT_MEMORY`, `IMAGE_ARCHIVE`, and `AUDIO_ARCHIVE` remain independent fragments; each keeps its own source and never borrows media from another selected item. Text and image use a dedicated `1:1` shuffle-bag with active/recent ID protection. Within TEXT, four restored anonymous prototype memories and page-local visitor submissions use an approximate `70% / 30%` source mix. Archive audio has a separate, unchanged low-frequency cadence, a maximum of one opportunity per gesture and one active voice; a busy voice drops the opportunity rather than queueing or interrupting. Only an explicitly declared, verified `PAIRED_MEMORY` with `relationship: "verified-pair"` may combine media.
+16. `TEXT_MEMORY`, `IMAGE_ARCHIVE`, and `AUDIO_ARCHIVE` remain independent fragments; each keeps its own source and never borrows media from another selected item. Text and image use a dedicated `1:1` shuffle-bag with active/recent ID protection. Within TEXT, the four prototype memories and two sourced editorial summaries share the built-in portion. Built-in records and page-local visitor submissions use an approximate `70% / 30%` source mix. Archive audio has a separate, unchanged low-frequency cadence, a maximum of one opportunity per gesture and one active voice; a busy voice drops the opportunity rather than queueing or interrupting. Only an explicitly declared, verified `PAIRED_MEMORY` with `relationship: "verified-pair"` may combine media.
 17. The top-left sound toggle controls the complete mix. Its small BGM-only slider persists the current-session level and does not alter archive voice gain. `RESET FIELD` clears flowers, BloomEvents, BloomPatches, particles, transient fragments, pending/visible memory cards, gesture state, and current voice playback. It does not reopen the entry modal.
-18. A full reload restarts the entry flow and clears page-local submitted memories.
+18. A full reload restores the URL location and clears page-local submitted memories.
 19. Language switching never translates or rewrites visitor input, supplied archive media, or unverified metadata. The four generic built-in prototype memories have explicit reviewed Chinese counterparts and visible cards update in place when the language changes.
 
 ## ARCHITECTURE
@@ -98,7 +98,7 @@ BloomEvent subscription
   → world position projected through camera
   → collision-aware Memory Echo DOM card
 
-First memory submission
+Sound toggle or memory submission
   → AudioManager unlock
   → looping BGM bus
   → one reusable archive-voice channel
@@ -111,7 +111,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 
 - `src/app/createFlowerFieldApp.js`: shared scene/runtime creation, input gate, reset, counter mode, animation loop, debug datasets.
 - `src/config.js`: shared/model defaults and the global flower capacity.
-- `src/png-main.js`: PNG entry, PNG scene config, disabled-before-submit input, audio manager and memory experience mount, plus canvas audio diagnostics.
+- `src/png-main.js`: atlas navigation and garden loading. `src/atlas/` owns the catalog, map and directory. `src/png-garden.js` mounts the Three.js field, memory experience and audio diagnostics. `src/data/jiangdongmen.js` supplies the sourced records.
 - `src/i18n/LanguageController.js`: PNG-only English/Chinese copy registry, safe parameter interpolation, static DOM localization, reviewed translations for the four generic built-in prototype memories, language subscriptions, and persisted top-right switch state. English remains the default when no preference exists.
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.
@@ -227,11 +227,11 @@ Do not delete either PNG or GLB asset set. `public/assets/flowers/png/zijincao-c
 - Supported UI languages are `en` and `zh-CN`; English is the first-visit default.
 - The top-right button shows the destination language (`中文` while English is active, `EN` while Chinese is active) and remains usable while the entry modal is open.
 - The preference persists in `localStorage` under `memory-garden-language-v1`; `<html lang>`, the document title, metadata, ARIA labels, placeholder text, status text, sound controls, HUD, modal, and Memory Echo labels update together.
-- Existing Memory Echo cards update without changing their lifetime, placement, image, audio playback, or source data. Supplied visitor text always remains byte-for-byte as entered. Only the four generic built-in prototype memories use explicit Chinese translations.
+- Existing Memory Echo cards update without changing their lifetime, placement, image, audio playback, or source data. Supplied visitor text always remains byte-for-byte as entered. The four generic prototype texts and two authored editorial summaries have explicit Chinese counterparts.
 
 ### Audio: `src/audio/AudioConfig.js`
 
-- Initial page state is silent. Audio unlock occurs only inside the first valid memory-form submission gesture.
+- Initial page state is silent. Audio unlock requires a valid submission or deliberate activation of the sound control.
 - The source BGM measured about `-44.22 LUFS`, so runtime uses the separate `./assets/memories/bgm-normalized/bgm.mp3` derivative at `-25.27 LUFS / -9.91 dBTP`. Its original remains unchanged. The looping channel defaults to `0.52` within a `0–0.64` BGM-only slider range, uses a `5s` fade-in and `1.4s` fade-out, and stores the current-session setting under the v2 `sessionStorage` key.
 - During archive voice, BGM ducks mildly to `72%` of the current user level and restores to that same level. One reusable voice channel uses gain `0.38`, a `480ms` start delay, a `650ms` fade-in, a `750ms` natural/stop fade-out, and a `650ms` replacement fade. Only one archive voice can load/play at once.
 - Ten runtime voice derivatives in `audio-normalized/` target `-23 LUFS / -3 dBTP`; their two-pass measurements and hashes are committed in `loudness-report.json`. The source copies in `audio/` remain unchanged.
@@ -285,7 +285,7 @@ npm run dev
 npm run build
 ```
 
-Active development, visual QA, and public verification now target `/png.html` only. At minimum test entry lock, English/Chinese switching before and after submission, stored-language reload, visitor-text preservation, automatic first bloom, short/medium/long visual-card rhythms, six-card desktop maximum, responsive caps, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
+Active development, visual QA, and public verification now target `/png.html` only. At minimum test map navigation and return, browse-before-writing, the optional form input lock, English/Chinese switching before and after submission, stored-language reload, visitor-text preservation, automatic first bloom, short/medium/long visual-card rhythms, six-card desktop maximum, responsive caps, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
 
 After every completed modification round, commit the verified changes, push `main` to `origin`, wait for the GitHub Pages workflow to succeed, and verify the public `/memory-garden/png.html` URL still returns HTTP 200 with the new revision. The user expects the public URL to always show the newest completed version; do not stop after local verification.
 
