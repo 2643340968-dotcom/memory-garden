@@ -1,8 +1,8 @@
 import "./styles.css";
 import "./atlas/atlas.css";
-import { createLanguageController, subscribeLanguage } from "./i18n/LanguageController.js";
+import { createLanguageController, placeText, subscribeLanguage, t } from "./i18n/LanguageController.js";
 import { AtlasView } from "./atlas/AtlasView.js";
-import { atlasHash, PLACES, readAtlasRoute } from "./atlas/places.js";
+import { atlasHash, CITIES, PLACES, readAtlasRoute } from "./atlas/places.js";
 
 const language = createLanguageController().start();
 const atlasElement = document.querySelector("#memory-atlas");
@@ -14,6 +14,19 @@ let gardenPromise;
 let garden;
 let lastRoute;
 let routeVersion = 0;
+
+function localizeGarden(route) {
+  const site = PLACES[route.place];
+  const name = placeText(site.name);
+  const locationLabel = placeText(CITIES[route.city].name) + " · " + name;
+  gardenElement.dataset.place = route.place;
+  gardenElement.setAttribute("aria-label", name + " · " + t("atlas.garden"));
+  document.querySelector(".brand-block .subtitle").textContent = locationLabel;
+  document.querySelector(".memory-entry-index").textContent = locationLabel;
+  document.querySelector("#memory-entry-title").textContent = t("entry.placeTitle", { place: name });
+  document.querySelector('[data-i18n="entry.descriptionLine1"]').textContent = placeText(site.prompt);
+  document.querySelector("#memory-submit span").textContent = t(site.bloomOnSubmit ? "entry.submit" : "entry.save");
+}
 
 async function showRoute() {
   const route = readAtlasRoute(location.hash);
@@ -33,6 +46,7 @@ async function showRoute() {
   }
 
   back.href = atlasHash({ ...route, level: "place" });
+  localizeGarden(route);
   back.focus({ preventScroll: true });
   loading.hidden = Boolean(garden);
   const fatal = document.querySelector("#fatal-error");
@@ -46,11 +60,11 @@ async function showRoute() {
     const [runtime, collection] = await Promise.all([gardenPromise, PLACES[route.place].loadCollection()]);
     garden = runtime;
     if (!garden) throw new Error("Garden initialization failed");
-    if (version === routeVersion) garden.memoryExperience.enter(collection);
+    if (version === routeVersion) garden.memoryExperience.enter(collection, Boolean(PLACES[route.place].bloomOnSubmit));
     else if (lastRoute.level !== "garden") garden.memoryExperience.leave();
   } catch {
-    gardenPromise = null;
-    fatal.hidden = false;
+    if (!garden) gardenPromise = null;
+    if (version === routeVersion) fatal.hidden = false;
   } finally {
     if (version === routeVersion) loading.hidden = true;
   }
@@ -70,5 +84,8 @@ window.addEventListener("hashchange", (event) => {
   }
   void showRoute();
 });
-subscribeLanguage(() => atlas.render());
+subscribeLanguage(() => {
+  if (lastRoute?.level === "garden") localizeGarden(lastRoute);
+  else atlas.render();
+});
 void showRoute();

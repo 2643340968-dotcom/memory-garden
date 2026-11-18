@@ -6,7 +6,7 @@
     <meta
       name="description"
       data-i18n-content="document.description"
-      content="Explore a map of China and visit the memory garden at Jiangdongmen in Nanjing."
+      content="Explore five places across China, read their histories and leave a memory of your own."
     />
     <meta name="theme-color" content="#2b2335" />
     <link rel="icon" href="./assets/flowers/png/zijincao_01.png" />
@@ -33,10 +33,11 @@
               <p id="atlas-kicker" class="atlas-kicker"></p>
               <h1 id="atlas-title" tabindex="-1"></h1>
               <p id="atlas-description" class="atlas-description"></p>
+              <a id="atlas-source" target="_blank" rel="noreferrer" data-i18n="atlas.source" hidden>About this place ↗</a>
             </div>
-            <div class="atlas-directory">
-              <p id="atlas-index-label" class="atlas-index-label"></p>
-              <div id="atlas-choices"></div>
+            <div class="atlas-plate" aria-hidden="true">
+              <canvas id="atlas-plate"></canvas>
+              <p id="plate-caption"></p>
             </div>
           </div>
           <div id="atlas-map" class="atlas-map" role="group" data-i18n-aria-label="atlas.mapAria" aria-label="Interactive geographic map">
@@ -52,8 +53,13 @@
           </div>
         </div>
 
+        <nav class="atlas-directory" aria-labelledby="atlas-index-label">
+          <p id="atlas-index-label" class="atlas-index-label"></p>
+          <div id="atlas-choices"></div>
+        </nav>
+
         <footer class="atlas-footer">
-          <span class="atlas-legend"><i aria-hidden="true"></i><span data-i18n="atlas.legend">Open memory garden</span></span>
+          <span class="atlas-legend"><i aria-hidden="true"></i><span id="atlas-legend-count"></span></span>
           <div class="atlas-attribution">
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
             <details class="atlas-credits">
@@ -157,6 +163,7 @@
             <button type="button" id="garden-write" class="garden-write" disabled>
               <span aria-hidden="true">＋</span><span data-i18n="garden.write">Leave a memory</span>
             </button>
+            <p id="garden-confirmation" role="status" data-i18n="entry.saved" hidden></p>
           </div>
 
           <div

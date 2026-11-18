@@ -1,4 +1,5 @@
 import { BUILT_IN_TEXT_MEMORIES, createMemoryItem, PROTOTYPE_MEMORIES } from "./memoryPool.js";
+import { jiangdongmenArchiveUrl } from "./placeRecords.js";
 
 // Editorial summaries with public sources. Supplied photographs and voices have
 // independent records and are never attached to either of these texts.
@@ -14,7 +15,7 @@ const historicalRecord = createMemoryItem({
   id: "jiangdongmen-documents",
   text: "The Nanjing Massacre documents on UNESCO’s Memory of the World Register include records from 1937–1938 and files from postwar investigations and trials.",
   source: "UNESCO",
-  sourceUrl: "https://www.unesco.org/en/memory-world/documents-nanjing-massacre",
+  sourceUrl: jiangdongmenArchiveUrl,
   verified: true,
   isPrototype: false,
 });

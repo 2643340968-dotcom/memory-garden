@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { atlasHash, readAtlasRoute } from "../src/atlas/places.js";
+import { atlasHash, CITIES, PLACES, readAtlasRoute } from "../src/atlas/places.js";
 import { JIANGDONGMEN } from "../src/data/jiangdongmen.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
 import { getMemoryEchoLabel } from "../src/memory/MemoryExperience.js";
@@ -39,4 +39,57 @@ test("Jiangdongmen can be explored before writing, with sourced text distinct fr
   pool.resetSelection();
   assert.equal(getLocalizedMemoryText(pool.getById(visitor.id), "zh-CN"), raw);
   assert.equal(getMemoryEchoLabel(visitor, "002", "zh-CN"), "访客记忆");
+});
+
+test("every mapped city opens its own sites through the garden and writing stages", async () => {
+  const catalogued = Object.values(CITIES).flatMap((city) => city.places);
+  assert.deepEqual([...catalogued].sort(), Object.keys(PLACES).sort());
+  const autoBlooms = [];
+  const editorIds = new Set();
+  for (const [city, { places }] of Object.entries(CITIES)) {
+    assert.deepEqual(readAtlasRoute("#atlas/" + city), { level: "city", city });
+    for (const place of places) {
+      const site = PLACES[place];
+      assert.equal(site.city, city);
+      for (const level of ["place", "garden"]) {
+        const route = { level, city, place };
+        assert.deepEqual(readAtlasRoute(atlasHash(route)), route);
+      }
+      if (site.bloomOnSubmit) autoBlooms.push(place);
+      const collection = await site.loadCollection();
+      assert.equal(await site.loadCollection(), collection);
+      assert.equal(collection.initialBlooms.length, 3);
+      assert.ok(collection.memories.some((memory) => memory.sourceUrl === site.sourceUrl));
+      for (const { memory } of collection.initialBlooms) {
+        assert.ok(collection.memories.includes(memory));
+        assert.ok(!editorIds.has(memory.id));
+        editorIds.add(memory.id);
+      }
+    }
+  }
+  assert.deepEqual(autoBlooms, ["jiangdongmen"]);
+});
+
+test("local gardens have bilingual source records, writing prompts and separate visitor collections", async () => {
+  const copies = [];
+  for (const [id, place] of Object.entries(PLACES)) {
+    const records = (await place.loadCollection()).memories;
+    const pool = createMemoryPool({ prototypeMemories: records });
+    copies.push(pool);
+    if (id === "jiangdongmen") continue;
+    assert.equal(records.filter((record) => record.verified).length, 2);
+    for (const record of records) {
+      assert.ok(!record.isQuote && !record.image && !record.audio);
+      assert.notEqual(getLocalizedMemoryText(record, "zh-CN"), getLocalizedMemoryText(record, "en"));
+      if (record.verified) assert.ok(record.source && record.sourceUrl?.startsWith("https://"));
+      else {
+        assert.equal(record.label, "writing-prompt");
+        assert.equal(getLocalizedMemoryText(record, "zh-CN"), place.prompt[0]);
+      }
+    }
+  }
+  const written = copies[1].addSessionMemory("  一起登景山。\n  ");
+  for (const [index, pool] of copies.entries()) {
+    assert.equal(pool.getById(written.id), index === 1 ? written : null);
+  }
 });

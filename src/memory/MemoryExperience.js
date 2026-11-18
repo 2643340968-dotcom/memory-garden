@@ -71,6 +71,7 @@ export function getMemoryEchoLabel(
   if (memory?.verified && Object.hasOwn(featuredLabels, memory.id)) {
     return translate(featuredLabels[memory.id], {}, language);
   }
+  if (memory?.label === "writing-prompt") return translate("memory.prompt", {}, language);
   if (memory?.kind === MEMORY_KINDS.AUDIO_ARCHIVE) {
     return translate("memory.archiveVoice", {}, language);
   }
@@ -171,6 +172,7 @@ export class MemoryExperience {
     this.place = null;
     this.memoryPool = null;
     this.placePools = new Map();
+    this.drafts = new Map();
     this.imagePreloader = new MemoryImagePreloader();
     this.overlay = document.querySelector("#memory-entry-overlay");
     this.form = document.querySelector("#memory-entry-form");
@@ -267,10 +269,13 @@ export class MemoryExperience {
     return this;
   }
 
-  enter(place) {
+  enter(place, bloomOnSubmit = true) {
     if (this.gardenActive && this.place === place) return;
     if (this.gardenActive) this.leave();
     this.place = place;
+    this.bloomOnSubmit = bloomOnSubmit;
+    this.textarea.value = this.drafts.get(place) ?? "";
+    document.querySelector("#garden-confirmation").hidden = true;
     if (!this.placePools.has(place)) {
       this.placePools.set(place, createMemoryPool({ prototypeMemories: place.memories }));
       this.imagePreloader.scheduleInitial(place.memories);
@@ -290,6 +295,8 @@ export class MemoryExperience {
 
   leave() {
     this.gardenActive = false;
+    this.drafts.set(this.place, this.textarea.value);
+    document.querySelector("#garden-confirmation").hidden = true;
     this.closeForm(false);
     this.app.setInputEnabled(false);
     this.app.mouseInput.onWindowBlur();
@@ -303,6 +310,7 @@ export class MemoryExperience {
   openForm() {
     if (!this.gardenActive || !this.overlay.hidden) return;
     this.endDragMemorySession();
+    document.querySelector("#garden-confirmation").hidden = true;
     this.field.inert = true;
     this.app.setInputEnabled(false);
     this.overlay.hidden = false;
@@ -350,6 +358,13 @@ export class MemoryExperience {
     void this.app.audioManager?.unlock();
 
     const memory = this.memoryPool.addSessionMemory(text);
+    if (!this.bloomOnSubmit) {
+      this.textarea.value = "";
+      this.drafts.delete(this.place);
+      this.closeForm();
+      document.querySelector("#garden-confirmation").hidden = false;
+      return;
+    }
     const generation = ++this.formGeneration;
     this.textarea.value = "";
     this.textarea.readOnly = true;

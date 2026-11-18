@@ -1,3 +1,6 @@
+import { recordChineseText } from "../data/placeRecords.js";
+import { PLACES } from "../atlas/places.js";
+
 export const LANGUAGES = Object.freeze({
   ENGLISH: "en",
   CHINESE: "zh-CN",
@@ -9,7 +12,7 @@ const TRANSLATIONS = Object.freeze({
   [LANGUAGES.ENGLISH]: Object.freeze({
     "document.title": "Site of Memory · Memory Atlas",
     "document.description":
-      "Explore a map of China and visit the memory garden at Jiangdongmen in Nanjing.",
+      "Explore five places across China, read their histories and leave a memory of your own.",
     "app.aria": "Site of Memory",
     "scene.aria": "Memory field. Touch a flower to read it, drag to grow flowers, or press Enter to discover a memory.",
     "atlas.wordmark": "Site of Memory",
@@ -22,16 +25,22 @@ const TRANSLATIONS = Object.freeze({
     "atlas.jiangsu": "Jiangsu province",
     "atlas.jiangdongmen": "Jiangdongmen",
     "atlas.jianye": "Jianye District",
-    "atlas.countryKicker": "Gardens of China",
+    "atlas.countryKicker": "China · A geographic collection",
     "atlas.cityKicker": "Jiangsu · China",
     "atlas.placeKicker": "Jianye · Nanjing",
-    "atlas.countryIntro": "Choose a city to find the places people remember.",
+    "atlas.countryIntro": "Five places across China, seen through the people and histories that gather there.",
     "atlas.cityIntro": "Explore Jiangdongmen, a place of remembrance in Nanjing’s Jianye District.",
     "atlas.placeIntro": "Among the Zijincao flowers, encounter memories of the memorial hall and of everyday life in Jiangdongmen.",
     "atlas.cities": "Explore a city",
     "atlas.places": "Places in Nanjing",
     "atlas.enter": "Enter the garden",
     "atlas.flower": "Zijincao flower garden",
+    "atlas.directory": "Place index",
+    "atlas.placesIn": "Places in {city}",
+    "atlas.garden": "Memory garden",
+    "atlas.source": "About this place ↗",
+    "atlas.locations": "{count} open gardens",
+    "atlas.at": "At this location",
     "atlas.legend": "Location with an open garden",
     "atlas.credits": "Map sources",
     "atlas.zoomIn": "Zoom in",
@@ -77,6 +86,11 @@ const TRANSLATIONS = Object.freeze({
       "I remember…",
     "entry.cancel": "Return to the garden",
     "entry.submit": "Leave this memory in the field",
+    "entry.save": "Save for this visit",
+    "entry.placeTitle": "What do you remember of {place}?",
+    "entry.saved": "Your words are saved here for this visit.",
+    "memory.heritage": "SHARED HERITAGE",
+    "memory.prompt": "PERSONAL MEMORY · WRITING PROMPT",
     "fatal.title": "THE FIELD COULD NOT OPEN",
     "fatal.description":
       "Check that this browser supports WebGL, then refresh the page.",
@@ -106,7 +120,7 @@ const TRANSLATIONS = Object.freeze({
   }),
   [LANGUAGES.CHINESE]: Object.freeze({
     "document.title": "记忆之场 · 记忆地图",
-    "document.description": "在中国地图上找到南京江东门，走进紫金草花园，遇见或留下与这里有关的记忆。",
+    "document.description": "在中国地图上探索五个地点，阅读那里留下的记录，也写下属于自己的记忆。",
     "app.aria": "记忆之场",
     "scene.aria": "触碰花簇可阅读记忆，拖动可让更多花朵生长，也可以按回车键探索记忆。",
     "atlas.wordmark": "记忆之场",
@@ -119,16 +133,22 @@ const TRANSLATIONS = Object.freeze({
     "atlas.jiangsu": "江苏省",
     "atlas.jiangdongmen": "江东门",
     "atlas.jianye": "建邺区",
-    "atlas.countryKicker": "中国 · 地点花园",
+    "atlas.countryKicker": "中国 · 地点图集",
     "atlas.cityKicker": "中国 · 江苏",
     "atlas.placeKicker": "南京 · 建邺",
-    "atlas.countryIntro": "选一座城市，寻找人们记忆里的地方。",
+    "atlas.countryIntro": "循着五处坐标，走进人们生活过、也不断回望的地方。",
     "atlas.cityIntro": "在建邺区找到江东门，走进南京的第一座记忆花园。",
     "atlas.placeIntro": "走进紫金草花丛，读一段与纪念馆有关的往事，也听听人们在江东门生活的记忆。",
     "atlas.cities": "选择城市",
     "atlas.places": "南京的记忆地点",
     "atlas.enter": "进入花园",
     "atlas.flower": "紫金草记忆花园",
+    "atlas.directory": "地点索引",
+    "atlas.placesIn": "{city}的记忆地点",
+    "atlas.garden": "地点记忆花园",
+    "atlas.source": "地点资料出处 ↗",
+    "atlas.locations": "{count} 处开放花园",
+    "atlas.at": "此处坐标",
     "atlas.legend": "已开放花园的地点",
     "atlas.credits": "地图来源",
     "atlas.zoomIn": "放大地图",
@@ -172,6 +192,11 @@ const TRANSLATIONS = Object.freeze({
       "我记得……",
     "entry.cancel": "回到花园",
     "entry.submit": "将这段记忆留在花田",
+    "entry.save": "保存本次留言",
+    "entry.placeTitle": "关于{place}，\n你记得什么？",
+    "entry.saved": "这段文字已留在这里，本次访问可见。",
+    "memory.heritage": "公共记忆",
+    "memory.prompt": "个人记忆 · 书写提示",
     "fatal.title": "花田暂时无法打开",
     "fatal.description": "请确认浏览器支持 WebGL，然后刷新页面。",
     "language.switchLabel": "EN",
@@ -201,6 +226,8 @@ const TRANSLATIONS = Object.freeze({
 });
 
 const MEMORY_TEXT_TRANSLATIONS = Object.freeze({
+  ...recordChineseText,
+  ...Object.fromEntries(Object.entries(PLACES).filter(([,p]) => Array.isArray(p.prompt)).map(([id,p]) => [id + "-prompt", p.prompt[0]])),
   "jiangdongmen-opening": "1985年8月15日，位于江东门的侵华日军南京大屠杀遇难同胞纪念馆向公众开放。",
   "jiangdongmen-documents": "联合国教科文组织《世界记忆名录》收录的南京大屠杀档案，既有1937至1938年的记录，也有战后调查与审判的文件。",
   "prototype-rain":
@@ -244,6 +271,11 @@ export function translate(
 }
 
 export const t = translate;
+
+// Place catalogue copy is held beside its coordinates. Interface keys use the normal registry.
+export function placeText(value, language = currentLanguage) {
+  return Array.isArray(value) ? value[normalizeLanguage(language) === LANGUAGES.CHINESE ? 0 : 1] : translate(value, {}, language);
+}
 
 export function getLanguage() {
   return currentLanguage;
