@@ -22,7 +22,9 @@
 #atlas-breadcrumbs { display:flex;align-items:center;padding-right:72px;font-size:12px;color:var(--muted); }
 #atlas-breadcrumbs a { padding:7px 0; }
 #atlas-breadcrumbs a+a::before { content:"/"; margin:0 10px;color:#899588; }
-#atlas-breadcrumbs [aria-current] { color:var(--ink); }
+#atlas-breadcrumbs a:hover { text-decoration:underline;text-underline-offset:4px; }
+#atlas-breadcrumbs [aria-current] { color:var(--location-ink);font-weight:600;animation:atlas-path-in .28s ease-out; }
+@keyframes atlas-path-in { from { opacity:.55;transform:translateY(2px); } to { opacity:1;transform:none; } }
 .png-page[data-view="atlas"] .language-toggle { top:calc(clamp(54px,7.4vh,75px)/2);right:3.6vw;min-width:37px;min-height:28px;transform:translateY(-50%);padding:3px 7px;border:1px solid #899789;border-radius:1px;background:#f4f2e7;color:#2a493b;font-size:11px; }
 .atlas-body { position:relative;min-height:0;isolation:isolate;overflow:hidden; }
 .atlas-info { position:absolute;z-index:3;pointer-events:none;left:var(--gutter);top:49%;transform:translateY(-50%);width:clamp(225px,24.5vw,371px); }
@@ -38,7 +40,8 @@
 .atlas-description { margin:0;max-width:26ch;color:#43574a;font:15px/1.68 var(--sans);text-wrap:pretty; }
 [data-language="zh-CN"] .atlas-description { max-width:17em; }
 #atlas-source { display:inline-block;margin-top:11px;padding:4px 0;pointer-events:auto;color:var(--location-ink);font:12px/1.4 var(--sans);text-decoration:underline;text-underline-offset:3px; }
-.atlas-map { position:absolute;inset:0;isolation:isolate;overflow:hidden;min-height:0;background:#d3e4df; }
+.atlas-map { position:absolute;inset:0;isolation:isolate;overflow:hidden;min-height:0;background:#d3e4df;touch-action:none; }
+.atlas-map::before { content:"";position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(117deg,#fff6d736 8%,#fff9db24 38%,transparent 59%,#425c6030 100%);mix-blend-mode:soft-light; }
 .atlas-map::after { content:"";position:absolute;z-index:1;inset:0;pointer-events:none;background:linear-gradient(90deg,#f5f2e8 0%,#f5f2e8f5 10%,#f5f2e8ca 21%,#f5f2e845 31%,transparent 43%),linear-gradient(0deg,#f3f1e540,transparent 13%); }
 #atlas-canvas { display:block;width:100%;height:100%;cursor:grab;touch-action:none; }
 #atlas-canvas.is-panning { cursor:grabbing; }
@@ -58,13 +61,13 @@
 .atlas-marker.is-national strong { font-size:19px; }
 .atlas-marker small { display:block;color:#465a4e;font:10px/1.35 var(--sans); }
 .atlas-marker.is-current { z-index:3; }
-.atlas-marker.is-current i { outline:1px solid var(--spot-ink);outline-offset:3px; }
+.atlas-marker.is-current i { outline:1px solid var(--spot-ink);outline-offset:3px;box-shadow:0 0 0 3px #fff8d9c7,0 0 11px 3px #fff3be9c; }
 .atlas-marker.is-current>span { background:#f7f4e8eb; }
-.atlas-ghost { position:absolute;z-index:3;left:0;top:0;width:clamp(162px,15.8vw,233px);pointer-events:none;visibility:hidden; }
-.atlas-ghost.is-visible { visibility:visible; }
-.atlas-impression { display:grid;justify-items:center;opacity:0;transform:translateY(7px) scale(.97);transform-origin:center bottom;transition:opacity .22s ease,transform .38s ease; }
+.atlas-ghost { position:absolute;z-index:3;left:0;top:0;width:clamp(174px,17vw,250px);pointer-events:none;visibility:hidden;transition:visibility 0s .18s; }
+.atlas-ghost.is-visible { visibility:visible;transition-delay:0s; }
+.atlas-impression { display:grid;justify-items:center;opacity:0;transform:translateY(5px) scale(.985);transform-origin:center bottom;transition:opacity .18s ease,transform .38s ease; }
 .atlas-ghost.is-visible .atlas-impression { opacity:1;transform:none; }
-#atlas-plate { display:block;width:100%;aspect-ratio:1.90;background:radial-gradient(ellipse at 50% 58%,#f7f3e4cc,transparent 70%); }
+#atlas-plate { display:block;width:100%;aspect-ratio:1.90;background:radial-gradient(ellipse at 49% 56%,#fffae1dc 0%,#f9f4ded4 20%,#f9f4df66 42%,transparent 71%); }
 #plate-caption { margin:0;max-width:100%;padding:1px 5px;color:var(--spot-ink);background:#f6f3e8de;font:italic 12px/1.22 var(--serif);text-align:center; }
 .atlas-compass { position:absolute;z-index:4;right:var(--gutter);top:21px;width:20px;pointer-events:none;text-align:center;color:#41584b;font:10px Georgia,serif; }
 .atlas-compass i { display:block;width:10px;height:23px;margin:4px auto;background:linear-gradient(90deg,#3d5b4b 50%,#b5ba9e 50%);clip-path:polygon(50% 0,100% 100%,50% 74%,0 100%); }
@@ -132,7 +135,7 @@
   .atlas-kicker { font-size:8px; }.atlas-info { padding-block:8px 10px; }
   #atlas-title,.atlas[data-level="city"] #atlas-title,.atlas[data-level="place"] #atlas-title,[data-language="zh-CN"] .atlas[data-level="place"] #atlas-title { font-size:34px;margin:4px 0; }
   .atlas-description,[data-language="zh-CN"] .atlas-description { font-size:11.5px;max-width:100%; }
-  .atlas-ghost { width:119px; }#plate-caption { font-size:9px; }
+  .atlas-ghost { width:132px; }#plate-caption { font-size:9px; }
   .atlas-marker strong { font-size:12px; }.atlas-marker.is-national strong { font-size:14px; }.atlas-marker small { display:none; }
   .atlas-directory { grid-template-columns:repeat(3,minmax(0,1fr)); }
   #atlas-choices { display:contents; }
@@ -151,7 +154,7 @@
   .atlas-header { min-height:39px; }.png-page[data-view="atlas"] .language-toggle { top:19px; }
   .atlas-choice { min-height:43px;padding-block:4px; }.atlas-footer { min-height:23px; }.atlas-ghost { width:105px; }
 }
-@media (prefers-reduced-motion:reduce) { .atlas-choice::before,.atlas-impression { transition:none; } }
+@media (prefers-reduced-motion:reduce) { .atlas-choice::before,.atlas-impression,.atlas-ghost { transition:none; } #atlas-breadcrumbs [aria-current] { animation:none; } }
 .garden-back, .garden-write, .memory-cancel { cursor: pointer; pointer-events: auto; font: inherit; color: #e1d4e4; }
 .png-page[data-language="zh-CN"] #memory-entry-title { white-space:pre-line; }
 .garden-back { position: absolute; top: clamp(24px,4vw,54px); left: clamp(24px,4.5vw,68px); display: inline-flex; align-items: center; gap: 9px; padding: 4px 0; text-decoration: none; font-size: 13px; }

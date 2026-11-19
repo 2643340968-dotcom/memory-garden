@@ -10,7 +10,15 @@ const gardenElement = document.querySelector("#garden-view");
 const loading = document.querySelector("#garden-loading");
 const back = document.querySelector("#garden-back");
 const themeColor = document.querySelector('meta[name="theme-color"]');
-const atlas = new AtlasView((route) => { location.hash = atlasHash(route); });
+const atlas = new AtlasView((route, { fromZoom = false } = {}) => {
+  const hash = atlasHash(route);
+  if (fromZoom) {
+    history.replaceState(null, "", hash);
+    void showRoute({ fromZoom: true });
+  } else {
+    location.hash = hash;
+  }
+});
 let gardenPromise;
 let garden;
 let lastRoute;
@@ -36,7 +44,7 @@ function localizeGarden(route) {
   document.querySelector("#memory-submit span").textContent = t(site.bloomOnSubmit ? "entry.submit" : "entry.save");
 }
 
-async function showRoute() {
+async function showRoute({ fromZoom = false } = {}) {
   const route = readAtlasRoute(location.hash);
   const version = ++routeVersion;
   const previous = lastRoute;
@@ -50,10 +58,12 @@ async function showRoute() {
     if (garden?.memoryExperience.gardenActive) garden.memoryExperience.leave();
     const returning = previous?.level === "garden" && atlas.route?.place === route.place &&
       atlas.route?.level === route.level;
-    atlas.show(route, { fit: !returning, immediate: !previous || previous.level === "garden", focus: Boolean(previous) });
+    atlas.show(route, { fit: !returning && !fromZoom, fromZoom,
+      immediate: !previous || previous.level === "garden", focus: Boolean(previous) && !fromZoom });
     return;
   }
 
+  atlas.map.clearPreview();
   back.href = atlasHash({ ...route, level: "place" });
   localizeGarden(route);
   back.focus({ preventScroll: true });
@@ -84,6 +94,13 @@ back.addEventListener("click", (event) => {
   if (history.state?.gardenFrom === back.hash) {
     event.preventDefault();
     history.back();
+  }
+});
+// A zoom can replace the current entry with the same hash as the preceding
+// explicit visit. Traversing those two entries doesn't fire a hashchange.
+window.addEventListener("popstate", () => {
+  if (lastRoute && lastRoute.level !== "garden" && atlas.map.manual && location.hash === atlasHash(lastRoute)) {
+    atlas.map.recenter();
   }
 });
 window.addEventListener("hashchange", (event) => {

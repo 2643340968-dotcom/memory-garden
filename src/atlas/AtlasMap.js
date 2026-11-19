@@ -3,6 +3,7 @@ import { CHINA, CITIES, PLACES } from "./places.js";
 import { cityStudies } from "./identities.js";
 import { FieldStudy } from "./FieldStudy.js";
 import { groupMarkers, overlaps } from "./markerLayout.js";
+import { routeAtZoom } from "./zoomRoute.js";
 import reliefUrl from "./maps/china-relief.webp";
 import bounds from "./maps/place-bounds.json";
 import watercourses from "./maps/watercourses.json";
@@ -65,6 +66,7 @@ function blendCamera(a, b, progress) {
   return { x: a.x + (b.x - a.x) * pan, y: a.y + (b.y - a.y) * pan, span: a.span * scale };
 }
 const smooth = (p) => p * p * (3 - 2 * p);
+const magnifies = (preview) => preview?.source === "index" || preview?.source === "marker";
 
 export class AtlasMap {
   constructor(root, navigate, onPreview) {
@@ -88,7 +90,7 @@ export class AtlasMap {
     this.width = this.height = 1;
     this.zoomIn.onclick = () => this.zoom(1.8);
     this.zoomOut.onclick = () => this.zoom(1 / 1.8);
-    root.querySelector("#atlas-fit").onclick = () => { this.onPreview(null); this.fly(this.route); };
+    root.querySelector("#atlas-fit").onclick = () => this.recenter();
     this.markers.addEventListener("click", (event) => {
       const mark = event.target.closest("button")?.atlasMark;
       if (!mark) return;
@@ -99,21 +101,27 @@ export class AtlasMap {
     root.addEventListener("wheel", (event) => {
       if (event.target.closest(".atlas-tools")) return;
       event.preventDefault();
-      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : 1);
-      this.zoom(Math.exp(-clamp(delta, -260, 260) * 0.0025), this.point(event));
+      const delta = event.deltaY * (event.deltaMode === 2 ? this.height : event.deltaMode === 1 ? 16 : 1);
+      const point = this.point(event), now = performance.now();
+      const previous = this.wheelAnchor;
+      const continuing = previous && now - previous.time < 260 && Math.hypot(point.x - previous.x, point.y - previous.y) < 5;
+      const site = continuing ? previous.site : event.target.closest(".atlas-marker")?.dataset.preview;
+      this.wheelAnchor = { ...point, time: now, site };
+      // A pin or its label may be several kilometres wide at national scale.
+      // Keep its real coordinate under the gesture as the markers regroup.
+      const [x, y] = site ? this.screen(...PLACES[site].center) : [point.x, point.y];
+      this.zoom(Math.exp(-clamp(delta, -260, 260) * 0.0025), { x, y });
     }, { passive: false });
-    this.canvas.addEventListener("pointerdown", (event) => {
-      if (event.button !== 0) return;
-      this.takeControl();
-      if (this.route.place) this.onPreview(this.route.place, "selected");
-      this.canvas.setPointerCapture(event.pointerId);
-      this.pointers.set(event.pointerId, this.point(event));
-      this.canvas.classList.add("is-panning");
-    });
-    this.canvas.addEventListener("pointermove", (event) => this.move(event));
-    this.canvas.addEventListener("lostpointercapture", (event) => {
+    root.addEventListener("pointerdown", (event) => this.beginPan(event));
+    root.addEventListener("pointermove", (event) => this.move(event));
+    const release = (event) => {
       this.pointers.delete(event.pointerId);
       if (!this.pointers.size) this.canvas.classList.remove("is-panning");
+    };
+    root.addEventListener("pointerup", release);
+    root.addEventListener("pointercancel", release);
+    root.addEventListener("lostpointercapture", (event) => {
+      if (event.target === root) release(event);
     });
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(root);
@@ -140,11 +148,14 @@ export class AtlasMap {
     this.previewTween = null;
     this.draw();
   }
+  hasSidePanel() {
+    return this.width >= 880 && !matchMedia("(max-width:950px) and (orientation:portrait)").matches;
+  }
   target(route) {
     const area = PLACES[route.place] ?? CITIES[route.city] ?? CHINA;
     const [x, lat] = area.center;
     const dy = northing(lat + area.latitudeSpan / 2) - northing(lat - area.latitudeSpan / 2);
-    const overlay = this.width >= 880 && !matchMedia("(max-width:950px) and (orientation:portrait)").matches;
+    const overlay = this.hasSidePanel();
     const horizontal = route.level === "country" && this.width <= 520 ? 65 : area.span;
     const span = Math.max(horizontal / (overlay ? 0.73 : 0.92), dy * this.width / (this.height * 0.86));
     return { x: x - (overlay ? span * 0.105 : 0), y: northing(lat), span };
@@ -156,11 +167,22 @@ export class AtlasMap {
   clearPreview() {
     this.preview = null;
     this.previewTween = null;
+    this.study.hide();
     this.ghost.classList.remove("is-visible");
     delete this.ghost.dataset.place;
   }
+  followZoom(route) {
+    this.clearPreview();
+    this.route = route;
+    this.fittedSpan = this.target(route).span;
+  }
+  recenter() {
+    this.fly(this.route);
+    this.onPreview(this.route.place ?? null, "selected");
+  }
   fly(route, immediate = false) {
     const from = this.view ?? this.camera;
+    this.wheelAnchor = null;
     this.clearPreview();
     this.route = route;
     this.manual = false;
@@ -190,24 +212,43 @@ export class AtlasMap {
     this.flyTo(from, { x: (lowX + highX) / 2 - (this.width >= 880 ? span * 0.08 : 0), y: (lowY + highY) / 2, span }, 620);
   }
   takeControl() {
-    const current = this.view ?? this.camera;
-    this.onPreview(null);
-    this.clearPreview();
+    this.camera = { ...(this.view ?? this.camera) };
+    this.view = this.camera;
+    this.previewTween = null;
     this.flight = null;
-    this.camera = { ...current };
+    if (this.preview) this.preview.source = "manual";
     this.manual = true;
+  }
+  beginPan(event) {
+    if (event.button !== 0 || event.target.closest(".atlas-tools") || this.pointers.size >= 2) return;
+    const onPin = Boolean(event.target.closest(".atlas-marker"));
+    if (onPin && event.pointerType !== "touch") return;
+    this.wheelAnchor = null;
+    this.pointers.set(event.pointerId, { ...this.point(event), tap: onPin });
+    if (onPin && this.pointers.size === 1) return;
+    this.takeControl();
+    for (const id of this.pointers.keys()) this.root.setPointerCapture(id);
+    this.canvas.classList.add("is-panning");
   }
   move(event) {
     const old = this.pointers.get(event.pointerId);
     if (!old) return;
     const point = this.point(event);
     const second = [...this.pointers].find(([id]) => id !== event.pointerId)?.[1];
+    if (old.tap && !second) {
+      if (Math.hypot(point.x - old.x, point.y - old.y) < 6) return;
+      this.takeControl();
+      this.root.setPointerCapture(event.pointerId);
+      this.canvas.classList.add("is-panning");
+    }
     this.pointers.set(event.pointerId, point);
     if (second) {
-      const distance = (p) => Math.hypot(p.x - second.x, p.y - second.y);
-      this.zoom(distance(point) / Math.max(1, distance(old)), { x: (old.x + second.x) / 2, y: (old.y + second.y) / 2 });
+      const distance = (p) => Math.max(1, Math.hypot(p.x - second.x, p.y - second.y));
+      const midpoint = (p) => ({ x: (p.x + second.x) / 2, y: (p.y + second.y) / 2 });
+      this.zoom(distance(point) / distance(old), midpoint(old), midpoint(point));
+      return;
     }
-    const unit = this.camera.span / this.width * (second ? 0.5 : 1);
+    const unit = this.camera.span / this.width;
     const layer = this.camera.span < 0.065 ? this.detailAt(this.camera.x, latitude(this.camera.y)) : null;
     const limit = layer?.bounds ?? [73, 17, 135, 54];
     this.camera.x = clamp(this.camera.x - (point.x - old.x) * unit, limit[0], limit[2]);
@@ -234,41 +275,50 @@ export class AtlasMap {
     }
     return 6;
   }
-  zoom(factor, point = { x: this.width / 2, y: this.height / 2 }) {
-    const keepId = this.preview?.id ?? this.route.place;
-    if ((this.preview && this.preview.source !== "selected") || this.previewTween || this.flight) this.takeControl();
-    this.manual = true;
+  zoom(factor, point = { x: this.width * (this.hasSidePanel() ? 0.605 : 0.5), y: this.height / 2 }, nextPoint = point) {
+    if (!Number.isFinite(factor) || factor <= 0) return;
+    this.takeControl();
     const c = this.camera;
     const old = c.span;
     const lon = c.x + (point.x - this.width / 2) * old / this.width;
-    const lat = latitude(c.y - (point.y - this.height / 2) * old / this.width);
-    c.span = clamp(old / factor, Math.min(old, this.minimum(lon, lat)), this.target({ level: "country" }).span * 1.12);
-    const shift = (old - c.span) / this.width;
-    c.x = clamp(c.x + (point.x - this.width / 2) * shift, 73, 135);
-    c.y = clamp(c.y - (point.y - this.height / 2) * shift, northing(17), northing(54));
-    if (keepId && this.preview?.id !== keepId) this.onPreview(keepId, "selected");
+    const y = c.y - (point.y - this.height / 2) * old / this.width, lat = latitude(y);
+    const overview = this.target({ level: "country" });
+    c.span = clamp(old / factor, Math.min(old, this.minimum(lon, lat)), overview.span);
+    c.x = clamp(lon - (nextPoint.x - this.width / 2) * c.span / this.width, 73, 135);
+    c.y = clamp(y + (nextPoint.y - this.height / 2) * c.span / this.width, northing(17), northing(54));
+    if (c.span > old && c.span > overview.span * 0.60) {
+      const start = Math.max(old, overview.span * 0.60);
+      const pull = (c.span - start) / (overview.span - start);
+      c.x += (overview.x - c.x) * pull;
+      c.y += (overview.y - c.y) * pull;
+    }
+    if (c.span !== old) {
+      const next = routeAtZoom(this.route, c.span, c.span > old, [lon, lat], route => this.target(route).span);
+      if (next !== this.route) { this.navigate(next, { fromZoom: true }); return; }
+    }
     this.draw();
   }
   setPreview(id, source = "marker") {
-    if (id === this.preview?.id && source === this.preview.source) return;
+    if (id === this.preview?.id && source === this.preview?.source) return;
     if (!id && !this.preview) return;
     const from = this.view ?? this.camera;
-    const wasVisible = this.ghost.classList.contains("is-visible");
+    const previous = this.preview;
     if (id) {
       const site = PLACES[id];
-      this.preview = { id, source, start: performance.now() };
-      this.study.show(site.study, site.ink, !wasVisible);
+      this.preview = { id, source, start: previous?.id === id ? previous.start : performance.now() };
+      if (previous?.id !== id) this.study.show(id, site.study, site.ink);
       this.ghost.style.setProperty("--spot-ink", site.ink);
       this.ghost.dataset.place = id;
       this.caption.textContent = placeText(site.name) + "  /  " + placeText(site.motif);
     } else {
       this.clearPreview();
     }
-    this.previewTween = !this.reduced.matches && !this.flight ? { from, start: performance.now() } : null;
+    this.previewTween = !this.reduced.matches && !this.flight && (magnifies(previous) || magnifies(this.preview))
+      ? { from, start: performance.now() } : null;
     this.draw();
   }
   previewCamera() {
-    if (!this.preview || this.preview.source === "selected" || this.flight) return this.camera;
+    if (!magnifies(this.preview) || this.flight) return this.camera;
     const [lon, lat] = PLACES[this.preview.id].center;
     let [x, y] = at(this.camera, this.width, this.height, [lon, lat]);
     if (this.preview.source === "index") {
@@ -332,8 +382,9 @@ export class AtlasMap {
     const km = [5, 2, 1].find(v => v * unit <= scaleKm * 78) * unit;
     this.scale.lastElementChild.style.width = km / scaleKm + "px";
     this.scale.firstElementChild.textContent = km < 1 ? Math.round(km * 1000) + " m" : km + " km";
-    this.zoomIn.disabled = this.camera.span <= this.minimum(this.camera.x, latitude(this.camera.y)) * 1.0001;
-    this.zoomOut.disabled = this.camera.span >= this.target({ level: "country" }).span * 1.11999;
+    const focusLon = this.camera.x + (this.hasSidePanel() ? 0.105 * this.camera.span : 0);
+    this.zoomIn.disabled = this.camera.span <= this.minimum(focusLon, latitude(this.camera.y)) * 1.0001;
+    this.zoomOut.disabled = this.camera.span >= this.target({ level: "country" }).span * 0.999999;
     if (this.flight || this.previewTween || opening < 1 || (this.view.span > 9 && ink < 1)) this.queueDraw();
   }
   drawGrid() {
@@ -405,6 +456,7 @@ export class AtlasMap {
     const [x, y] = this.screen(...site.center);
     const visible = x >= 4 && x <= this.width - 4 && y >= 4 && y <= this.height - 4;
     this.ghost.classList.toggle("is-visible", visible);
+    this.study.setVisible(visible);
     if (!visible) return;
     const w = this.ghost.offsetWidth, h = this.ghost.offsetHeight;
     const size = this.width < 600 ? 32 : 47;
@@ -420,6 +472,15 @@ export class AtlasMap {
     const image = this.getImage(layer.url);
     const radius = size * (1 - (1 - phase) ** 3);
     ctx.save();
+    if (radius > 1) {
+      const reach = radius * 2.45;
+      const pool = ctx.createRadialGradient(x - radius * 0.38, y - radius * 0.4, 0, x, y, reach);
+      pool.addColorStop(0, "#fff3c994");
+      pool.addColorStop(0.48, "#ffedba57");
+      pool.addColorStop(1, "#fff3cc00");
+      ctx.fillStyle = pool;
+      ctx.fillRect(x - reach, y - reach, reach * 2, reach * 2);
+    }
     if (radius > 1 && image.complete && image.naturalWidth) {
       const [west, south, east, north] = layer.bounds;
       const ix = (site.center[0] - west) / (east - west) * image.naturalWidth;
@@ -429,19 +490,27 @@ export class AtlasMap {
       ctx.save();
       ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.clip();
       ctx.drawImage(image, ix - sample / 2, iy - sample / 2, sample, sample, x - radius, y - radius, 2 * radius, 2 * radius);
+      const glass = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
+      glass.addColorStop(0, "#fff9dda8"); glass.addColorStop(0.40, "#fff9e50a");
+      glass.addColorStop(1, site.ink + "27");
+      ctx.fillStyle = glass; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
       ctx.restore();
       ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.strokeStyle = "#faf7eb"; ctx.lineWidth = 3; ctx.stroke();
       ctx.strokeStyle = site.ink; ctx.lineWidth = 0.95; ctx.stroke();
+      ctx.beginPath(); ctx.arc(x, y, Math.max(0.1, radius - 1.4), Math.PI * 1.02, Math.PI * 1.68);
+      ctx.strokeStyle = "#fffcdd"; ctx.lineWidth = 2; ctx.stroke();
     }
     ctx.globalAlpha = phase * 0.83;
-    ctx.strokeStyle = site.ink; ctx.lineWidth = 0.9;
+    const thread = ctx.createLinearGradient(cx, cy + h, x, y);
+    thread.addColorStop(0, site.ink); thread.addColorStop(0.58, "#bd9a55"); thread.addColorStop(1, site.ink);
+    ctx.strokeStyle = thread; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(cx, cy + h - 1); ctx.lineTo(x, y - 4); ctx.stroke();
     ctx.restore();
   }
   markerGroups() {
     const { width, height, camera } = this;
-    if (this.route.level === "country" && camera.span > 7) {
+    if (this.route.level === "country") {
       return Object.keys(CITIES).map((city) => {
         const id = cityStudies[city].site, [x, y] = at(camera, width, height, PLACES[id].center);
         return { id: city, site: id, city, x, y, national: true, members: [id] };

@@ -3,10 +3,45 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "../src/atlas/places.js";
 import { groupMarkers } from "../src/atlas/markerLayout.js";
+import { routeAtZoom } from "../src/atlas/zoomRoute.js";
 import { JIANGDONGMEN } from "../src/data/jiangdongmen.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
 import { getMemoryEchoLabel } from "../src/memory/MemoryExperience.js";
 import { getLocalizedMemoryText } from "../src/i18n/LanguageController.js";
+
+test("zooming out leaves the place and city layers, including a pinch across both at once", () => {
+  const fit = route => route.level === "place" ? 0.08 : 1.2;
+  for (const [cityId, city] of Object.entries(CITIES)) {
+    const id = city.places[0];
+    const point = PLACES[id].center;
+    const place = { level: "place", city: cityId, place: id };
+    const cityRoute = { level: "city", city: cityId };
+    const country = { level: "country" };
+    assert.equal(routeAtZoom(place, 0.105, true, point, fit), place);
+    assert.deepEqual(routeAtZoom(place, 0.13, true, point, fit), cityRoute);
+    assert.equal(routeAtZoom(cityRoute, 6.4, true, point, fit), cityRoute);
+    assert.deepEqual(routeAtZoom(cityRoute, 8, true, point, fit), country);
+    assert.deepEqual(routeAtZoom(place, 75, true, point, fit), country);
+    assert.equal(routeAtZoom(country, 75, true, point, fit), country);
+  }
+});
+
+test("zooming in follows the geographic focus and tolerates small reversals at layer boundaries", () => {
+  const fit = route => route.level === "place" ? 0.075 : 0.55;
+  const country = { level: "country" };
+  const city = { level: "city", city: "beijing" };
+  const point = PLACES.wanchunting.center;
+  assert.equal(routeAtZoom(country, 0.9, false, [85, 34], fit), country);
+  assert.equal(routeAtZoom(country, 5.3, false, point, fit), country);
+  assert.deepEqual(routeAtZoom(country, 4.7, false, point, fit), city);
+  assert.equal(routeAtZoom(city, 5.3, true, point, fit), city);
+  assert.equal(routeAtZoom(city, 0.075, false, point, fit), city);
+  assert.deepEqual(routeAtZoom(city, 0.052, false, point, fit), { ...city, level: "place", place: "wanchunting" });
+  const nanjing = { level: "city", city: "nanjing" };
+  const lake = PLACES.p31332.center;
+  assert.deepEqual(routeAtZoom(country, 0.052, false, lake, fit), { ...nanjing, level: "place", place: "p31332" });
+  assert.equal(routeAtZoom(nanjing, 0.052, false, [120, 36], fit), nanjing);
+});
 
 test("each of the 85 places has a local chart covering its coordinate", () => {
   const mapRoot = new URL("../src/atlas/maps/", import.meta.url);

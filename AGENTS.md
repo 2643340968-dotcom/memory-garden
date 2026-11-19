@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 28 tests, including routes and georeferenced charts for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
+- The automated suite has 30 tests, including bidirectional zoom routing, routes and georeferenced charts for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -40,7 +40,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
-- The garden title uses the selected city and place in the active language. A pointer or keyboard focus on the map or index reveals a stippled illustration above the matching geographic coordinate and a neighbourhood lens below it. The map magnifies around that coordinate.
+- The garden title uses the selected city and place in the active language. Hover or keyboard focus brings grains up from the pin into the site's illustrated silhouette. While the place is visible, a narrow band of warm light picks out a few grains and the lens rim. Only the small illustration canvas animates when the camera is still. Reduced motion shows a settled print.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards, slightly wider archival-image cards, or a smaller independent archive-voice indicator.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
@@ -50,7 +50,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 ## CURRENT INTERACTION FLOW
 
 1. The visitor enters the national atlas at `/png.html`.
-2. Country, city and place use one pannable, zoomable map. Five national markers open Nanjing (21 sites), Beijing (22), Dunhuang (8), Chengdu (18) and Quanzhou (16). City markers group close neighbours, split with zoom and remain accessible through the paged directory. The language switch is available throughout.
+2. Country, city and place use one pannable, zoomable map. Five national markers open Nanjing (21 sites), Beijing (22), Dunhuang (8), Chengdu (18) and Quanzhou (16). City markers group close neighbours and split with zoom. Wheel, buttons and pinch update the URL, breadcrumb, title, markers, status and index when the camera crosses a geographic level. Hover magnification only previews a place. A semantic zoom keeps the current camera and replaces the current history entry.
 3. Entering any site loads the PNG field. Three clusters carry two local records and either a writing prompt, a prototype memory at Jiangdongmen or that site's latest visitor memory. The 80 added locations each have an original bilingual site note and a geographic record.
 4. Visitors can tap an existing cluster to read its memory, drag to grow more clusters or focus the canvas and press Enter to discover another memory.
 5. The writing dialog locks planting while open. All 85 sites accept messages and keep drafts and submissions separate. Jiangdongmen grows a flower and reveals YOUR MEMORY on submission. The other sites confirm that the text was saved for the current visit.

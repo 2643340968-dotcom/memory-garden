@@ -21,6 +21,13 @@ export class AtlasView {
     this.next.onclick = () => this.changePage(1);
     this.map = new AtlasMap(document.querySelector("#atlas-map"), navigate, (id, source) => this.preview(id, source));
     this.page = 0;
+    this.root.addEventListener("click", (event) => {
+      const link = event.target.closest(".atlas-wordmark, #atlas-breadcrumbs a");
+      if (!link || link.hash !== atlasHash(this.route) || event.button !== 0 ||
+          event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      this.map.recenter();
+    });
     const previewFrom = (target) => {
       const node = target?.closest?.("[data-preview]");
       if (node) this.preview(node.dataset.preview, node.closest("#atlas-choices") ? "index" : "marker");
@@ -46,7 +53,7 @@ export class AtlasView {
   capacity() {
     return this.root.clientWidth <= 520 ? 4 : this.root.clientWidth < 1000 ? 5 : 6;
   }
-  show(route, { fit = true, immediate = false, focus = false } = {}) {
+  show(route, { fit = true, immediate = false, focus = false, fromZoom = false } = {}) {
     const old = this.route;
     this.route = route;
     this.root.dataset.level = route.level;
@@ -55,10 +62,11 @@ export class AtlasView {
     if (route.level === "city" && old?.place && old.city === route.city) {
       this.page = Math.max(0, Math.floor(CITIES[route.city].places.indexOf(old.place) / this.capacity()));
     }
-    if (fit) this.map.fly(route, immediate);
+    if (fromZoom) this.map.followZoom(route);
+    else if (fit) this.map.fly(route, immediate);
     this.render();
     if (focus) this.title.focus({ preventScroll: true });
-    const touchCity = route.level === "city" && matchMedia("(hover:none)").matches;
+    const touchCity = !fromZoom && route.level === "city" && matchMedia("(hover:none)").matches;
     this.preview(route.place ?? (touchCity ? CITIES[route.city].places[0] : null), "selected");
   }
   preview(id, source = "marker") {
@@ -127,9 +135,13 @@ export class AtlasView {
     const source = document.querySelector("#atlas-source");
     source.hidden = !site;
     if (site) source.href = site.sourceUrl;
-    document.querySelector("#atlas-legend-count").textContent = t("atlas.overviewCount", {
-      cities: Object.keys(CITIES).length, places: Object.keys(PLACES).length,
-    });
+    let status = t("atlas.overviewCount", { cities: Object.keys(CITIES).length, places: Object.keys(PLACES).length });
+    if (city) {
+      const detail = site ? (city.places.indexOf(route.place) + 1) + " / " + city.places.length :
+        t("atlas.placeCount", { count: city.places.length });
+      status = placeText(city.name) + " · " + detail;
+    }
+    document.querySelector("#atlas-legend-count").textContent = status;
     crumbs.replaceChildren(linkTo({ level: "country" }, t(CHINA.name)));
     if (city) crumbs.append(linkTo({ level: "city", city: route.city }, placeText(city.name)));
     if (site) crumbs.append(linkTo(route, placeText(site.name)));
