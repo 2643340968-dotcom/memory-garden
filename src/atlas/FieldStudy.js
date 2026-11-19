@@ -1,7 +1,7 @@
 import plates from "./field-studies.json";
+import { mixInk } from "./identities.js";
 
 const studies = new Map();
-const inks = ["#947d87", "#cfadad", "#f5dfc7"];
 function pointsFor(city) {
   if (!studies.has(city)) {
     const raw = atob(plates[city]);
@@ -19,12 +19,14 @@ export class FieldStudy {
     this.motion = matchMedia("(prefers-reduced-motion: reduce)");
     this.current = Float32Array.from(pointsFor("nanjing"));
     this.city = "nanjing";
+    this.inks = [];
     this.observer = new ResizeObserver(() => this.draw());
     this.observer.observe(canvas);
   }
 
-  show(city, immediate = false) {
-    if (city === this.city && !immediate) return;
+  show(city, ink, immediate = false) {
+    this.inks = [mixInk(ink, "#f3ead6", 0.38), ink, mixInk(ink, "#16231f", 0.55)];
+    if (city === this.city && !immediate) { this.draw(); return; }
     this.city = city;
     cancelAnimationFrame(this.frame);
     const target = pointsFor(city);
@@ -68,8 +70,8 @@ export class FieldStudy {
     const scale = Math.min(width / 380, height / 220);
     const offsetX = (width - 380 * scale) / 2;
     const offsetY = (height - 220 * scale) / 2;
-    for (let tone = 0; tone < inks.length; tone++) {
-      ctx.fillStyle = inks[tone];
+    for (let tone = 0; tone < this.inks.length; tone++) {
+      ctx.fillStyle = this.inks[tone];
       const size = Math.max(0.7, (tone === 2 ? 1.38 : 1.05) * scale);
       ctx.beginPath();
       for (let i = 0; i < this.current.length; i += 3) {

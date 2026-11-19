@@ -6,9 +6,9 @@
     <meta
       name="description"
       data-i18n-content="document.description"
-      content="Explore five places across China, read their histories and leave a memory of your own."
+      content="Explore a memory atlas of five Chinese cities. Discover local places, read their records and leave a memory."
     />
-    <meta name="theme-color" content="#2b2335" />
+    <meta name="theme-color" content="#f5f2e8" />
     <link rel="icon" href="./assets/flowers/png/zijincao_01.png" />
     <title data-i18n="document.title">Site of Memory · Memory Atlas</title>
   </head>
@@ -35,14 +35,13 @@
               <p id="atlas-description" class="atlas-description"></p>
               <a id="atlas-source" target="_blank" rel="noreferrer" data-i18n="atlas.source" hidden>About this place ↗</a>
             </div>
-            <div class="atlas-plate" aria-hidden="true">
-              <canvas id="atlas-plate"></canvas>
-              <p id="plate-caption"></p>
-            </div>
           </div>
           <div id="atlas-map" class="atlas-map" role="group" data-i18n-aria-label="atlas.mapAria" aria-label="Interactive geographic map">
             <canvas id="atlas-canvas" aria-hidden="true"></canvas>
             <div id="atlas-markers"></div>
+            <div id="atlas-ghost" class="atlas-ghost" aria-hidden="true">
+              <div class="atlas-impression"><canvas id="atlas-plate"></canvas><p id="plate-caption"></p></div>
+            </div>
             <div class="atlas-compass" aria-hidden="true"><span>N</span><i></i></div>
             <div class="atlas-tools">
               <button id="atlas-zoom-in" type="button" data-i18n-aria-label="atlas.zoomIn" aria-label="Zoom in">+</button>
@@ -54,8 +53,12 @@
         </div>
 
         <nav class="atlas-directory" aria-labelledby="atlas-index-label">
-          <p id="atlas-index-label" class="atlas-index-label"></p>
+          <div class="atlas-index-heading"><p id="atlas-index-label" class="atlas-index-label"></p><span id="atlas-index-range"></span></div>
           <div id="atlas-choices"></div>
+          <div id="atlas-page-controls" hidden>
+            <button id="atlas-prev" type="button" data-i18n-aria-label="atlas.previous" aria-label="Previous places">←</button>
+            <button id="atlas-next" type="button" data-i18n-aria-label="atlas.next" aria-label="Next places">→</button>
+          </div>
         </nav>
 
         <footer class="atlas-footer">

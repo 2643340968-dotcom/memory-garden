@@ -1,10 +1,48 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "../src/atlas/places.js";
+import { groupMarkers } from "../src/atlas/markerLayout.js";
 import { JIANGDONGMEN } from "../src/data/jiangdongmen.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
 import { getMemoryEchoLabel } from "../src/memory/MemoryExperience.js";
 import { getLocalizedMemoryText } from "../src/i18n/LanguageController.js";
+
+test("each of the 85 places has a local chart covering its coordinate", () => {
+  const mapRoot = new URL("../src/atlas/maps/", import.meta.url);
+  const manifest = JSON.parse(readFileSync(new URL("place-bounds.json", mapRoot), "utf8"));
+  const chartIds = [];
+  for (const [path, { level, city, bounds }] of Object.entries(manifest)) {
+    if (level === "region" || level === "city") continue;
+    const place = PLACES[level];
+    assert.equal(place.city, city, level);
+    const [lon, lat] = place.center;
+    const [west, south, east, north] = bounds;
+    assert.ok(west < lon && lon < east && south < lat && lat < north, level);
+    const header = readFileSync(new URL(path + ".webp", mapRoot)).subarray(0, 12).toString("latin1");
+    assert.equal(header.slice(0, 4), "RIFF", path);
+    assert.equal(header.slice(8), "WEBP", path);
+    chartIds.push(level);
+  }
+  assert.deepEqual(chartIds.sort(), Object.keys(PLACES).sort());
+  assert.deepEqual(Object.fromEntries(Object.entries(CITIES).map(([id, city]) => [id, city.places.length])),
+    { nanjing: 21, beijing: 22, dunhuang: 8, chengdu: 18, quanzhou: 16 });
+  assert.equal(new Set(Object.values(CITIES).map(city => city.ink)).size, 5);
+});
+
+test("nearby pins share a true location at city scale and separate at street scale", () => {
+  const sites = [
+    { id: "a", city: "nanjing", x: 100, y: 100 },
+    { id: "b", city: "nanjing", x: 113, y: 104 },
+    { id: "c", city: "nanjing", x: 145, y: 120 },
+    { id: "d", city: "beijing", x: 102, y: 104 },
+  ];
+  const groups = groupMarkers(sites, 19);
+  assert.deepEqual(groups.map(group => group.members), [["a", "b"], ["c"], ["d"]]);
+  assert.deepEqual([groups[0].x, groups[0].y], [sites[0].x, sites[0].y]);
+  assert.deepEqual(groupMarkers(sites, 0).map(group => group.members), [["a"], ["b"], ["c"], ["d"]]);
+  assert.ok(sites.every(site => !("members" in site)));
+});
 
 test("map and garden routes round trip only for catalogued places in their city", () => {
   for (const route of [

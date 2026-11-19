@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 26 tests, including five-site routing, per-place collections, bilingual source records and the Jiangdongmen bloom.
+- The automated suite has 28 tests, including routes and georeferenced charts for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -36,11 +36,11 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 
 ## CURRENT VISUAL DIRECTION
 
-- Dark violet / plum-black memory-garden atmosphere.
+- The national atlas uses light warm paper, sage relief and blue-green water. The Jiangdongmen garden keeps its dark violet / plum-black atmosphere. Other gardens pick up their place's ink.
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
-- The garden title uses the selected city and place in the active language. The atlas uses engraved relief, geographic river paths, a neighbourhood lens and a point illustration for each place.
+- The garden title uses the selected city and place in the active language. A pointer or keyboard focus on the map or index reveals a stippled illustration above the matching geographic coordinate and a neighbourhood lens below it. The map magnifies around that coordinate.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards, slightly wider archival-image cards, or a smaller independent archive-voice indicator.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.
@@ -50,10 +50,10 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 ## CURRENT INTERACTION FLOW
 
 1. The visitor enters the national atlas at `/png.html`.
-2. Country, city and place use one pannable, zoomable map. The five open sites are Jiangdongmen in Nanjing, Wanchun Pavilion in Beijing, Mogao near Dunhuang, Dujiangyan's Fish Mouth near Chengdu and Luoyang Bridge in Quanzhou. The language switch is available throughout.
-3. Entering any site loads the PNG field. Three clusters carry a historical record, a public memory and either a writing prompt, a prototype memory at Jiangdongmen or that site's latest visitor memory.
+2. Country, city and place use one pannable, zoomable map. Five national markers open Nanjing (21 sites), Beijing (22), Dunhuang (8), Chengdu (18) and Quanzhou (16). City markers group close neighbours, split with zoom and remain accessible through the paged directory. The language switch is available throughout.
+3. Entering any site loads the PNG field. Three clusters carry two local records and either a writing prompt, a prototype memory at Jiangdongmen or that site's latest visitor memory. The 80 added locations each have an original bilingual site note and a geographic record.
 4. Visitors can tap an existing cluster to read its memory, drag to grow more clusters or focus the canvas and press Enter to discover another memory.
-5. The writing dialog locks planting while open. All five sites accept messages and keep drafts and submissions separate. Jiangdongmen grows a flower and reveals YOUR MEMORY on submission. The other four confirm that the text was saved for the current visit.
+5. The writing dialog locks planting while open. All 85 sites accept messages and keep drafts and submissions separate. Jiangdongmen grows a flower and reveals YOUR MEMORY on submission. The other sites confirm that the text was saved for the current visit.
 6. The garden starts silent. Explicit sound activation or a valid submission can unlock Web Audio.
 7. Historical and public editorial summaries have named sources and slightly larger flowers in the same field. Prototype and visitor texts have distinct labels.
 8. Returning to the atlas restores its location and zoom, stops the WebGL loop and silences the garden. A return visit keeps the page-local collection; a reload clears visitor submissions.
@@ -111,7 +111,7 @@ Shared runtime setup lives in `src/app/createFlowerFieldApp.js`. Page-specific r
 
 - `src/app/createFlowerFieldApp.js`: shared scene/runtime creation, input gate, reset, counter mode, animation loop, debug datasets.
 - `src/config.js`: shared/model defaults and the global flower capacity.
-- `src/png-main.js` handles atlas navigation and garden loading. `src/atlas/` owns the catalog, map, directory and morphing field studies. `src/png-garden.js` mounts the Three.js field, memory experience and audio diagnostics. `src/data/jiangdongmen.js`, `src/data/placeGardens.js` and `src/data/placeRecords.js` supply the independent collections.
+- `src/png-main.js` handles atlas navigation and garden loading. `src/atlas/` owns the map, directory and morphing field studies. `src/atlas/identities.js` defines the inks and motifs, and `src/atlas/markerLayout.js` groups nearby pins. `src/data/atlasCatalogue.js` holds the 80 additional coordinates, bilingual summaries and geographic source IDs. `src/png-garden.js` mounts the Three.js field, memory experience and audio diagnostics. `src/data/jiangdongmen.js`, `src/data/placeGardens.js` and `src/data/placeRecords.js` supply the independent collections.
 - `src/i18n/LanguageController.js`: PNG-only English/Chinese copy registry, safe parameter interpolation, static DOM localization, reviewed translations for the four generic built-in prototype memories, language subscriptions, and persisted top-right switch state. English remains the default when no preference exists.
 - `src/model-main.js`: preserved GLB entry.
 - `.github/workflows/deploy.yml`: GitHub Pages build/deploy workflow using Node 22, `npm ci`, Vite build, Pages artifact upload, and the `github-pages` environment.

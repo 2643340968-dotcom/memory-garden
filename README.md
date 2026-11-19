@@ -1,6 +1,6 @@
 # 记忆花园 / Memory Garden
 
-《记忆之场》的地图标出南京江东门、北京景山万春亭、敦煌莫高窟、成都都江堰鱼嘴和泉州洛阳桥。五处都能沿地图进入花园，阅读当地资料并留言。江东门完整演示留言化为一簇紫金草的过程，其余四处显示保存回执。花园按需加载，共用 Three.js 渲染器，每处有独立的资料、留言和草稿。
+《记忆之场》的全国地图以五座城市为入口，共收录 85 处地点。南京有 21 处，北京 22 处，敦煌 8 处，成都 18 处，泉州 16 处。每一处都可以进入花园、阅读当地资料、留下记忆。江东门完整演示留言化为一簇紫金草的过程，其余地点显示本次到访的保存回执。花园按需加载，共用 Three.js 渲染器，每处有独立的资料、留言和草稿。
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
@@ -50,7 +50,7 @@ pnpm run dev
 
 | 页面 | 入口模块 | 用途 |
 | --- | --- | --- |
-| `/png.html` | `src/png-main.js` | 全国地图、五处地点入口与按地点加载的 PNG 花园 |
+| `/png.html` | `src/png-main.js` | 全国地图、五城地点索引与按地点加载的 PNG 花园 |
 | `/model.html` | `src/model-main.js` | 留存的旧 GLB 花朵版本；不再作为日常开发与验收目标 |
 | `/` | `src/main.js` | 由 index.html 相对跳转到 PNG 主入口 |
 
@@ -60,17 +60,17 @@ pnpm run dev
 
 ## 当前 PNG 体验
 
-从 `/png.html` 进入全国地图。指向地点或用键盘聚焦目录时，图版上的颗粒重新组成当地意象，地图上的放大镜显示当地街区。点击进入城市，再选择具体地点，即可查看坐标、资料出处并进入花园。地图支持平移、滚轮、双指缩放、按钮归位及面包屑导航。系统开启减少动态效果时，镜头和图版直接切换。
+从 `/png.html` 进入暖纸色的全国地图，先看到五座城市。指向底部索引、地图圆点或地名时，镜头轻轻推近，颗粒在该处坐标上方组成当地意象，圆形放大镜显示街区。键盘聚焦也可预览。进入城市后，相邻点位合并为带数字的圆点，点击或放大便能逐一展开。底部索引可以翻页查看整座城市的地点。选择地点后，即可查看坐标、资料出处并进入花园。地图支持平移、滚轮、双指缩放、按钮归位及面包屑导航。系统开启减少动态效果时，镜头和图版直接切换。
 
 每个花园最初开放三簇花。点击花簇可阅读当地资料，拖动可唤出更多花簇和卡片，键盘聚焦花田后也可按回车探索。「留下记忆」随时可以打开或取消。个人留言和未提交的草稿按地点保存在当前页面，重返该地点仍可遇见，刷新后清除。返回地图会恢复地点、平移位置及缩放比例，花园停止绘制并淡出声音。
 
 ### 地图与场所内容
 
-城市、坐标和地图路由在 `src/atlas/places.js`。桌面和触屏共用 Web Mercator 投影。底图位于 `src/atlas/maps/`，运行时从本站分级加载。全国地形、省界与河流取自 Natural Earth 的 1:50m 数据。南京和江东门底图采用 2026-11-15 的 OpenFreeMap 矢量瓦片，区域、城市与街区分别取 7、11、13 级。江东门标记取纪念馆代表点 32.03759°N、118.73659°E。[Natural Earth](https://www.naturalearthdata.com/) · [OpenFreeMap](https://openfreemap.org/) · [OpenMapTiles](https://openmaptiles.org/) · [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) · [Wikidata Q32391](https://www.wikidata.org/wiki/Q32391)
+城市和地图路由在 `src/atlas/places.js`。桌面和触屏共用 Web Mercator 投影。底图位于 `src/atlas/maps/`，运行时从本站分级加载。全国地形、省界与河流取自 Natural Earth 的 1:50m 数据。五城区域、城市和 85 处街区的底图取自 2026-11-15 的 OpenFreeMap 矢量瓦片。区域使用第 8 级，城市按范围取 8–12 级，街区取第 13 级。江东门标记取纪念馆代表点 32.03759°N、118.73659°E。[Natural Earth](https://www.naturalearthdata.com/) · [OpenFreeMap](https://openfreemap.org/) · [OpenMapTiles](https://openmaptiles.org/) · [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) · [Wikidata Q32391](https://www.wikidata.org/wiki/Q32391)
 
 江东门的两条编辑摘要及各自的出处在 `src/data/jiangdongmen.js`，分别对应纪念馆开放和南京大屠杀档案。对应花簇的单株尺寸暂定为普通花簇的 1.16 倍。四条原型文字显示为「示例留言」，访客原文保留换行与首尾空格。图片和声音继续使用独立记录。[纪念馆开放资料](https://visitnanjing.net/venues-detail/6) · [UNESCO 南京大屠杀档案](https://www.unesco.org/en/memory-world/documents-nanjing-massacre)
 
-四处新增地点使用同一批 OpenFreeMap 数据的 8、11、14 级底图。各地两条双语编辑资料及出处在 `src/data/placeRecords.js`，个人花簇首次提供书写提示。亭檐、窟龛、分水堤与石桥是为地图绘制的意象图版。[北京万春亭](https://english.beijing.gov.cn/specials/parktours/guidevisitors/jingshanpark/mustsee/202301/t20230111_2896685.html) · [莫高窟](https://whc.unesco.org/en/list/440/) · [都江堰](https://whc.unesco.org/en/list/1001/) · [泉州](https://whc.unesco.org/en/list/1561/)
+五城代表地点分别使用紫金草、朱红亭檐、赭色窟龛、青绿分水与海蓝石桥。其余 80 处的坐标、地名与双语编辑短文在 `src/data/atlasCatalogue.js`。各条连接到对应的维基百科地理词条，并附一条根据坐标计算的地图笔记与一个书写提示。其意象按水面、桥跨、城门、书页等题材选用，色彩随地点变化。[北京万春亭](https://english.beijing.gov.cn/specials/parktours/guidevisitors/jingshanpark/mustsee/202301/t20230111_2896685.html) · [莫高窟](https://whc.unesco.org/en/list/440/) · [都江堰](https://whc.unesco.org/en/list/1001/) · [泉州](https://whc.unesco.org/en/list/1561/)
 
 Memory Echo 使用半透明深紫玻璃、`20px` 背景模糊、淡紫边框与低强度光晕。统一数据结构分别支持文字、独立图片档案和独立声音档案：文字卡保持轻量，图片卡只显示已提供的真实图片与已核实的可选元数据，声音卡使用克制的独立播放指示。当前接入 `21` 张用户提供的南京记忆图片与 `10` 条用户提供的档案声音；因为尚未提供完整可核实元数据，公开卡片不添加人物、时间、地点、说明或来源。文字/图片卡保留 BloomEvent 世界坐标投影关系，并分散在视口顶部约 `17%–64%` 的天空范围内；每次放置从 `128` 个低差异候选位置中进行碰撞评分，避让现有卡片、标题、状态和声音控件。桌面端同时最多 `6` 张视觉卡，窄屏会自适应降至 `4` 或 `2` 张；卡片始终使用 `pointer-events: none`。
 
@@ -261,7 +261,7 @@ npm run build
 - 记忆手势配置上限
 - 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
-当前自动化套件共 `24` 项，含地图路由及地点记忆来源测试，并额外覆盖中英文界面文案、原型留言译文与访客原文保护、统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、视觉 `1:1` shuffle-bag、视觉/声音分离调度、TEXT 内部来源配比与近期重复保护、LUFS 报告、相对 ducking、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `28` 项，含 85 处地点的地图路由、街区底图坐标、点位分组和记忆来源测试，也覆盖中英文界面文案、原型留言译文与访客原文保护、统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、视觉 `1:1` shuffle-bag、视觉/声音分离调度、TEXT 内部来源配比与近期重复保护、LUFS 报告、相对 ducking、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

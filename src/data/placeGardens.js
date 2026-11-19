@@ -15,10 +15,13 @@ function makeGarden(placeId, records) {
       { memory: prompt, x: 0.74, y: 0.73, reveal: false, useLastVisitor: true },
       { memory: publicMemory, x: 0.52, y: 0.63, reveal: true },
     ],
-    featuredLabels: { [historical.id]: "memory.historical", [publicMemory.id]: "memory.heritage" },
+    featuredLabels: { [historical.id]: "memory.historical",
+      [publicMemory.id]: publicMemory.id.endsWith("-position") ? "memory.mapNote" : "memory.heritage" },
   };
 }
 
-export const gardens = Object.fromEntries(
-  Object.entries(PLACE_RECORDS).map(([id, records]) => [id, makeGarden(id, records)]),
-);
+const gardens = new Map();
+export function getGarden(id) {
+  if (!gardens.has(id)) gardens.set(id, makeGarden(id, PLACE_RECORDS[id]));
+  return gardens.get(id);
+}

@@ -1,4 +1,6 @@
 import { jiangdongmenArchiveUrl, PLACE_RECORDS } from "../data/placeRecords.js";
+import { atlasCatalogue } from "../data/atlasCatalogue.js";
+import { cityStudies, subjects, placeInk } from "./identities.js";
 
 // WGS84, longitude first. Spans are the minimum horizontal coverage in degrees.
 export const CHINA = Object.freeze({
@@ -8,42 +10,35 @@ export const CHINA = Object.freeze({
   latitudeSpan: 41,
 });
 
-export const CITIES = Object.freeze({
+const cityEntries = {
   nanjing: {
     name: "atlas.nanjing", region: "atlas.jiangsu",
     context: "atlas.cityKicker", introduction: "atlas.cityIntro", directory: "atlas.places",
-    center: [118.78, 32.056], span: 0.34, latitudeSpan: 0.19,
-    places: ["jiangdongmen"],
   },
   beijing: {
     name: ["北京", "Beijing"], region: ["北京", "Beijing"], context: ["中国 · 北京", "Beijing · China"],
-    introduction: ["沿北京中轴线向北，在景山的山脊上找到万春亭。", "Follow Beijing’s Central Axis to the pavilion on the summit of Jingshan."],
-    center: [116.394, 39.918], span: 0.30, latitudeSpan: 0.16, places: ["wanchunting"],
+    introduction: ["从中轴线两侧的坛庙与钟楼，读到西郊园林的湖山。", "Follow the bells and altars of the central axis out to the lakes and gardens of the western suburbs."],
   },
   dunhuang: {
     name: ["敦煌", "Dunhuang"], region: ["甘肃", "Gansu"], context: ["中国 · 甘肃", "Gansu · China"],
-    introduction: ["从敦煌绿洲转向东南，莫高窟沿大泉河西岸的崖壁展开。", "South-east of the Dunhuang oasis, cave temples line the cliff above the Daquan River."],
-    center: [94.733, 40.093], span: 0.67, latitudeSpan: 0.33, places: ["mogao"],
+    introduction: ["绿洲两侧，石窟、沙丘和古关隘沿着丝路散开。", "Caves, dunes and old frontier passes stretch along the Silk Road on either side of the oasis."],
   },
   chengdu: {
     name: ["成都", "Chengdu"], region: ["四川", "Sichuan"], context: ["中国 · 四川", "Sichuan · China"],
-    introduction: ["成都平原的西北边缘，岷江在都江堰分流。", "At the north-western edge of the Chengdu Plain, the Min River divides at Dujiangyan."],
-    center: [103.84, 30.83], span: 1.25, latitudeSpan: 0.71, places: ["yuzui"],
+    introduction: ["从岷江的分水处，沿平原走进成都的草堂、园林与街巷。", "Follow the waters off the plain, from Dujiangyan’s dividing levee to Chengdu’s gardens and lanes."],
   },
   quanzhou: {
     name: ["泉州", "Quanzhou"], region: ["福建", "Fujian"], context: ["中国 · 福建", "Fujian · China"],
-    introduction: ["从泉州古城向东北，在洛阳江入海一带寻找古石桥。", "North-east of the old city, a stone bridge crosses the tidal Luoyang River."],
-    center: [118.636, 24.920], span: 0.36, latitudeSpan: 0.21, places: ["luoyangqiao"],
+    introduction: ["在港城的庙宇、潮水间的石桥和海边的城墙之间穿行。", "Travel between the port city’s temples, bridges across tidal water and walls of coastal stone."],
   },
-});
+};
 
-const collectionFor = (id) => () => import("../data/placeGardens.js").then(({ gardens }) => gardens[id]);
+const collectionFor = (id) => () => import("../data/placeGardens.js").then(({ getGarden }) => getGarden(id));
 
-export const PLACES = Object.freeze({
+const mainPlaces = {
   jiangdongmen: {
     city: "nanjing", name: "atlas.jiangdongmen", region: "atlas.jianye",
-    // Memorial Hall site anchor, Wikidata Q32391.
-    center: [118.73659, 32.03759], span: 0.056, latitudeSpan: 0.034,
+    span: 0.056, latitudeSpan: 0.034,
     context: "atlas.placeKicker", introduction: "atlas.placeIntro", flower: "atlas.flower",
     motif: ["紫金草", "Zijincao"], prompt: "entry.descriptionLine1",
     sourceUrl: jiangdongmenArchiveUrl, bloomOnSubmit: true,
@@ -52,7 +47,7 @@ export const PLACES = Object.freeze({
   wanchunting: {
     city: "beijing", name: ["景山万春亭", "Wanchun Pavilion"], region: ["景山公园", "Jingshan Park"],
     context: ["北京 · 景山", "Beijing · Jingshan"], motif: ["重檐", "Pavilion eaves"],
-    center: [116.39045, 39.92352], span: 0.034, latitudeSpan: 0.019,
+    span: 0.034, latitudeSpan: 0.019,
     introduction: ["亭子位于景山中峰。沿山路登高，城市的屋脊在中轴线两旁铺开。", "From Jingshan’s central summit, the city’s rooftops stretch out on either side of the axis."],
     prompt: ["你从亭边望见了什么？也可以写下一段登山路上的记忆。", "What caught your eye from the pavilion, or on the climb up?"],
     sourceUrl: PLACE_RECORDS.wanchunting[0].sourceUrl, loadCollection: collectionFor("wanchunting"),
@@ -60,7 +55,7 @@ export const PLACES = Object.freeze({
   mogao: {
     city: "dunhuang", name: ["莫高窟", "Mogao Caves"], region: ["大泉河西岸", "Daquan River"],
     context: ["敦煌 · 大泉河", "Dunhuang · Daquan River"], motif: ["窟龛", "Cave niches"],
-    center: [94.80417, 40.03722], span: 0.039, latitudeSpan: 0.023,
+    span: 0.039, latitudeSpan: 0.023,
     introduction: ["绿洲之外，洞窟开凿在河岸的崖壁上。这里留有跨越多个世纪的壁画和彩塑。", "Beyond the oasis, caves cut into the river cliff shelter centuries of murals and painted sculpture."],
     prompt: ["留下一种你记得的颜色、一段等候，或走近崖壁时的感受。", "Leave a colour you remember, a moment of waiting, or a detail from the approach to the cliff."],
     sourceUrl: PLACE_RECORDS.mogao[0].sourceUrl, loadCollection: collectionFor("mogao"),
@@ -68,7 +63,7 @@ export const PLACES = Object.freeze({
   yuzui: {
     city: "chengdu", name: ["都江堰鱼嘴", "Fish Mouth Levee"], region: ["都江堰", "Dujiangyan"],
     context: ["成都 · 都江堰", "Chengdu · Dujiangyan"], motif: ["分水", "Dividing waters"],
-    center: [103.6040, 31.0090], span: 0.042, latitudeSpan: 0.025,
+    span: 0.042, latitudeSpan: 0.025,
     introduction: ["狭长的分水堤伸入岷江。站在岸边，可以看见一条河从这里分为内江与外江。", "A narrow levee reaches into the Min River. From the bank, one channel can be seen dividing into two."],
     prompt: ["你记得河边的哪一种声音，或和你一起看水的人？", "What sound do you remember by the river, or who watched the water with you?"],
     sourceUrl: PLACE_RECORDS.yuzui[0].sourceUrl, loadCollection: collectionFor("yuzui"),
@@ -76,12 +71,36 @@ export const PLACES = Object.freeze({
   luoyangqiao: {
     city: "quanzhou", name: ["洛阳桥", "Luoyang Bridge"], region: ["洛阳江", "Luoyang River"],
     context: ["泉州 · 洛阳江", "Quanzhou · Luoyang River"], motif: ["石梁", "Stone spans"],
-    center: [118.6762, 24.9545], span: 0.038, latitudeSpan: 0.022,
+    span: 0.038, latitudeSpan: 0.022,
     introduction: ["石梁一跨接一跨，将洛阳江两岸连在一起。这里的潮水、桥墩与过桥的人共享一段路。", "Stone spans link the two banks of the Luoyang River. Tides pass the piers beneath the old crossing."],
     prompt: ["走过石桥时，你记住了潮水、脚步声，还是对岸的景色？", "What stayed with you as you crossed: the tide, the sound of footsteps, or the far bank?"],
     sourceUrl: PLACE_RECORDS.luoyangqiao[0].sourceUrl, loadCollection: collectionFor("luoyangqiao"),
   },
-});
+};
+
+const places = {};
+for (const [id, site] of Object.entries(mainPlaces)) {
+  places[id] = { ...site, study: site.city, center: cityStudies[site.city].center, ink: cityStudies[site.city].ink };
+}
+for (const { page, city, name, center, study, note } of atlasCatalogue) {
+  const id = "p" + page;
+  const subject = subjects[study];
+  places[id] = {
+    city, name, center, study, ink: placeInk(city, study), context: cityEntries[city].name,
+    motif: subject.name, introduction: note, prompt: subject.prompt, span: 0.043, latitudeSpan: 0.024,
+    sourceUrl: PLACE_RECORDS[id][0].sourceUrl, loadCollection: collectionFor(id),
+  };
+}
+export const PLACES = Object.freeze(places);
+export const CITIES = Object.fromEntries(Object.entries(cityEntries).map(([id, city]) => {
+  const ids = Object.keys(places).filter((key) => places[key].city === id);
+  const xs = ids.map((key) => places[key].center[0]);
+  const ys = ids.map((key) => places[key].center[1]);
+  const west = Math.min(...xs), east = Math.max(...xs), south = Math.min(...ys), north = Math.max(...ys);
+  return [id, { ...city, places: ids, ink: cityStudies[id].ink,
+    center: [(west + east) / 2, (south + north) / 2],
+    span: Math.max(0.12, (east - west) * 1.28), latitudeSpan: Math.max(0.09, (north - south) * 1.36) }];
+}));
 
 export function readAtlasRoute(hash) {
   const parts = hash.replace(/^#\/?/, "").split("/");

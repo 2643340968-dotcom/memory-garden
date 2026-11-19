@@ -1,3 +1,5 @@
+import { atlasCatalogue } from "./atlasCatalogue.js";
+import { cityStudies } from "../atlas/identities.js";
 // Newly written catalogue text, in Chinese and English. No visitor testimony is supplied for these sites.
 const worldHeritage = "UNESCO World Heritage Centre";
 const pavilion = "https://english.beijing.gov.cn/specials/parktours/guidevisitors/jingshanpark/mustsee/202301/t20230111_2896685.html";
@@ -39,6 +41,24 @@ export const PLACE_RECORDS = {
       en: "In 2021 Luoyang Bridge entered the World Heritage List as a component of Quanzhou’s Song–Yuan maritime trading centre." },
   ],
 };
+
+for (const { page, city, center: [lon, lat], note } of atlasCatalogue) {
+  const anchor = cityStudies[city];
+  const radians = Math.PI / 180;
+  const [refLon, refLat] = anchor.center;
+  const a = Math.sin((lat - refLat) * radians / 2) ** 2 +
+    Math.cos(lat * radians) * Math.cos(refLat * radians) * Math.sin((lon - refLon) * radians / 2) ** 2;
+  const km = (12742 * Math.asin(Math.sqrt(a))).toFixed(1);
+  const source = "Wikipedia · 维基百科";
+  const sourceUrl = "https://zh.wikipedia.org/?curid=" + page;
+  const id = "p" + page;
+  PLACE_RECORDS[id] = [
+    { id: id + "-record", zh: note[0], en: note[1], source, sourceUrl },
+    { id: id + "-position", source, sourceUrl,
+      zh: `北纬 ${lat.toFixed(3)}°，东经 ${lon.toFixed(3)}°。从${anchor.name[0]}到这里，直线距离约 ${km} 公里。`,
+      en: `${lat.toFixed(3)}° N, ${lon.toFixed(3)}° E. This place is about ${km} km from ${anchor.name[1]} in a straight line.` },
+  ];
+}
 
 export const recordChineseText = Object.fromEntries(
   Object.values(PLACE_RECORDS).flat().map((record) => [record.id, record.zh]),

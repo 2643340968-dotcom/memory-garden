@@ -9,6 +9,7 @@ const atlasElement = document.querySelector("#memory-atlas");
 const gardenElement = document.querySelector("#garden-view");
 const loading = document.querySelector("#garden-loading");
 const back = document.querySelector("#garden-back");
+const themeColor = document.querySelector('meta[name="theme-color"]');
 const atlas = new AtlasView((route) => { location.hash = atlasHash(route); });
 let gardenPromise;
 let garden;
@@ -20,6 +21,13 @@ function localizeGarden(route) {
   const name = placeText(site.name);
   const locationLabel = placeText(CITIES[route.city].name) + " · " + name;
   gardenElement.dataset.place = route.place;
+  gardenElement.style.setProperty("--place-ink", site.ink);
+  gardenElement.toggleAttribute("data-toned", !site.bloomOnSubmit);
+  if (!site.bloomOnSubmit) {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(site.ink.slice(i, i + 2), 16));
+    const hue = Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b) * 180 / Math.PI;
+    gardenElement.style.setProperty("--field-hue", (hue - 278) + "deg");
+  }
   gardenElement.setAttribute("aria-label", name + " · " + t("atlas.garden"));
   document.querySelector(".brand-block .subtitle").textContent = locationLabel;
   document.querySelector(".memory-entry-index").textContent = locationLabel;
@@ -34,6 +42,7 @@ async function showRoute() {
   const previous = lastRoute;
   lastRoute = route;
   const inGarden = route.level === "garden";
+  themeColor.content = inGarden ? "#2b2335" : "#f5f2e8";
   document.body.dataset.view = inGarden ? "garden" : "atlas";
   atlasElement.hidden = inGarden;
   gardenElement.hidden = !inGarden;
