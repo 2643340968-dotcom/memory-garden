@@ -190,35 +190,63 @@
               NANJING · JIANGDONGMEN
             </p>
             <button id="memory-cancel" class="memory-cancel" type="button" data-i18n-aria-label="entry.cancel" aria-label="Return to the garden">×</button>
-            <h2 id="memory-entry-title" data-i18n="entry.title">
-              What do you remember of this place?
-            </h2>
-            <p class="memory-entry-description">
-              <span data-i18n="entry.descriptionLine1">
-                A visit to the memorial hall, a familiar street, or an ordinary afternoon in Jiangdongmen.
-              </span>
-              <br />
-              <span data-i18n="entry.descriptionLine2">
-                Your words stay in this visit and clear when you reload.
-              </span>
-            </p>
-            <label
-              class="sr-only"
-              for="memory-text"
-              data-i18n="entry.inputLabel"
-            >Write your memory</label>
-            <textarea
-              id="memory-text"
-              name="memory"
-              maxlength="180"
-              rows="4"
-              required
-              data-i18n-placeholder="entry.placeholder"
-              placeholder="I remember…"
-            ></textarea>
-            <button id="memory-submit" class="memory-submit" type="submit" disabled>
-              <span data-i18n="entry.submit">Leave this memory in the field</span>
-              <span aria-hidden="true">→</span>
+            <div id="memory-editor">
+              <h2 id="memory-entry-title" data-i18n="entry.title">
+                What do you remember of this place?
+              </h2>
+              <p class="memory-entry-description">
+                <span data-i18n="entry.descriptionLine1">
+                  A visit to the memorial hall, a familiar street, or an ordinary afternoon in Jiangdongmen.
+                </span>
+                <br />
+                <span data-i18n="entry.descriptionLine2">
+                  Text and attachments stay here for this visit and clear on reload.
+                </span>
+              </p>
+              <label
+                class="sr-only"
+                for="memory-text"
+                data-i18n="entry.inputLabel"
+              >Write your memory</label>
+              <textarea
+                id="memory-text"
+                name="memory"
+                maxlength="180"
+                rows="3"
+                data-i18n-placeholder="entry.placeholder"
+                placeholder="I remember…"
+              ></textarea>
+              <div class="memory-attachment-tools" role="group" data-i18n-aria-label="attachment.choose" aria-label="Choose one attachment">
+                <span class="memory-attachment-verb" id="memory-attachment-verb"></span>
+                <button type="button" data-attach="image"><i class="attachment-icon" aria-hidden="true"></i><span data-i18n="attachment.image">Image</span></button>
+                <button type="button" data-attach="audio"><i class="attachment-icon" aria-hidden="true"></i><span data-i18n="attachment.audio">Audio</span></button>
+                <button type="button" data-attach="video"><i class="attachment-icon" aria-hidden="true"></i><span data-i18n="attachment.video">Video</span></button>
+                <input id="memory-file" type="file" hidden />
+              </div>
+              <p id="memory-file-status" class="memory-file-status" role="status" aria-live="polite"></p>
+            </div>
+            <div id="memory-reader" hidden>
+              <h2 id="memory-reader-title" tabindex="-1" data-i18n="memory.your">Your memory</h2>
+              <p id="memory-reader-text" dir="auto"></p>
+            </div>
+            <figure id="memory-attachment-preview" class="memory-attachment-preview" hidden>
+              <figcaption><span id="memory-file-name" dir="auto" aria-live="polite"></span>
+                <button id="memory-remove-file" type="button" data-i18n="attachment.remove">Remove</button>
+              </figcaption>
+              <div id="memory-preview-stage"></div>
+            </figure>
+            <div id="memory-composer-footer">
+              <button id="memory-submit" class="memory-submit" type="submit" disabled>
+                <span data-i18n="entry.submit">Leave this memory in the field</span>
+                <span aria-hidden="true">→</span>
+              </button>
+              <details id="memory-visit" class="memory-visit" hidden>
+                <summary><span id="memory-visit-label"></span></summary>
+                <ul id="memory-visit-list"></ul>
+              </details>
+            </div>
+            <button id="memory-reader-back" class="memory-reader-back" type="button" hidden>
+              <span aria-hidden="true">←</span> <span data-i18n="attachment.back">Back to writing</span>
             </button>
           </form>
         </section>

@@ -1,0 +1,176 @@
+.memory-entry-panel {
+  scrollbar-width: thin;
+  scrollbar-color: #63566b transparent;
+}
+
+.memory-entry-panel [hidden] { display: none; }
+.memory-entry-panel #memory-text {
+  min-height: 76px;
+  height: clamp(78px, 11vh, 106px);
+  border-bottom: 0;
+}
+.memory-attachment-tools {
+  display: flex;
+  align-items: center;
+  gap: clamp(4px, 1.6vw, 16px);
+  padding: 3px 0;
+  border-block: 1px solid rgba(210, 199, 220, .19);
+}
+.memory-attachment-tools button,
+.memory-reader-back,
+.memory-attachment-preview button,
+.memory-visit button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #d5c8de;
+  cursor: pointer;
+}
+.memory-attachment-tools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 5px;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: .04em;
+  transition: color 160ms, background-color 160ms;
+  border-radius: 4px;
+}
+.memory-attachment-tools button:hover,
+.memory-reader-back:hover,
+.memory-attachment-preview button:hover,
+.memory-visit button:hover,
+.memory-visit summary:hover { color: #fff4fb; }
+.memory-attachment-tools button:hover { background-color: rgba(212, 193, 228, .07); }
+.memory-entry-panel :is(button, summary):focus-visible {
+  outline: 1px solid #d9c4e5;
+  outline-offset: 3px;
+}
+.memory-attachment-verb {
+  margin-inline-end: auto;
+  color: #b1a6bb;
+  font-size: 12px;
+}
+.attachment-icon {
+  position: relative;
+  flex: none;
+  display: inline-block;
+  width: 17px;
+  height: 14px;
+  color: #c8b3d1;
+}
+[data-attach="image"] i, [data-attach="video"] i {
+  overflow: hidden;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+}
+[data-attach="image"] i::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+[data-attach="image"] i::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  bottom: -4px;
+  width: 9px;
+  height: 9px;
+  border: 1px solid currentColor;
+  transform: rotate(45deg);
+}
+[data-attach="audio"] i {
+  background:
+    linear-gradient(currentColor 0 0) 0 50% / 1px 4px,
+    linear-gradient(currentColor 0 0) 25% 50% / 1px 10px,
+    linear-gradient(currentColor 0 0) 50% 50% / 1px 14px,
+    linear-gradient(currentColor 0 0) 75% 50% / 1px 8px,
+    linear-gradient(currentColor 0 0) 100% 50% / 1px 4px;
+  background-repeat: no-repeat;
+}
+[data-attach="video"] i::after {
+  content: "";
+  position: absolute;
+  inset: 2.5px 0 0 5.5px;
+  width: 0;
+  height: 0;
+  border-block: 3.5px solid transparent;
+  border-left: 5px solid currentColor;
+}
+.memory-file-status, .memory-echo-file {
+  color: #d0bbd3;
+  font: 12px/1.5 system-ui, sans-serif;
+  overflow-wrap: anywhere;
+}
+.memory-file-status { margin: 10px 0 0; }
+.memory-file-status:empty, #memory-reader-text:empty { display: none; }
+.memory-attachment-preview { margin: 14px 0 0; }
+.memory-attachment-preview figcaption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font: 12px/1.5 system-ui, sans-serif;
+  color: #d2c4d8;
+}
+#memory-file-name { overflow-wrap: anywhere; }
+.memory-attachment-preview button { flex: none; padding: 4px 0; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+#memory-preview-stage { display: grid; justify-items: start; }
+#memory-preview-stage > :is(img, video) {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: min(23dvh, 200px);
+  object-fit: contain;
+  border-radius: 3px;
+}
+#memory-preview-stage video { width: 100%; background: #100e15; }
+#memory-preview-stage audio { display: block; width: 100%; max-width: 100%; height: 38px; }
+#memory-preview-stage :is(audio, video) { color-scheme: dark; }
+#memory-reader:not([hidden]) ~ .memory-attachment-preview { margin-top: 18px; }
+#memory-reader:not([hidden]) ~ .memory-attachment-preview :is(img, video) { max-height: min(42dvh, 360px); }
+#memory-reader-text {
+  margin: 17px 0;
+  color: #e0d8e3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 16px/1.8 Georgia, "Songti SC", serif;
+}
+.memory-reader-back { margin: 24px 0 0; padding: 8px 0; font: inherit; font-size: 13px; }
+.memory-reader-back span:first-child { margin-inline-end: 7px; }
+.memory-visit { margin-top: 14px; color: #bdb0c6; font: 12px/1.6 system-ui, sans-serif; }
+.memory-visit summary { width: fit-content; padding-block: 6px; cursor: pointer; }
+.memory-visit ul { list-style: none; padding: 0; margin: 2px 0 0; }
+.memory-visit button {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  padding: 9px 0;
+  border-top: 1px solid rgba(210, 199, 220, .13);
+  font: inherit;
+  text-align: start;
+}
+.memory-visit button small { flex: none; color: #b29cbf; }
+.memory-visit button span, .memory-echo-file { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memory-echo-file { margin: 0 0 5px; }
+.memory-echo-thumbnail { display: block; max-width: 100%; width: auto; height: 55px; object-fit: contain; margin-bottom: 6px; }
+.memory-echo-card[data-attachment] .memory-echo-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 520px) {
+  .memory-attachment-tools { gap: 2px; }
+  .memory-attachment-tools button { min-height: 44px; gap: 5px; padding-inline: 6px; }
+}

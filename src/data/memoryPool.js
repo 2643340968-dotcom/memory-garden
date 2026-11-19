@@ -1,3 +1,7 @@
+import { isVisitorAttachment } from "./visitorAttachments.js";
+
+export const VISITOR_MEDIA_KIND = "VISITOR_MEDIA";
+
 export const MEMORY_TYPES = Object.freeze({
   TEXT: "text",
   IMAGE: "image",
@@ -323,6 +327,7 @@ function selectFromCandidates(candidates, random) {
 }
 
 function getScheduleType(memory) {
+  if (memory.kind === VISITOR_MEDIA_KIND) return MEMORY_TYPES.TEXT;
   return isAudioPresentation(memory) ? MEMORY_TYPES.AUDIO : memory.type;
 }
 
@@ -366,15 +371,26 @@ export function createMemoryPool({
   let recentAudioIds = [];
   const recentVisualIdsByType = new Map();
 
-  function addSessionMemory(rawText) {
+  function addSessionMemory(rawText, attachment = null) {
     const text = String(rawText ?? "");
-    if (!text.trim()) {
+    if (attachment !== null && !isVisitorAttachment(attachment)) {
+      throw new TypeError("Invalid visitor attachment.");
+    }
+    if (!text.trim() && !attachment) {
       throw new TypeError("A memory cannot be empty.");
     }
 
-    sessionMemorySequence += 1;
-    const memory = createMemoryItem({
-      id: `session-memory-${sessionMemorySequence}`,
+    const id = `session-memory-${++sessionMemorySequence}`;
+    const memory = attachment ? Object.freeze({
+      id,
+      kind: VISITOR_MEDIA_KIND,
+      type: "visitor-media",
+      label: "YOUR MEMORY",
+      text,
+      attachment: Object.freeze({ ...attachment }),
+      isPrototype: false,
+    }) : createMemoryItem({
+      id,
       kind: MEMORY_KINDS.TEXT_MEMORY,
       label: "YOUR MEMORY",
       text,

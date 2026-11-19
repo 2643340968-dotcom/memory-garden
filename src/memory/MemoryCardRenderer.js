@@ -2,6 +2,7 @@ import {
   MEMORY_KINDS,
   MEMORY_RELATIONSHIPS,
   MEMORY_TYPES,
+  VISITOR_MEDIA_KIND,
 } from "../data/memoryPool.js";
 import {
   getLanguage,
@@ -23,6 +24,7 @@ function joinMetadata(memory, language) {
 }
 
 function getDefaultLocalizedLabel(memory, language) {
+  if (memory?.kind === VISITOR_MEDIA_KIND) return translate("memory.your", {}, language);
   if (memory?.kind === MEMORY_KINDS.AUDIO_ARCHIVE) {
     return translate("memory.archiveVoice", {}, language);
   }
@@ -45,6 +47,7 @@ export function getMemoryCardViewModel(
   const type = Object.values(MEMORY_TYPES).includes(memory?.type)
     ? memory.type
     : MEMORY_TYPES.TEXT;
+  const attachment = memory?.kind === VISITOR_MEDIA_KIND ? memory.attachment : null;
   const isAudioOnly = memory?.kind === MEMORY_KINDS.AUDIO_ARCHIVE;
   const isVerifiedPair =
     memory?.kind === MEMORY_KINDS.PAIRED_MEMORY &&
@@ -72,6 +75,7 @@ export function getMemoryCardViewModel(
     isAudioOnly,
     isVerifiedPair,
     label: displayLabel ?? getDefaultLocalizedLabel(memory, language),
+    attachment,
     text:
       type === MEMORY_TYPES.TEXT
         ? getLocalizedMemoryText(memory, language)
@@ -254,7 +258,22 @@ export function createMemoryCardElement(
   }
   card.setAttribute("role", "status");
 
-  if (viewModel.type === MEMORY_TYPES.IMAGE) {
+  if (viewModel.attachment) {
+    const { kind, name, url } = viewModel.attachment;
+    card.dataset.attachment = kind;
+    if (kind === "image") {
+      const thumbnail = documentRef.createElement("img");
+      thumbnail.className = "memory-echo-thumbnail";
+      thumbnail.src = url;
+      thumbnail.alt = name;
+      card.append(thumbnail);
+    }
+    const file = documentRef.createElement("p");
+    file.className = "memory-echo-file";
+    file.textContent = translate("attachment." + kind, {}, language) + " · " + name;
+    card.append(file);
+    if (viewModel.text.trim()) appendTextCardContent(card, viewModel, documentRef);
+  } else if (viewModel.type === MEMORY_TYPES.IMAGE) {
     appendImageCardContent(card, viewModel, documentRef, language);
   } else if (viewModel.type === MEMORY_TYPES.TEXT) {
     appendTextCardContent(card, viewModel, documentRef);

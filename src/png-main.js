@@ -1,5 +1,6 @@
 import "./styles.css";
 import "./atlas/atlas.css";
+import "./memory/visitor-media.css";
 import { createLanguageController, placeText, subscribeLanguage, t } from "./i18n/LanguageController.js";
 import { AtlasView } from "./atlas/AtlasView.js";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "./atlas/places.js";

@@ -263,6 +263,20 @@ export class AudioManager {
     this.updateToggle();
   }
 
+  connectVisitorPlayer(element) {
+    let source;
+    const startPlayback = () => {
+      source = this.context.createMediaElementSource(element);
+      source.connect(this.listener.getInput());
+      void this.unlock();
+    };
+    element.addEventListener("play", startPlayback, { once: true });
+    return () => {
+      element.removeEventListener("play", startPlayback);
+      source?.disconnect();
+    };
+  }
+
   async unlock() {
     if (this.unlocked) return true;
     if (this.unlockPromise) {

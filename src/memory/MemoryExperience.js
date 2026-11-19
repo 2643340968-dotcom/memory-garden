@@ -14,6 +14,7 @@ import {
   updateMemoryCardLanguage,
 } from "./MemoryCardRenderer.js";
 import { MemoryImagePreloader } from "./MemoryAssetPreloader.js";
+import { VisitorMemoryCard } from "./VisitorMemoryCard.js";
 import { getLanguage, translate } from "../i18n/LanguageController.js";
 
 export const MEMORY_UI_CONFIG = Object.freeze({
@@ -209,6 +210,12 @@ export class MemoryExperience {
       throw new Error("The PNG memory interface is incomplete.");
     }
 
+    this.visitorCard = new VisitorMemoryCard(this.form, {
+      audioManager: this.app.audioManager,
+      onChange: this.onInput,
+      onRead: (memory) => this.openForm(memory),
+      onWrite: () => this.openForm(),
+    });
     this.app.setInputEnabled(false);
     document.documentElement.style.setProperty(
       "--memory-modal-exit-duration",
@@ -274,7 +281,10 @@ export class MemoryExperience {
     if (this.gardenActive) this.leave();
     this.place = place;
     this.bloomOnSubmit = bloomOnSubmit;
-    this.textarea.value = this.drafts.get(place) ?? "";
+    const draft = this.drafts.get(place);
+    this.drafts.delete(place);
+    this.textarea.value = draft?.text ?? "";
+    this.visitorCard.attachment = draft?.attachment ?? null;
     document.querySelector("#garden-confirmation").hidden = true;
     if (!this.placePools.has(place)) {
       this.placePools.set(place, createMemoryPool({ prototypeMemories: place.memories }));
@@ -295,7 +305,11 @@ export class MemoryExperience {
 
   leave() {
     this.gardenActive = false;
-    this.drafts.set(this.place, this.textarea.value);
+    if (this.textarea.value || this.visitorCard.attachment) {
+      this.drafts.set(this.place, { text: this.textarea.value, attachment: this.visitorCard.attachment });
+    } else {
+      this.drafts.delete(this.place);
+    }
     document.querySelector("#garden-confirmation").hidden = true;
     this.closeForm(false);
     this.app.setInputEnabled(false);
@@ -307,21 +321,23 @@ export class MemoryExperience {
     this.app.audioManager.setGardenVisible(false);
   }
 
-  openForm() {
-    if (!this.gardenActive || !this.overlay.hidden) return;
-    this.endDragMemorySession();
+  openForm(memory = null) {
+    if (!this.gardenActive || this.form.dataset.submitting) return;
+    if (this.overlay.hidden) this.endDragMemorySession();
     document.querySelector("#garden-confirmation").hidden = true;
     this.field.inert = true;
     this.app.setInputEnabled(false);
     this.overlay.hidden = false;
     this.overlay.removeAttribute("aria-hidden");
+    this.overlay.setAttribute("aria-labelledby", memory ? "memory-reader-title" : "memory-entry-title");
     document.body.classList.add("memory-entry-active");
-    this.onInput();
-    this.textarea.focus();
+    this.visitorCard.show(memory, this.memoryPool.sessionMemories);
+    (memory ? document.querySelector("#memory-reader-title") : this.textarea).focus({ preventScroll: true });
   }
 
   closeForm(restoreFocus = true) {
     this.formGeneration += 1;
+    this.visitorCard.hide();
     this.overlay.hidden = true;
     this.overlay.setAttribute("aria-hidden", "true");
     this.overlay.classList.remove("is-submitting", "is-leaving");
@@ -335,38 +351,52 @@ export class MemoryExperience {
 
   onDialogKey(event) {
     if (this.overlay.hidden) return;
-    if (event.key === "Escape" && !this.form.dataset.submitting) this.closeForm();
+    if (event.key === "Escape" && !this.form.dataset.submitting) {
+      event.preventDefault();
+      this.closeForm();
+      return;
+    }
     if (event.key !== "Tab") return;
-    const stops = [this.textarea, this.submitButton, document.querySelector("#memory-cancel"),
-      document.querySelector("#language-toggle")].filter((el) => !el.disabled);
-    const index = stops.indexOf(document.activeElement);
-    event.preventDefault();
-    stops[(index + (event.shiftKey ? -1 : 1) + stops.length) % stops.length].focus();
+    const first = document.querySelector("#memory-cancel");
+    const last = document.querySelector("#language-toggle");
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
+  get canSubmit() {
+    return this.gardenActive && this.visitorCard.editable && !this.visitorCard.pending &&
+      Boolean(this.textarea.value.trim() || this.visitorCard.attachment);
   }
 
   onInput() {
-    this.submitButton.disabled = !this.textarea.value.trim();
+    this.submitButton.disabled = !this.canSubmit;
   }
 
   async onSubmit(event) {
     event.preventDefault();
+    if (!this.canSubmit) return;
     const text = this.textarea.value;
-    if (!text.trim() || !this.gardenActive || this.overlay.hidden || this.form.dataset.submitting) {
-      return;
-    }
+    const attachment = this.visitorCard.attachment;
 
     void this.app.audioManager?.unlock();
 
-    const memory = this.memoryPool.addSessionMemory(text);
+    const memory = this.memoryPool.addSessionMemory(text, attachment);
+    // The saved memory now owns the object URL for the rest of this visit.
+    this.visitorCard.attachment = null;
+    this.visitorCard.hide();
+    this.drafts.delete(this.place);
+    this.textarea.value = "";
     if (!this.bloomOnSubmit) {
-      this.textarea.value = "";
-      this.drafts.delete(this.place);
       this.closeForm();
       document.querySelector("#garden-confirmation").hidden = false;
       return;
     }
     const generation = ++this.formGeneration;
-    this.textarea.value = "";
     this.textarea.readOnly = true;
     this.form.dataset.submitting = "true";
     this.submitButton.disabled = true;
@@ -620,7 +650,8 @@ export class MemoryExperience {
     for (const bloom of this.app.flowerSystem.blooms) {
       if (!bloom.memoryId) continue;
       const d = bloom.anchorPosition.distanceTo(hit);
-      if (d < distance && d <= bloom.radius) {
+      // A submitted bloom can share the opening cluster's anchor. Read the newest one there.
+      if (d <= distance && d <= bloom.radius) {
         nearest = bloom;
         distance = d;
       }
@@ -649,17 +680,20 @@ export class MemoryExperience {
     }
 
     const target = this.readTarget;
+    let visitorMemoryToRead = null;
     this.readTarget = null;
     if (target) {
       this.app.setInputEnabled(this.gardenActive && this.overlay.hidden);
       const { memoryId, anchorPosition } = target.bloom;
+      const memory = this.memoryPool.getById(memoryId);
       const visible = this.activeCards.find((card) => card.memoryId === memoryId && !card.dismissing);
-      if (event?.type === "pointerup" && visible) {
+      if (event?.type === "pointerup" && memory?.attachment) {
+        visitorMemoryToRead = memory;
+      } else if (event?.type === "pointerup" && visible) {
         visible.element.classList.add("is-reading");
         if (this.positionCard(visible) > MEMORY_UI_CONFIG.MEMORY_CARD_MAX_OVERLAP) this.fitCrowdedCards();
         this.scheduleCardDismiss(visible, visible.visibleDuration);
       } else if (event?.type === "pointerup" && !this.reservedMemoryIds.has(memoryId)) {
-        const memory = this.memoryPool.getById(memoryId);
         const number = String(this.app.flowerSystem.blooms.indexOf(target.bloom) + 1).padStart(3, "0");
         this.queueMemoryCard(memory, anchorPosition, () => this.echoLabel(memory, number), 0, true);
       }
@@ -670,6 +704,7 @@ export class MemoryExperience {
     this.dragSession.active = false;
     this.dragSession.endedAt = performance.now();
     this.dragSession.pointerId = null;
+    if (visitorMemoryToRead) this.openForm(visitorMemoryToRead);
   }
 
   queueMemoryCard(
@@ -1179,6 +1214,7 @@ export class MemoryExperience {
   }
 
   refreshLanguage() {
+    this.visitorCard.refreshLanguage();
     this.activeCards.forEach((entry) => {
       const displayLabel =
         typeof entry.displayLabel === "function"

@@ -1638,7 +1638,7 @@ test("PNG public interface supports persistent English and Chinese exhibition co
     "Jiangdongmen memory garden",
     "Back to map",
     "What do you remember of this place?",
-    "Your words stay in this visit and clear when you reload.",
+    "Text and attachments stay here for this visit and clear on reload.",
     "Leave this memory in the field",
     "Touch a flower to read its memory. Drag to grow more.",
     "AMBIENCE",
