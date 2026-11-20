@@ -1,5 +1,6 @@
 import { jiangdongmenArchiveUrl, PLACE_RECORDS } from "../data/placeRecords.js";
 import { atlasCatalogue } from "../data/atlasCatalogue.js";
+import { placeFlowers } from "../data/placeFlowers.js";
 import { cityStudies, subjects, placeInk } from "./identities.js";
 
 // WGS84, longitude first. Spans are the minimum horizontal coverage in degrees.
@@ -13,7 +14,7 @@ export const CHINA = Object.freeze({
 const cityEntries = {
   nanjing: {
     name: "atlas.nanjing", region: "atlas.jiangsu",
-    context: "atlas.cityKicker", introduction: "atlas.cityIntro", directory: "atlas.places",
+    context: "atlas.cityKicker", introduction: "atlas.cityIntro",
   },
   beijing: {
     name: ["北京", "Beijing"], region: ["北京", "Beijing"], context: ["中国 · 北京", "Beijing · China"],
@@ -39,14 +40,13 @@ const mainPlaces = {
   jiangdongmen: {
     city: "nanjing", name: "atlas.jiangdongmen", region: "atlas.jianye",
     span: 0.056, latitudeSpan: 0.034,
-    context: "atlas.placeKicker", introduction: "atlas.placeIntro", flower: "atlas.flower",
-    motif: ["紫金草", "Zijincao"], prompt: "entry.descriptionLine1",
+    context: "atlas.placeKicker", introduction: "atlas.placeIntro", prompt: "entry.descriptionLine1",
     sourceUrl: jiangdongmenArchiveUrl, bloomOnSubmit: true,
     loadCollection: () => import("../data/jiangdongmen.js").then((module) => module.JIANGDONGMEN),
   },
   wanchunting: {
     city: "beijing", name: ["景山万春亭", "Wanchun Pavilion"], region: ["景山公园", "Jingshan Park"],
-    context: ["北京 · 景山", "Beijing · Jingshan"], motif: ["重檐", "Pavilion eaves"],
+    context: ["北京 · 景山", "Beijing · Jingshan"],
     span: 0.034, latitudeSpan: 0.019,
     introduction: ["亭子位于景山中峰。沿山路登高，城市的屋脊在中轴线两旁铺开。", "From Jingshan’s central summit, the city’s rooftops stretch out on either side of the axis."],
     prompt: ["你从亭边望见了什么？也可以写下一段登山路上的记忆。", "What caught your eye from the pavilion, or on the climb up?"],
@@ -54,7 +54,7 @@ const mainPlaces = {
   },
   mogao: {
     city: "dunhuang", name: ["莫高窟", "Mogao Caves"], region: ["大泉河西岸", "Daquan River"],
-    context: ["敦煌 · 大泉河", "Dunhuang · Daquan River"], motif: ["窟龛", "Cave niches"],
+    context: ["敦煌 · 大泉河", "Dunhuang · Daquan River"],
     span: 0.039, latitudeSpan: 0.023,
     introduction: ["绿洲之外，洞窟开凿在河岸的崖壁上。这里留有跨越多个世纪的壁画和彩塑。", "Beyond the oasis, caves cut into the river cliff shelter centuries of murals and painted sculpture."],
     prompt: ["留下一种你记得的颜色、一段等候，或走近崖壁时的感受。", "Leave a colour you remember, a moment of waiting, or a detail from the approach to the cliff."],
@@ -62,7 +62,7 @@ const mainPlaces = {
   },
   yuzui: {
     city: "chengdu", name: ["都江堰鱼嘴", "Fish Mouth Levee"], region: ["都江堰", "Dujiangyan"],
-    context: ["成都 · 都江堰", "Chengdu · Dujiangyan"], motif: ["分水", "Dividing waters"],
+    context: ["成都 · 都江堰", "Chengdu · Dujiangyan"],
     span: 0.042, latitudeSpan: 0.025,
     introduction: ["狭长的分水堤伸入岷江。站在岸边，可以看见一条河从这里分为内江与外江。", "A narrow levee reaches into the Min River. From the bank, one channel can be seen dividing into two."],
     prompt: ["你记得河边的哪一种声音，或和你一起看水的人？", "What sound do you remember by the river, or who watched the water with you?"],
@@ -70,7 +70,7 @@ const mainPlaces = {
   },
   luoyangqiao: {
     city: "quanzhou", name: ["洛阳桥", "Luoyang Bridge"], region: ["洛阳江", "Luoyang River"],
-    context: ["泉州 · 洛阳江", "Quanzhou · Luoyang River"], motif: ["石梁", "Stone spans"],
+    context: ["泉州 · 洛阳江", "Quanzhou · Luoyang River"],
     span: 0.038, latitudeSpan: 0.022,
     introduction: ["石梁一跨接一跨，将洛阳江两岸连在一起。这里的潮水、桥墩与过桥的人共享一段路。", "Stone spans link the two banks of the Luoyang River. Tides pass the piers beneath the old crossing."],
     prompt: ["走过石桥时，你记住了潮水、脚步声，还是对岸的景色？", "What stayed with you as you crossed: the tide, the sound of footsteps, or the far bank?"],
@@ -80,14 +80,14 @@ const mainPlaces = {
 
 const places = {};
 for (const [id, site] of Object.entries(mainPlaces)) {
-  places[id] = { ...site, study: site.city, center: cityStudies[site.city].center, ink: cityStudies[site.city].ink };
+  places[id] = { ...site, ...placeFlowers[id], center: cityStudies[site.city].center, ink: cityStudies[site.city].ink };
 }
 for (const { page, city, name, center, study, note } of atlasCatalogue) {
   const id = "p" + page;
   const subject = subjects[study];
   places[id] = {
-    city, name, center, study, ink: placeInk(city, study), context: cityEntries[city].name,
-    motif: subject.name, introduction: note, prompt: subject.prompt, span: 0.043, latitudeSpan: 0.024,
+    city, name, center, ...placeFlowers[id], ink: placeInk(city, study), context: cityEntries[city].name,
+    introduction: note, prompt: subject.prompt, span: 0.043, latitudeSpan: 0.024,
     sourceUrl: PLACE_RECORDS[id][0].sourceUrl, loadCollection: collectionFor(id),
   };
 }

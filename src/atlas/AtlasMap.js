@@ -2,7 +2,7 @@ import { getLanguage, placeText, t } from "../i18n/LanguageController.js";
 import { CHINA, CITIES, PLACES } from "./places.js";
 import { cityStudies } from "./identities.js";
 import { FieldStudy } from "./FieldStudy.js";
-import { groupMarkers, overlaps } from "./markerLayout.js";
+import { groupMarkers, overlaps, placeSpecimen } from "./markerLayout.js";
 import { adjacentStop, routeAtZoom } from "./zoomRoute.js";
 import { AtlasCharts } from "./AtlasCharts.js";
 import watercourses from "./maps/watercourses.json";
@@ -49,7 +49,7 @@ function blendCamera(a, b, progress) {
 }
 const smooth = (p) => p * p * (3 - 2 * p);
 const stops = { country: 440, city: 380, place: 300 };
-const magnifies = (preview) => preview?.source === "index" || preview?.source === "marker";
+const magnifies = (preview) => preview?.source === "marker" || preview?.source === "keyboard";
 
 export class AtlasMap {
   constructor(root, navigate, onPreview) {
@@ -64,6 +64,8 @@ export class AtlasMap {
     this.ghost = root.querySelector("#atlas-ghost");
     this.study = new FieldStudy(root.querySelector("#atlas-plate"));
     this.caption = root.querySelector("#plate-caption");
+    this.platePlace = root.querySelector("#plate-place");
+    this.plateReason = root.querySelector("#plate-reason");
     this.scale = root.querySelector("#atlas-scale");
     this.zoomIn = root.querySelector("#atlas-zoom-in");
     this.zoomOut = root.querySelector("#atlas-zoom-out");
@@ -152,8 +154,7 @@ export class AtlasMap {
     const spanRatio = oldFit ? fit.span / oldFit : 1;
     if (!this.camera || !this.manual) this.camera = fit;
     else this.camera = { ...this.camera, span: this.camera.span * spanRatio };
-    // The city index can wrap onto another line halfway through a landing.
-    // Adapt that same flight to the new map height without resetting its clock.
+    // Adapt the same flight when the responsive map changes height mid-landing.
     if (this.flight) {
       this.flight.from = { ...this.flight.from, span: this.flight.from.span * spanRatio };
       this.flight.to = this.camera;
@@ -332,18 +333,25 @@ export class AtlasMap {
     }
     this.flyTo(from, c, touch ? 0 : 115);
   }
-  setPreview(id, source = "marker") {
+  localizePreview() {
+    if (!this.preview) return;
+    const site = PLACES[this.preview.id];
+    this.caption.textContent = placeText(site.motif);
+    this.platePlace.textContent = placeText(site.name);
+    this.plateReason.textContent = placeText(site.flowerReason);
+  }
+  setPreview(id, source = "marker", anchor = null) {
     if (id === this.preview?.id && source === this.preview?.source) return;
     if (!id && !this.preview) return;
     const from = this.view ?? this.camera;
     const previous = this.preview;
     if (id) {
       const site = PLACES[id];
-      this.preview = { id, source, start: previous?.id === id ? previous.start : performance.now() };
+      this.preview = { id, source, anchor, start: previous?.id === id ? previous.start : performance.now() };
       if (previous?.id !== id) this.study.show(id, site.study, site.ink);
       this.ghost.style.setProperty("--spot-ink", site.ink);
       this.ghost.dataset.place = id;
-      this.caption.textContent = placeText(site.motif);
+      this.localizePreview();
     } else {
       this.clearPreview();
     }
@@ -352,14 +360,17 @@ export class AtlasMap {
     this.queueDraw();
   }
   previewCamera(base) {
-    if (!magnifies(this.preview) || this.flight) return base;
+    if (!magnifies(this.preview) || this.flight || this.reduced.matches) return base;
     const [lon, lat] = PLACES[this.preview.id].center;
-    let [x, y] = at(this.camera, this.width, this.height, [lon, lat]);
-    if (this.preview.source === "index") {
-      x = clamp(x, this.width * (this.hasSidePanel() ? 0.37 : 0.13), this.width * 0.86);
-      y = clamp(y, this.height * 0.30, this.height * 0.84);
-    }
-    const span = this.camera.span / (this.route.level === "country" ? 1.13 : 1.09);
+    let [x, y] = at(base, this.width, this.height, [lon, lat]);
+    // The reading centre excludes the fixed title on wide layouts. Keep the
+    // excursion small enough that neighbouring flowers remain discoverable.
+    const dx = this.width * (this.hasSidePanel() ? 0.62 : 0.5) - x;
+    const dy = this.height * 0.5 - y;
+    const pull = Math.min(0.26, 48 / Math.max(1, Math.hypot(dx, dy)));
+    x += dx * pull;
+    y += dy * pull;
+    const span = base.span / (this.route.level === "country" ? 1.13 : 1.09);
     return { x: lon - (x - this.width / 2) * span / this.width, y: northing(lat) + (y - this.height / 2) * span / this.width, span };
   }
   screen(lon, lat) { return at(this.view, this.width, this.height, [lon, lat]); }
@@ -389,8 +400,9 @@ export class AtlasMap {
     const chart = this.charts.update("base", this.view, w, h, this.pixelRatio, getLanguage(), moving);
     this.canvas.dataset.detailLevel = chart?.frame.level ? String(chart.frame.level) : "national";
     const opening = this.preview && !this.reduced.matches ? clamp((now - this.preview.start) / 420, 0, 1) : 1;
-    const studyBox = this.drawImpression(opening, moving);
-    const reserved = this.drawMarkers(studyBox);
+    const groups = this.markerGroups();
+    const studyBox = this.drawImpression(opening, moving, groups);
+    const reserved = this.drawMarkers(studyBox, groups);
     const annotationKey = [this.view.x,this.view.y,this.view.span,w,h,this.pixelRatio,getLanguage(),this.route.level,
       this.preview?.id,this.plateWidth,this.plateHeight,this.markerKey].join("/");
     if (!moving && (this.annotationKey !== annotationKey || this.annotationFrame !== chart?.frame)) {
@@ -506,7 +518,7 @@ export class AtlasMap {
     ctx.restore();
   }
 
-  drawImpression(phase, moving) {
+  drawImpression(phase, moving, groups) {
     const preview = this.preview;
     if (!preview) return;
     const site = PLACES[preview.id];
@@ -519,13 +531,17 @@ export class AtlasMap {
     if (!visible) { this.charts.layers.lens.wanted = null; return; }
     const w = this.plateWidth || this.ghost.offsetWidth, h = this.plateHeight || this.ghost.offsetHeight;
     const size = this.width < 600 ? 32 : 45;
-    let cx = clamp(x, w / 2 + 6, this.width - w / 2 - 6);
-    let cy = y - size * .86 - h;
-    if (cy < 6) {
-      cx = clamp(x + (x > this.width / 2 ? -1 : 1) * (w * 0.6 + size), w / 2 + 6, this.width - w / 2 - 6);
-      cy = Math.max(5, Math.min(y - h * 0.46, this.height - h - 5));
+    const bounds = { left:(this.hasSidePanel() ? this.width * .3 : 0) + 6, top:6, right:this.width-6, bottom:this.height-6 };
+    const keepClear = [{ left:this.width-76, top:this.height-166, right:this.width-4, bottom:this.height-4 }];
+    if (preview.anchor) keepClear.push({ left:preview.anchor.x-2, right:preview.anchor.x+2, top:preview.anchor.y-2, bottom:preview.anchor.y+2 });
+    for (const group of groups) {
+      if (group.site === preview.id) continue;
+      const [px, py] = this.screen(...PLACES[group.site].center);
+      keepClear.push({ left:px-16, top:py-16, right:px+16, bottom:py+16 });
     }
-    this.ghost.style.transform = "translate(" + (cx - w / 2) + "px," + cy + "px)";
+    const box = placeSpecimen(x, y, w, h, size+6, bounds, keepClear, preview.placement);
+    preview.placement = box.index;
+    this.ghost.style.transform = `translate(${box.left}px,${box.top}px)`;
     const open = 1 - (1 - phase) ** 3;
     this.lens.style.width = this.lens.style.height = size * 2 + "px";
     this.lens.style.transform = `translate(${x-size}px,${y-size}px) scale(${open})`;
@@ -533,11 +549,13 @@ export class AtlasMap {
     const span = Math.min(.018, site.span * .4, this.view.span * size / this.width);
     this.charts.update("lens", { x:site.center[0], y:northing(site.center[1]), span },
       size*2, size*2, this.pixelRatio, getLanguage(), moving);
-    const dx = x-cx, dy = y-4-(cy+h);
+    const joinX = clamp(x, box.left + 10, box.right - 10);
+    const joinY = clamp(y, box.top, box.bottom);
+    const dx = x-joinX, dy = y-joinY;
     this.leader.style.width = Math.hypot(dx,dy) + "px";
     this.leader.style.backgroundColor = site.ink;
-    this.leader.style.transform = `translate(${cx}px,${cy+h}px) rotate(${Math.atan2(dy,dx)}rad)`;
-    return { left: cx-w*.43, right: cx+w*.43, top: cy, bottom: cy+h };
+    this.leader.style.transform = `translate(${joinX}px,${joinY}px) rotate(${Math.atan2(dy,dx)}rad)`;
+    return box;
   }
   markerGroups() {
     const { width, height, camera } = this;
@@ -556,23 +574,27 @@ export class AtlasMap {
       const [x, y] = at(camera, width, height, center);
       points.push({ id, site: id, city: PLACES[id].city, x, y });
     }
-    // Keep the garden action and an index preview on their own exact coordinates.
-    const isIndividual = ({ id }) => id === this.route.place ||
-      (this.preview?.source === "index" && id === this.preview.id);
+    const isIndividual = ({ id }) => id === this.route.place;
     const radius = camera.span < 0.032 ? 0 : width <= 520 ? 22 : 19;
     const individuals = points.filter(isIndividual).map(point => ({ ...point, members: [point.id] }));
     return individuals.concat(groupMarkers(points.filter(point => !isIndividual(point)), radius));
   }
-  drawMarkers(studyBox) {
-    const groups = this.markerGroups();
+  drawMarkers(studyBox, groups) {
     const key = [this.route.level, this.route.place, getLanguage(), ...groups.map(g => g.id + ":" + g.members.join(","))].join("/");
     if (this.markerKey !== key) {
       this.markerKey = key;
-      const buttons = groups.map((g) => {
+      const existing = new Map(Array.from(this.markers.children, button => [button.dataset.id, button]));
+      for (const g of groups) {
         const site = PLACES[g.site], city = CITIES[g.city];
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "atlas-marker";
+        let button = existing.get(g.id);
+        if (!button) {
+          button = document.createElement("button");
+          button.type = "button";
+          button.className = "atlas-marker";
+          button.innerHTML = '<em class="atlas-hover-bridge" aria-hidden="true"></em><i aria-hidden="true"><svg viewBox="0 0 40 40" focusable="false"><use href="#atlas-flower-pin"/></svg><b></b></i><span><strong></strong><small></small></span>';
+          this.markers.append(button);
+        }
+        existing.delete(g.id);
         button.dataset.id = g.id;
         button.dataset.preview = g.site;
         button.atlasMark = g;
@@ -584,14 +606,12 @@ export class AtlasMap {
         const action = g.members.length > 1 ? t("atlas.cluster", { count: g.members.length }) :
           this.route.place === g.id ? t("atlas.enter") : subtitle;
         button.setAttribute("aria-label", action ? label + " · " + action : label);
-        button.innerHTML = '<i aria-hidden="true"><b></b></i><span><strong></strong><small></small></span>';
         button.querySelector("b").textContent = g.members.length > 1 ? g.members.length : "";
         button.querySelector("strong").textContent = label;
         button.querySelector("small").textContent = subtitle;
         button.atlasLabel = label;
-        return button;
-      });
-      this.markers.replaceChildren(...buttons);
+      }
+      for (const button of existing.values()) button.remove();
     }
     const candidates = [];
     for (const button of this.markers.children) {
@@ -602,6 +622,19 @@ export class AtlasMap {
       button.style.left = x + "px"; button.style.top = y + "px";
       const hot = mark.members.includes(this.preview?.id) || mark.id === this.route.place;
       button.classList.toggle("is-current", hot);
+      const described = mark.site === this.preview?.id && this.ghost.classList.contains("is-visible");
+      if (described) button.setAttribute("aria-describedby", "atlas-ghost");
+      else button.removeAttribute("aria-describedby");
+      const bridge = button.firstElementChild;
+      const anchor = described && this.preview.source === "marker" && this.preview.anchor;
+      bridge.hidden = !anchor;
+      if (anchor) {
+        // A stationary mouse must still hover and click the moving flower,
+        // including when it first touched the outer edge of a long place name.
+        const dx = anchor.x - x, dy = anchor.y - y;
+        bridge.style.width = Math.hypot(dx, dy) + 18 + "px";
+        bridge.style.transform = `rotate(${Math.atan2(dy, dx)}rad) translateX(-9px)`;
+      }
       candidates.push({ button, mark, x, y, hot });
     }
     return this.layoutLabels(candidates, studyBox);
@@ -619,12 +652,13 @@ export class AtlasMap {
       const font = hot ? compact ? 17 : 22 : national ? compact ? 16 : 20 : compact ? 14 : 16;
       const weight = hot || national ? 650 : 600;
       const natural = this.measure(button.atlasLabel, weight + " " + font + "px " + serif) + 13;
-      const labelWidth = Math.ceil(Math.min(compact ? width * .48 : 240, Math.max(national && !compact ? 57 : 0, natural)));
+      const subtitle = national && !compact ? this.measure(button.querySelector("small").textContent, "11px sans-serif") + 16 : 0;
+      const labelWidth = Math.ceil(Math.min(compact ? width * .48 : 240, Math.max(subtitle, natural)));
       const lines = hot && natural > labelWidth + 1 ? 2 : 1;
       const labelHeight = Math.ceil(lines * font * 1.26 + 5 + (national && !compact ? 14 : 0));
       button.style.setProperty("--label-font", font + "px");
       button.style.setProperty("--label-weight", weight);
-      const gap = mark.members.length > 1 || national || hot ? 18 : 13;
+      const gap = mark.members.length > 1 || national || hot ? 21 : 15;
       const right = [gap, -labelHeight / 2], left = [-labelWidth - gap, -labelHeight / 2];
       const preferLeft = x > width * 0.78 || (national && ["dunhuang", "chengdu"].includes(mark.city));
       const locations = [...(preferLeft ? [left, right] : [right, left]), [-labelWidth / 2, gap], [-labelWidth / 2, -labelHeight - gap]];

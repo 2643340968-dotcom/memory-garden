@@ -4,9 +4,11 @@ import { readFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import vectorIndex from "../src/atlas/maps/vector-index.json" with { type: "json" };
+import plates from "../src/atlas/field-studies.json" with { type: "json" };
+import { flowerNames, placeFlowers } from "../src/data/placeFlowers.js";
 import { indexedTile } from "../src/atlas/VectorBasemap.js";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "../src/atlas/places.js";
-import { groupMarkers } from "../src/atlas/markerLayout.js";
+import { groupMarkers, overlaps, placeSpecimen } from "../src/atlas/markerLayout.js";
 import { adjacentStop, routeAtZoom } from "../src/atlas/zoomRoute.js";
 import { JIANGDONGMEN } from "../src/data/jiangdongmen.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
@@ -67,6 +69,38 @@ test("a single large gesture visits the intervening city in either direction and
 });
 
 const vectorRoot = new URL("../public/assets/atlas-vectors/", import.meta.url);
+
+test("every atlas pin and garden arrival shares a flower plate and an individual bilingual selection note", () => {
+  assert.deepEqual(Object.keys(placeFlowers).sort(), Object.keys(PLACES).sort());
+  assert.deepEqual(Object.keys(plates).sort(), Object.keys(flowerNames).sort());
+  const used = new Set(), zh = new Set(), en = new Set();
+  for (const site of Object.values(PLACES)) {
+    used.add(site.study);
+    assert.ok(site.motif.every(Boolean) && flowerNames[site.study]);
+    const [chinese, english] = site.flowerReason;
+    assert.match(chinese, /\p{Script=Han}/u);
+    assert.match(english, /[a-z]/i);
+    zh.add(chinese); en.add(english);
+  }
+  assert.equal(used.size, Object.keys(plates).length);
+  assert.equal(zh.size, 85); assert.equal(en.size, 85);
+  assert.deepEqual(PLACES.jiangdongmen.motif, ["紫金草", "Zijincao"]);
+  assert.equal(new Set(Object.values(plates)).size, used.size);
+  for (const data of Object.values(plates)) assert.equal(Buffer.from(data, "base64").length, 3500*3);
+});
+
+test("a flower card leaves its pin, nearby flowers and the edge of a narrow screen clear", () => {
+  const bounds = { left:6, right:314, top:6, bottom:510 };
+  const neighbour = { left:144, right:176, top:112, bottom:144 };
+  const point = { left:152, right:168, top:224, bottom:240 };
+  const placement = placeSpecimen(160, 232, 246, 112, 35, bounds, [neighbour]);
+  assert.ok(!overlaps(placement, point) && !overlaps(placement, neighbour));
+  for (const [x,y] of [[10,12], [305,12], [10,502], [305,502]]) {
+    const box = placeSpecimen(x,y,246,112,35,bounds,[]);
+    assert.ok(box.left >= bounds.left && box.right <= bounds.right && box.top >= bounds.top && box.bottom <= bounds.bottom);
+    assert.ok(!overlaps(box, { left:x-8, right:x+8, top:y-8, bottom:y+8 }));
+  }
+});
 
 test("the published atlas packs match their digests and tile masks, including the national relief", () => {
   function unpack(file) {

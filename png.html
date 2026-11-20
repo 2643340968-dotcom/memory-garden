@@ -33,7 +33,13 @@
               <p id="atlas-kicker" class="atlas-kicker"></p>
               <h1 id="atlas-title" tabindex="-1">Site of <em>Memory</em></h1>
               <p id="atlas-description" class="atlas-description"></p>
-              <a id="atlas-source" target="_blank" rel="noreferrer" data-i18n="atlas.source" hidden>About this place ↗</a>
+              <div id="atlas-place-actions" hidden>
+                <a id="atlas-enter" href="#atlas"><span data-i18n="atlas.enter">Enter the garden</span><span aria-hidden="true">→</span></a>
+                <div class="atlas-references">
+                  <a id="atlas-source" target="_blank" rel="noreferrer" data-i18n="atlas.source">About this place ↗</a>
+                  <a id="atlas-flower-source" target="_blank" rel="noreferrer" data-i18n="atlas.flowerSource" hidden>Flower reference ↗</a>
+                </div>
+              </div>
             </div>
           </div>
           <div id="atlas-map" class="atlas-map" role="group" data-i18n-aria-label="atlas.mapAria" aria-label="Interactive geographic map">
@@ -41,9 +47,22 @@
             <canvas id="atlas-canvas" aria-hidden="true"></canvas>
             <i id="atlas-leader" aria-hidden="true" hidden></i>
             <div id="atlas-lens" aria-hidden="true" hidden><canvas></canvas></div>
+            <svg class="atlas-symbols" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+              <symbol id="atlas-flower-pin" viewBox="0 0 40 40">
+                <path d="M20 3.4C24.2.8 29 5.3 27.1 12.1C34.1 9.7 39.6 13 38.4 18.2C37.8 21.1 34.3 23.6 29.6 24.5C35.4 29.1 35.3 35 31 37C27.5 38.6 22.8 35.7 20 30.8C17 35.8 12.7 38.5 9 37C4.6 35.1 4.7 29.2 10.4 24.5C3.2 23.3.1 18.4 2.2 14.7C4 11.3 8.3 10.6 12.9 12.1C11.3 6.6 13.4 1.5 17 1.9C18.2 2 19.2 2.6 20 3.4Z" fill="currentColor" stroke="#fff9e6" stroke-width="2" stroke-linejoin="round"/>
+                <circle cx="20" cy="20" r="4.2" fill="#ffebb3"/>
+              </symbol>
+            </svg>
             <div id="atlas-markers"></div>
-            <div id="atlas-ghost" class="atlas-ghost" aria-hidden="true">
-              <div class="atlas-impression"><canvas id="atlas-plate"></canvas><p id="plate-caption"></p></div>
+            <div id="atlas-ghost" class="atlas-ghost" role="tooltip">
+              <div class="atlas-impression">
+                <canvas id="atlas-plate" aria-hidden="true"></canvas>
+                <div class="atlas-specimen-note">
+                  <p id="plate-place"></p>
+                  <p id="plate-caption"></p>
+                  <p id="plate-reason"></p>
+                </div>
+              </div>
             </div>
             <div class="atlas-compass" aria-hidden="true"><span>N</span><i></i></div>
             <div class="atlas-tools">
@@ -55,17 +74,8 @@
           </div>
         </div>
 
-        <nav class="atlas-directory" aria-labelledby="atlas-index-label">
-          <div class="atlas-index-heading"><p id="atlas-index-label" class="atlas-index-label"></p><span id="atlas-index-range"></span></div>
-          <div id="atlas-choices"></div>
-          <div id="atlas-page-controls" hidden>
-            <button id="atlas-prev" type="button" data-i18n-aria-label="atlas.previous" aria-label="Previous places">←</button>
-            <button id="atlas-next" type="button" data-i18n-aria-label="atlas.next" aria-label="Next places">→</button>
-          </div>
-        </nav>
-
         <footer class="atlas-footer">
-          <span class="atlas-legend"><i aria-hidden="true"></i><span id="atlas-legend-count"></span></span>
+          <span class="atlas-legend"><svg aria-hidden="true" focusable="false" viewBox="0 0 40 40"><use href="#atlas-flower-pin"/></svg><span id="atlas-legend-count"></span></span>
           <div class="atlas-attribution">
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a>
             <details class="atlas-credits">

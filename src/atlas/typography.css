@@ -17,11 +17,10 @@
   text-wrap:balance;word-break:normal;overflow-wrap:break-word;
 }
 .atlas:lang(zh-CN) #atlas-title em { font-weight:inherit; }
-.atlas:lang(zh-CN) :is(.atlas-kicker,.atlas-index-label) { font-size:11px;font-weight:600;letter-spacing:.075em; }
+.atlas:lang(zh-CN) .atlas-kicker { font-size:11px;font-weight:600;letter-spacing:.075em; }
 .atlas:lang(zh-CN) .atlas-description { max-width:21em;font:15px/1.86 var(--hei);letter-spacing:.025em; }
-.atlas:lang(zh-CN) .atlas-choice strong { font-weight:550;line-height:1.36; }
-.atlas:lang(zh-CN) :is(.atlas-choice small,.atlas-marker small) { letter-spacing:.025em; }
-.atlas:lang(zh-CN) #plate-caption { font-style:normal;font-weight:650;letter-spacing:.07em; }
+.atlas:lang(zh-CN) .atlas-marker small { letter-spacing:.025em; }
+.atlas:lang(zh-CN) #plate-caption { font-weight:580;line-height:1.28;letter-spacing:.045em; }
 .png-page:lang(zh-CN) .garden-back { font-family:var(--song);font-weight:550;letter-spacing:.045em; }
 .png-page:lang(zh-CN) .brand-block h1 { font-family:var(--song);font-weight:520;letter-spacing:.065em; }
 .png-page:lang(zh-CN) :is(.brand-block .eyebrow,.brand-block .subtitle,.memory-entry-index,.memory-echo-label) {
@@ -44,7 +43,7 @@
   .atlas:lang(zh-CN) .atlas-description { max-width:none;font-size:13px;line-height:1.64; }
 }
 @media (max-width:520px) {
-  .atlas:lang(zh-CN) :is(.atlas-kicker,.atlas-index-label) { font-size:10px; }
+  .atlas:lang(zh-CN) .atlas-kicker { font-size:10px; }
   .atlas:lang(zh-CN) .atlas-description { font-size:12px; }
   .atlas[data-level="place"] #atlas-title.is-long,.png-page:lang(zh-CN) .atlas[data-level="place"] #atlas-title.is-long { font-size:27px; }
   .png-page:lang(zh-CN) .brand-block .eyebrow { font-size:10px; }

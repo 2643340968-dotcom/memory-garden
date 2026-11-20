@@ -28,7 +28,7 @@ export class FieldStudy {
     this.onDark = onDark;
     this.ctx = canvas.getContext("2d", { willReadFrequently: true });
     this.motion = matchMedia("(prefers-reduced-motion: reduce)");
-    const length = pointsFor("nanjing").points.length;
+    const length = pointsFor("zijincao").points.length;
     this.current = new Float32Array(length);
     this.from = new Float32Array(length);
     this.seeds = Float32Array.from({ length }, (_, i) => noise(i));
@@ -56,7 +56,7 @@ export class FieldStudy {
       this.from.set(this.current);
     } else {
       // The grains lift from a loose impression near the pin, then settle
-      // from the base of the flower or building towards its upper outline.
+      // from the base of the stem towards the uppermost petals.
       for (let i = 0; i < this.target.length; i += 3) {
         this.from[i] = 127 + (this.target[i] - 127) * 0.53 + (this.seeds[i] - 0.5) * 152;
         this.from[i + 1] = 213 + (this.target[i + 1] - 128) * 0.18 + (this.seeds[i + 1] - 0.5) * 59;
@@ -122,6 +122,7 @@ export class FieldStudy {
     const scale = Math.min(width * .87 / ((right-left)*380/255), height * .87 / ((bottom-top)*220/255));
     const sx = scale * 380 / 255, sy = scale * 220 / 255;
     const ox = (width - (left+right)*sx) / 2, oy = (height - (top+bottom)*sy) / 2;
+    const minGrain = Math.min(.92, Math.max(.60, width * .009));
     ctx.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
     if (progress === 1) {
@@ -134,7 +135,7 @@ export class FieldStudy {
         for (let i = 0; i < target.length; i+=3) {
           if (seeds[i+2] > .8) continue;
           const tone = target[i+2] < 116 ? 0 : target[i+2] < 175 ? 1 : 2;
-          const size = Math.max(.92, (tone === 2 ? 1.95 : 1.53) * scale);
+          const size = Math.max(minGrain, (tone === 2 ? 1.95 : 1.53) * scale);
           base.fillStyle = this.inks[tone];
           base.fillRect(ox + target[i]*sx, oy + target[i+1]*sy, size, size);
         }
@@ -174,7 +175,7 @@ export class FieldStudy {
       current[i] = x; current[i + 1] = y; current[i + 2] = shade;
       const px = ox + x * sx, py = oy + y * sy;
       const tone = light > 0.36 && grain > 0.62 ? 3 : shade < 116 ? 0 : shade < 175 ? 1 : 2;
-      const size = Math.max(.92, (tone === 2 ? 1.95 : tone === 3 ? 2.05 : 1.53) * scale);
+      const size = Math.max(minGrain, (tone === 2 ? 1.95 : tone === 3 ? 2.05 : 1.53) * scale);
       tones[tone].rect(px, py, size, size);
       if (grain > 0.968 && bend > 0.25) {
         filaments.moveTo(px, py);
