@@ -15,6 +15,7 @@ export default defineConfig({
         index: resolve(projectRoot, "index.html"),
         model: resolve(projectRoot, "model.html"),
         png: resolve(projectRoot, "png.html"),
+        flow: resolve(projectRoot, "flow.html"),
       },
     },
   },

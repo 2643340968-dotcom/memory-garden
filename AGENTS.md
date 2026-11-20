@@ -17,13 +17,14 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 37 tests, including visitor media, bidirectional camera stops and free zoom, atlas pack integrity and multiscale coverage for 85 sites, geographic clustering, bilingual flower selections and specimen placement, per-place collections, bilingual source records and the Jiangdongmen bloom.
+- The automated suite has 39 tests, including visitor media, bidirectional camera stops and free zoom, atlas pack integrity and multiscale coverage for 85 sites, geographic clustering, bilingual flower selections and specimen placement, per-place collections, bilingual source records, the Jiangdongmen bloom, and Flow Atlas camera registration and independent lingering waves.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
 ## ENTRY POINTS
 
 - `/png.html` → `src/png-main.js` → national atlas, then a lazy-loaded PNG garden with the selected site's collection.
+- `/flow.html` → `src/flow/main.js` → an independently styled halftone atlas and top-down garden. This entry shares the place catalogue, vector chart cache and memory intake. Its title cards, water fronts, camera, garden marks and page-local visit state belong to the new edition.
 - `/model.html` → `src/model-main.js` → preserved GLB flower version.
 - `/` → `./png.html` → national atlas.
 
@@ -287,7 +288,7 @@ npm run dev
 npm run build
 ```
 
-Active development, visual QA, and public verification now target `/png.html` only. At minimum test map navigation and return, browse-before-writing, the optional form input lock, English/Chinese switching before and after submission, stored-language reload, visitor-text preservation, automatic first bloom, short/medium/long visual-card rhythms, six-card desktop maximum, responsive caps, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
+For changes to the Flow Atlas, verify `/flow.html` locally and on Pages, including overlapping hover tails, semantic zoom in both directions, voluntary site entry, optional title cards, mobile controls and per-site writing. Also check the existing `/png.html` experience. Its regression targets cover map navigation and return, browse-before-writing, the optional form input lock, English/Chinese switching before and after submission, stored-language reload, visitor-text preservation, automatic first bloom, short/medium/long visual-card rhythms, six-card desktop maximum, responsive caps, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
 
 After every completed modification round, commit the verified changes, push `main` to `origin`, wait for the GitHub Pages workflow to succeed, and verify the public `/memory-garden/png.html` URL still returns HTTP 200 with the new revision. The user expects the public URL to always show the newest completed version; do not stop after local verification.
 
