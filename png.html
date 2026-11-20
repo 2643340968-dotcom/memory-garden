@@ -165,6 +165,7 @@
             </button>
             <button type="button" id="garden-write" class="garden-write" disabled>
               <span aria-hidden="true">＋</span><span data-i18n="garden.write">Leave a memory</span>
+              <small data-i18n="garden.memoryFormats">Text · Image · Audio · Video</small>
             </button>
             <p id="garden-confirmation" role="status" data-i18n="entry.saved" hidden></p>
           </div>
@@ -216,11 +217,23 @@
                 data-i18n-placeholder="entry.placeholder"
                 placeholder="I remember…"
               ></textarea>
-              <div class="memory-attachment-tools" role="group" data-i18n-aria-label="attachment.choose" aria-label="Choose one attachment">
-                <span class="memory-attachment-verb" id="memory-attachment-verb"></span>
-                <button type="button" data-attach="image"><i class="attachment-icon" aria-hidden="true"></i><span data-i18n="attachment.image">Image</span></button>
-                <button type="button" data-attach="audio"><i class="attachment-icon" aria-hidden="true"></i><span data-i18n="attachment.audio">Audio</span></button>
-                <button type="button" data-attach="video"><i class="attachment-icon" aria-hidden="true"></i><span data-i18n="attachment.video">Video</span></button>
+              <div class="memory-attachment-tools" role="group" aria-labelledby="memory-attachment-verb" aria-describedby="memory-attachment-hint">
+                <div class="memory-attachment-heading">
+                  <strong id="memory-attachment-verb" data-i18n="attachment.add">Add an attachment</strong>
+                  <span id="memory-attachment-hint" data-i18n="attachment.hint">Choose one · Words are optional</span>
+                </div>
+                <button type="button" data-attach="image">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="17" rx="4"/><circle cx="8" cy="9" r="1.5"/><path d="m3 17 5-4.5 3.5 3 4.5-6 5 5.5"/></svg>
+                  <span data-i18n="attachment.image">Image</span>
+                </button>
+                <button type="button" data-attach="audio">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 10v4m4-7v10m4-13v16m4-14v12m4-9v6m3-4v2"/></svg>
+                  <span data-i18n="attachment.audio">Audio</span>
+                </button>
+                <button type="button" data-attach="video">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="3.5" width="19" height="17" rx="4"/><path d="m10 8 6 4-6 4z"/></svg>
+                  <span data-i18n="attachment.video">Video</span>
+                </button>
                 <input id="memory-file" type="file" hidden />
               </div>
               <p id="memory-file-status" class="memory-file-status" role="status" aria-live="polite"></p>

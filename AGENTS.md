@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 33 tests, including visitor media and bidirectional zoom routing, routes and georeferenced charts for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
+- The automated suite has 34 tests, including visitor media, bidirectional zoom routing, atlas pack integrity and multiscale coverage for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -37,6 +37,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 ## CURRENT VISUAL DIRECTION
 
 - The national atlas uses light warm paper, sage relief and blue-green water. The Jiangdongmen garden keeps its dark violet / plum-black atmosphere. Other gardens pick up their place's ink.
+- The basemap and hover lens redraw geographic paths at display resolution using `src/atlas/VectorBasemap.js` and self-hosted packs under `public/assets/atlas-vectors/`. The main PNG interface shares inset, control and panel corner radii. The writing card presents three visible attachment buttons with native previews.
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.

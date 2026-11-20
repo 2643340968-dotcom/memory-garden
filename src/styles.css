@@ -24,6 +24,9 @@ body {
 }
 
 .png-page {
+  --radius-inset: 8px;
+  --radius-control: 12px;
+  --radius-panel: 20px;
   --memory-glass-background: rgba(18, 12, 28, 0.52);
   --memory-glass-border: rgba(190, 156, 238, 0.26);
   --memory-glass-blur: 20px;
@@ -217,7 +220,7 @@ canvas {
   padding: clamp(32px, 5vw, 62px) clamp(28px, 6vw, 70px);
   overflow: hidden;
   border: 1px solid var(--memory-glass-border);
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   background:
     linear-gradient(
       145deg,
@@ -276,7 +279,7 @@ canvas {
 }
 
 .memory-entry-index {
-  margin: 0 0 24px;
+  margin: 0 0 18px;
   color: #ab96bb;
   opacity: 0.72;
 }
@@ -293,7 +296,7 @@ canvas {
 }
 
 .memory-entry-description {
-  margin: 24px 0 32px;
+  margin: 17px 0 22px;
   color: #aaa4b0;
   font-family: "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
   font-size: 13px;
@@ -306,14 +309,12 @@ canvas {
   width: 100%;
   min-height: 116px;
   resize: none;
-  padding: 16px 0;
-  border: 0;
-  border-top: 1px solid rgba(210, 199, 220, 0.17);
-  border-bottom: 1px solid rgba(210, 199, 220, 0.17);
-  border-radius: 0;
+  padding: 12px 15px;
+  border: 1px solid rgba(210, 199, 220, 0.28);
+  border-radius: var(--radius-control);
   outline: none;
   color: #e0dce4;
-  background: transparent;
+  background: rgba(16, 11, 23, 0.32);
   font: 15px/1.85 "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
   letter-spacing: 0.04em;
   caret-color: #c3a3dc;
@@ -321,8 +322,7 @@ canvas {
 }
 
 .memory-entry-panel textarea::placeholder {
-  color: #817a88;
-  opacity: 0.82;
+  color: #aaa0b3;
 }
 
 .memory-entry-panel textarea:focus {
@@ -334,14 +334,15 @@ canvas {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-top: 24px;
-  padding: 13px 0;
-  border: 0;
-  border-bottom: 1px solid rgba(205, 181, 222, 0.42);
-  color: #d8c7e3;
-  background: transparent;
-  font: 600 11px/1 "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
-  letter-spacing: 0.12em;
+  margin-top: 20px;
+  min-height: 44px;
+  padding: 12px 16px;
+  border: 1px solid #cfbad9;
+  border-radius: var(--radius-control);
+  color: #2b2033;
+  background: #d3c2dd;
+  font: 600 13px/1.35 "Noto Serif SC", "Songti SC", "STSong", Georgia, serif;
+  letter-spacing: 0.04em;
   cursor: pointer;
   transition:
     color 180ms ease,
@@ -357,8 +358,9 @@ canvas {
 
 .memory-submit:hover:not(:disabled),
 .memory-submit:focus-visible {
-  color: #f0e9f4;
-  border-color: #c7a4df;
+  color: #24192c;
+  background: #e3d7e9;
+  border-color: #e6d7ee;
   outline: none;
 }
 
@@ -368,7 +370,9 @@ canvas {
 
 .memory-submit:disabled {
   cursor: default;
-  opacity: 0.32;
+  color: #b7aabd;
+  background: rgba(193, 166, 208, .07);
+  border-color: rgba(193, 166, 208, .2);
 }
 
 .memory-card-layer {
@@ -384,7 +388,7 @@ canvas {
   padding: 17px 19px 15px;
   overflow: hidden;
   border: 1px solid var(--memory-glass-border);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   color: #d4d0d9;
   background:
     linear-gradient(
@@ -467,7 +471,7 @@ canvas {
   margin: 0;
   overflow: hidden;
   border: 1px solid rgba(207, 184, 226, 0.15);
-  border-radius: 6px;
+  border-radius: var(--radius-inset);
   background: rgba(9, 7, 13, 0.72);
 }
 
@@ -611,7 +615,7 @@ canvas {
   width: min(var(--memory-audio-card-width, 176px), calc(100vw - 60px));
   padding: 12px 14px 11px;
   border-color: rgba(207, 184, 226, 0.18);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background:
     linear-gradient(145deg, rgba(219, 195, 235, 0.045), transparent 48%),
     rgba(19, 13, 25, 0.64);

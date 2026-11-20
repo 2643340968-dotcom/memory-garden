@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
+import vectorIndex from "../src/atlas/maps/vector-index.json" with { type: "json" };
+import { indexedTile } from "../src/atlas/VectorBasemap.js";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "../src/atlas/places.js";
 import { groupMarkers } from "../src/atlas/markerLayout.js";
 import { routeAtZoom } from "../src/atlas/zoomRoute.js";
@@ -43,20 +47,49 @@ test("zooming in follows the geographic focus and tolerates small reversals at l
   assert.equal(routeAtZoom(nanjing, 0.052, false, [120, 36], fit), nanjing);
 });
 
-test("each of the 85 places has a local chart covering its coordinate", () => {
+const vectorRoot = new URL("../public/assets/atlas-vectors/", import.meta.url);
+
+test("the published atlas packs match their digests and tile masks, including the national relief", () => {
+  function unpack(file) {
+    const zipped = readFileSync(new URL(file, vectorRoot));
+    assert.equal(createHash("sha256").update(zipped).digest("hex").slice(0, 12), file.split(".")[1]);
+    return JSON.parse(gunzipSync(zipped));
+  }
+  const national = unpack(vectorIndex.national);
+  for (const name of ["land", "focus", "province", "river", "ridge"]) assert.match(national[name], /^M/);
+  assert.match(vectorIndex.overview.focus, /^M/);
+  for (const [mask, file] of Object.values(vectorIndex.packs)) {
+    const slots = Object.keys(unpack(file)).map(Number);
+    assert.equal(slots.reduce((bits, n) => bits | 1 << n, 0), mask, file);
+  }
+});
+
+test("each of the 85 site coordinates has independently drawable approach, street and building-scale geometry", () => {
   const mapRoot = new URL("../src/atlas/maps/", import.meta.url);
   const manifest = JSON.parse(readFileSync(new URL("place-bounds.json", mapRoot), "utf8"));
   const chartIds = [];
-  for (const [path, { level, city, bounds }] of Object.entries(manifest)) {
+  const cache = new Map();
+  for (const { level, city, bounds } of Object.values(manifest)) {
     if (level === "region" || level === "city") continue;
     const place = PLACES[level];
     assert.equal(place.city, city, level);
     const [lon, lat] = place.center;
     const [west, south, east, north] = bounds;
     assert.ok(west < lon && lon < east && south < lat && lat < north, level);
-    const header = readFileSync(new URL(path + ".webp", mapRoot)).subarray(0, 12).toString("latin1");
-    assert.equal(header.slice(0, 4), "RIFF", path);
-    assert.equal(header.slice(8), "WEBP", path);
+    const mercator = Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI;
+    for (const z of [6, 10, 12, 13, 14]) {
+      const x = Math.floor((lon + 180) / 360 * 2 ** z), y = Math.floor((1 - mercator) / 2 * 2 ** z);
+      const tile = indexedTile(z, x, y);
+      assert.ok(tile, level + " zoom " + z);
+      if (!cache.has(tile.file)) cache.set(tile.file, JSON.parse(gunzipSync(readFileSync(new URL(tile.file, vectorRoot)))));
+      const chart = cache.get(tile.file)[tile.slot];
+      assert.equal(typeof chart, "object");
+      if (level === "jiangdongmen" && z === 14) {
+        assert.match(chart.building, /^M/);
+        assert.match(chart.lane, /^M/);
+        assert.ok(chart.labels.length);
+      }
+    }
     chartIds.push(level);
   }
   assert.deepEqual(chartIds.sort(), Object.keys(PLACES).sort());

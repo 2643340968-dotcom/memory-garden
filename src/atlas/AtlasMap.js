@@ -4,25 +4,13 @@ import { cityStudies } from "./identities.js";
 import { FieldStudy } from "./FieldStudy.js";
 import { groupMarkers, overlaps } from "./markerLayout.js";
 import { routeAtZoom } from "./zoomRoute.js";
-import reliefUrl from "./maps/china-relief.webp";
+import { VectorBasemap } from "./VectorBasemap.js";
 import bounds from "./maps/place-bounds.json";
 import watercourses from "./maps/watercourses.json";
 
-const mapFiles = import.meta.glob("./maps/**/*.webp", { eager: true, query: "?url", import: "default" });
-const national = { url: reliefUrl, bounds: [48, 2, 161, 67], reveal: Infinity };
-const backgroundLayers = [national];
-const detailLayers = new Map();
-for (const [name, entry] of Object.entries(bounds)) {
-  const layer = { ...entry, url: mapFiles["./maps/" + name + ".webp"] };
-  if (entry.level === "region" || entry.level === "city") {
-    layer.reveal = entry.level === "region" ? 15 : Math.min(5, (entry.bounds[2] - entry.bounds[0]) * 2.5);
-    backgroundLayers.push(layer);
-  } else {
-    layer.reveal = 0.20;
-    detailLayers.set(entry.level, layer);
-  }
-}
-backgroundLayers.sort((a, b) => b.reveal - a.reveal);
+const areas = Object.values(bounds);
+const backgroundAreas = ["city", "region"].flatMap(level => areas.filter(area => area.level === level));
+const detailLayers = new Map(areas.filter(area => PLACES[area.level]).map(area => [area.level, area]));
 
 const annotations = [
   [103.6, 36.5, "C H I N A", "中　国", "country", 16, 220],
@@ -74,7 +62,9 @@ export class AtlasMap {
     this.navigate = navigate;
     this.onPreview = onPreview;
     this.canvas = root.querySelector("#atlas-canvas");
-    this.ctx = this.canvas.getContext("2d");
+    // A CPU-backed map avoids repeated GPU path tessellation during camera flights.
+    // The separate garden canvas still uses its WebGL renderer.
+    this.ctx = this.canvas.getContext("2d", { alpha: false, willReadFrequently: true });
     this.markers = root.querySelector("#atlas-markers");
     this.ghost = root.querySelector("#atlas-ghost");
     this.study = new FieldStudy(root.querySelector("#atlas-plate"));
@@ -84,7 +74,7 @@ export class AtlasMap {
     this.zoomOut = root.querySelector("#atlas-zoom-out");
     this.reduced = matchMedia("(prefers-reduced-motion: reduce)");
     this.route = { level: "country" };
-    this.images = new Map();
+    this.basemap = new VectorBasemap(() => this.queueDraw());
     this.pointers = new Map();
     this.inkStarted = performance.now();
     this.width = this.height = 1;
@@ -125,6 +115,13 @@ export class AtlasMap {
     });
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(root);
+    const trackResolution = () => {
+      matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener("change", () => {
+        this.resize();
+        trackResolution();
+      }, { once: true });
+    };
+    trackResolution();
     this.resize();
   }
 
@@ -138,7 +135,7 @@ export class AtlasMap {
     const oldFit = this.fittedSpan;
     this.width = w;
     this.height = h;
-    this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    this.pixelRatio = Math.min(window.devicePixelRatio || 1, Math.sqrt(16000000 / (w * h)));
     this.canvas.width = Math.round(w * this.pixelRatio);
     this.canvas.height = Math.round(h * this.pixelRatio);
     const fit = this.target(this.route);
@@ -149,7 +146,7 @@ export class AtlasMap {
     this.draw();
   }
   hasSidePanel() {
-    return this.width >= 880 && !matchMedia("(max-width:950px) and (orientation:portrait)").matches;
+    return !matchMedia("(max-width:879px), (max-width:950px) and (orientation:portrait)").matches;
   }
   target(route) {
     const area = PLACES[route.place] ?? CITIES[route.city] ?? CHINA;
@@ -209,7 +206,7 @@ export class AtlasMap {
     this.onPreview(null);
     this.clearPreview();
     this.manual = true;
-    this.flyTo(from, { x: (lowX + highX) / 2 - (this.width >= 880 ? span * 0.08 : 0), y: (lowY + highY) / 2, span }, 620);
+    this.flyTo(from, { x: (lowX + highX) / 2 - (this.hasSidePanel() ? span * 0.08 : 0), y: (lowY + highY) / 2, span }, 620);
   }
   takeControl() {
     this.camera = { ...(this.view ?? this.camera) };
@@ -269,8 +266,7 @@ export class AtlasMap {
   }
   minimum(lon, lat) {
     if (this.detailAt(lon, lat)) return 0.006;
-    for (let i = backgroundLayers.length - 1; i > 0; i--) {
-      const layer = backgroundLayers[i];
+    for (const layer of backgroundAreas) {
       if (inside(layer.bounds, lon, lat)) return layer.level === "city" ? 0.07 : 0.55;
     }
     return 6;
@@ -322,32 +318,13 @@ export class AtlasMap {
     const [lon, lat] = PLACES[this.preview.id].center;
     let [x, y] = at(this.camera, this.width, this.height, [lon, lat]);
     if (this.preview.source === "index") {
-      x = clamp(x, this.width * (this.width >= 880 ? 0.37 : 0.13), this.width * 0.86);
+      x = clamp(x, this.width * (this.hasSidePanel() ? 0.37 : 0.13), this.width * 0.86);
       y = clamp(y, this.height * 0.30, this.height * 0.84);
     }
     const span = this.camera.span / (this.route.level === "country" ? 1.13 : 1.09);
     return { x: lon - (x - this.width / 2) * span / this.width, y: northing(lat) + (y - this.height / 2) * span / this.width, span };
   }
   screen(lon, lat) { return at(this.view, this.width, this.height, [lon, lat]); }
-  getImage(url) {
-    if (!this.images.has(url)) {
-      const image = new Image();
-      image.onload = () => this.queueDraw();
-      this.images.set(url, image);
-      image.src = url;
-    }
-    return this.images.get(url);
-  }
-  drawLayer(layer) {
-    if (!layer || this.view.span >= layer.reveal) return;
-    const [west, south, east, north] = layer.bounds;
-    const [x, y] = this.screen(west, north), [r, b] = this.screen(east, south);
-    if (r < 0 || b < 0 || x > this.width || y > this.height) return;
-    const image = this.getImage(layer.url);
-    if (!image.complete || !image.naturalWidth) return;
-    this.ctx.globalAlpha = clamp(Math.log2(layer.reveal / this.view.span) * 1.4, 0, 1);
-    this.ctx.drawImage(image, x, y, r - x, b - y);
-  }
   draw() {
     if (!this.camera && !this.flight || !this.ctx || !this.root.clientWidth) return;
     const { ctx, width: w, height: h } = this;
@@ -366,11 +343,8 @@ export class AtlasMap {
     }
     ctx.setTransform(this.pixelRatio, 0, 0, this.pixelRatio, 0, 0);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = "#d3e4df";
-    ctx.fillRect(0, 0, w, h);
-    for (const layer of backgroundLayers) this.drawLayer(layer);
-    if (this.view.span < 0.20) this.drawLayer(this.detailAt(this.view.x, latitude(this.view.y)));
-    ctx.globalAlpha = 1;
+    const detail = this.basemap.draw(ctx, this.view, w, h, { language: getLanguage() });
+    this.canvas.dataset.detailLevel = detail ? String(detail) : "national";
     this.drawGrid();
     const ink = this.reduced.matches ? 1 : clamp((now - this.inkStarted) / 1500, 0, 1);
     if (this.view.span > 9) this.drawWater(ink);
@@ -468,8 +442,6 @@ export class AtlasMap {
     }
     this.ghost.style.transform = "translate(" + (cx - w / 2) + "px," + cy + "px)";
     const { ctx } = this;
-    const layer = detailLayers.get(preview.id);
-    const image = this.getImage(layer.url);
     const radius = size * (1 - (1 - phase) ** 3);
     ctx.save();
     if (radius > 1) {
@@ -481,15 +453,14 @@ export class AtlasMap {
       ctx.fillStyle = pool;
       ctx.fillRect(x - reach, y - reach, reach * 2, reach * 2);
     }
-    if (radius > 1 && image.complete && image.naturalWidth) {
-      const [west, south, east, north] = layer.bounds;
-      const ix = (site.center[0] - west) / (east - west) * image.naturalWidth;
-      const iy = (northing(north) - northing(site.center[1])) /
-        (northing(north) - northing(south)) * image.naturalHeight;
-      const sample = Math.min(image.naturalWidth * 0.38, site.span * 0.41 / (east - west) * image.naturalWidth);
+    if (radius > 1) {
       ctx.save();
       ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.clip();
-      ctx.drawImage(image, ix - sample / 2, iy - sample / 2, sample, sample, x - radius, y - radius, 2 * radius, 2 * radius);
+      ctx.save();
+      ctx.translate(x - radius, y - radius);
+      const span = Math.min(.018, site.span * .4, this.view.span * size / this.width) * radius / size;
+      this.basemap.draw(ctx, { x: site.center[0], y: northing(site.center[1]), span }, radius * 2, radius * 2, { lens: true });
+      ctx.restore();
       const glass = ctx.createLinearGradient(x - radius, y - radius, x + radius, y + radius);
       glass.addColorStop(0, "#fff9dda8"); glass.addColorStop(0.40, "#fff9e50a");
       glass.addColorStop(1, site.ink + "27");

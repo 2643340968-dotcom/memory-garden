@@ -68,7 +68,9 @@ pnpm run dev
 
 ### 地图与场所内容
 
-城市和地图路由在 `src/atlas/places.js`。桌面和触屏共用 Web Mercator 投影。底图位于 `src/atlas/maps/`，运行时从本站分级加载。全国地形、省界与河流取自 Natural Earth 的 1:50m 数据。五城区域、城市和 85 处街区的底图取自 2026-11-15 的 OpenFreeMap 矢量瓦片。区域使用第 8 级，城市按范围取 8–12 级，街区取第 13 级。江东门标记取纪念馆代表点 32.03759°N、118.73659°E。[Natural Earth](https://www.naturalearthdata.com/) · [OpenFreeMap](https://openfreemap.org/) · [OpenMapTiles](https://openmaptiles.org/) · [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) · [Wikidata Q32391](https://www.wikidata.org/wiki/Q32391)
+城市和地图路由在 `src/atlas/places.js`。桌面、触屏和悬停放大镜共用 Web Mercator 投影与 Canvas 矢量绘制。全国图的地形刻线、海岸、省界与河流取自 Natural Earth。五城街区沿用 2026-11-15 的 OpenFreeMap 数据，覆盖第 6 至 14 级。拉近每个地点时，道路、建筑和水岸都会按当前比例和屏幕像素密度重新绘制。江东门标记取纪念馆代表点 32.03759°N、118.73659°E。[Natural Earth](https://www.naturalearthdata.com/) · [OpenFreeMap](https://openfreemap.org/) · [OpenMapTiles](https://openmaptiles.org/) · [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) · [Wikidata Q32391](https://www.wikidata.org/wiki/Q32391)
+
+`scripts/build-atlas-vectors.py` 从原始地理数据生成 `src/atlas/maps/vector-index.json` 与 `public/assets/atlas-vectors/` 下带内容摘要的压缩路径。页面按当前视野向本站请求数据，细节加载期间沿用相同坐标的上一级图幅。
 
 江东门的两条编辑摘要及各自的出处在 `src/data/jiangdongmen.js`，分别对应纪念馆开放和南京大屠杀档案。对应花簇的单株尺寸暂定为普通花簇的 1.16 倍。四条原型文字显示为「示例留言」，访客原文保留换行与首尾空格。图片和声音继续使用独立记录。[纪念馆开放资料](https://visitnanjing.net/venues-detail/6) · [UNESCO 南京大屠杀档案](https://www.unesco.org/en/memory-world/documents-nanjing-massacre)
 
@@ -263,7 +265,7 @@ npm run build
 - 记忆手势配置上限
 - 事件花碎片的初始空状态、三类触发、稳定槽位、透明深度与解析式寿命
 
-当前自动化套件共 `33` 项，覆盖访客媒体类型识别、纯附件及配文提交、访客媒体与档案声音分开调度，也含缩放往返时的路径切换、85 处地点的地图路由、街区底图坐标、点位分组和记忆来源测试，也覆盖中英文界面文案、原型留言译文与访客原文保护、统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、视觉 `1:1` shuffle-bag、视觉/声音分离调度、TEXT 内部来源配比与近期重复保护、LUFS 报告、相对 ducking、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
+当前自动化套件共 `34` 项，覆盖访客媒体类型识别、纯附件及配文提交、访客媒体与档案声音分开调度，也含缩放往返时的路径切换、85 处地点的地图路由、矢量图幅校验及 85 处街区的多级坐标覆盖、点位分组和记忆来源测试，也覆盖中英文界面文案、原型留言译文与访客原文保护、统一多媒体 memory schema、文字/图片/音频卡视图模型、verified/prototype 安全约束、视觉 `1:1` shuffle-bag、视觉/声音分离调度、TEXT 内部来源配比与近期重复保护、LUFS 报告、相对 ducking、非阻塞图片预载、音频混音与卡片时长配置、解析式粒子路径、槽位代际复用和 Bloom 资源预算门槛。
 
 生产构建目前有一个非致命的 `>500 kB` 共享 chunk 提示，不影响运行。
 

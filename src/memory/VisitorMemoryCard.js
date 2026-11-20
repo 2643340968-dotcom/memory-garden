@@ -40,7 +40,8 @@ export class VisitorMemoryCard {
     this.memories = [];
     this.visible = false;
 
-    for (const button of form.querySelectorAll("[data-attach]")) {
+    this.attachmentButtons = form.querySelectorAll("[data-attach]");
+    for (const button of this.attachmentButtons) {
       button.addEventListener("click", () => this.chooseFile(button.dataset.attach));
     }
     this.removeButton.addEventListener("click", () => {
@@ -209,6 +210,12 @@ export class VisitorMemoryCard {
 
   refreshLanguage() {
     this.get("memory-attachment-verb").textContent = t(this.attachment ? "attachment.replace" : "attachment.add");
+    for (const button of this.attachmentButtons) {
+      const selected = this.attachment?.kind === button.dataset.attach;
+      button.classList.toggle("is-attached", selected);
+      button.setAttribute("aria-label", t(selected ? "attachment.replaceAction" : "attachment.action",
+        { kind: t("attachment." + button.dataset.attach) }));
+    }
     this.get("memory-visit-label").textContent = t("attachment.visit", { count: this.memories.length });
     const params = this.statusKey === "invalid" ? { kind: t("attachment." + this.statusValue) } : { name: this.statusValue };
     this.get("memory-file-status").textContent = this.statusKey ? t("attachment." + this.statusKey, params) : "";
