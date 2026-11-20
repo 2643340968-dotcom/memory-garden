@@ -37,7 +37,10 @@
             </div>
           </div>
           <div id="atlas-map" class="atlas-map" role="group" data-i18n-aria-label="atlas.mapAria" aria-label="Interactive geographic map">
+            <canvas id="atlas-geography" aria-hidden="true"></canvas>
             <canvas id="atlas-canvas" aria-hidden="true"></canvas>
+            <i id="atlas-leader" aria-hidden="true" hidden></i>
+            <div id="atlas-lens" aria-hidden="true" hidden><canvas></canvas></div>
             <div id="atlas-markers"></div>
             <div id="atlas-ghost" class="atlas-ghost" aria-hidden="true">
               <div class="atlas-impression"><canvas id="atlas-plate"></canvas><p id="plate-caption"></p></div>
@@ -106,40 +109,42 @@
               <span id="input-state">FLOWER ASSET · LOADING</span>
             </div>
 
-            <div
-              class="audio-controls"
-              data-i18n-aria-label="audio.controlsAria"
-              aria-label="Sound controls"
-            >
-              <button
-                id="audio-toggle"
-                class="audio-toggle"
-                type="button"
-                aria-pressed="false"
-                disabled
+            <div class="garden-navigation">
+              <a class="garden-back" id="garden-back" href="#atlas/nanjing/jiangdongmen">
+                <svg viewBox="0 0 28 16" width="27" height="16" aria-hidden="true"><path d="M26 8H2m7-6L2 8l7 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span data-i18n="garden.back">Back to map</span>
+              </a>
+              <div
+                class="audio-controls"
+                data-i18n-aria-label="audio.controlsAria"
+                aria-label="Sound controls"
               >
-                <span class="audio-toggle-mark" aria-hidden="true"></span>
-                <span id="audio-toggle-label" data-i18n="audio.soundOff">
-                  SOUND OFF
-                </span>
-              </button>
-              <label class="bgm-volume-control" for="bgm-volume">
-                <span data-i18n="audio.ambience">AMBIENCE</span>
-                <input
-                  id="bgm-volume"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="1"
-                  data-i18n-aria-label="audio.ambienceAria"
-                  aria-label="Ambience volume"
-                />
-              </label>
+                <button
+                  id="audio-toggle"
+                  class="audio-toggle"
+                  type="button"
+                  aria-pressed="false"
+                  disabled
+                >
+                  <span class="audio-toggle-mark" aria-hidden="true"></span>
+                  <span id="audio-toggle-label" data-i18n="audio.soundOff">
+                    SOUND OFF
+                  </span>
+                </button>
+                <label class="bgm-volume-control" for="bgm-volume">
+                  <span data-i18n="audio.ambience">AMBIENCE</span>
+                  <input
+                    id="bgm-volume"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    data-i18n-aria-label="audio.ambienceAria"
+                    aria-label="Ambience volume"
+                  />
+                </label>
+              </div>
             </div>
-
-            <a class="garden-back" id="garden-back" href="#atlas/nanjing/jiangdongmen">
-              <span aria-hidden="true">←</span><span data-i18n="garden.back">Back to map</span>
-            </a>
             <section class="planting-guide">
               <p class="guide-main" data-i18n="guide.main">
                 Touch a flower to read its memory. Drag to grow more.

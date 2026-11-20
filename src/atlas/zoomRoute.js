@@ -6,6 +6,14 @@ const allSites = Object.keys(PLACES);
 const enterCitySpan = 4.8;
 const leaveCitySpan = 7.5;
 
+// A large pinch can cross two thresholds in one input sample. Show the
+// intervening city first and carry the rest of the gesture into the next stop.
+export function adjacentStop(current, proposed) {
+  if (current.level === "country" && proposed.level === "place") return { level: "city", city: proposed.city };
+  if (current.level === "place" && proposed.level === "country") return { level: "city", city: current.city };
+  return proposed;
+}
+
 // Thresholds use the fitted map for this viewport. The gap between entering
 // and leaving a layer keeps small trackpad reversals from flickering the trail.
 export function routeAtZoom(route, span, widening, [lon, lat], fittedSpan) {

@@ -23,8 +23,8 @@ function chartPaths(chart) {
   return { paths, labels: chart.labels ?? [] };
 }
 
-async function loadChart(file) {
-  const response = await fetch("./assets/atlas-vectors/" + file);
+async function loadChart(url) {
+  const response = await fetch(url);
   if (!response.ok) throw new Error("Map resource " + response.status);
   const bytes = new Uint8Array(await response.arrayBuffer());
   // Static hosts may either serve the gzip file as-is or decode it via Content-Encoding.
@@ -57,8 +57,9 @@ function buildingHatch(spacing) {
 }
 
 export class VectorBasemap {
-  constructor(redraw) {
+  constructor(redraw, assetRoot) {
     this.redraw = redraw;
+    this.assetRoot = assetRoot;
     this.overview = chartPaths(index.overview);
     this.hatch = [buildingHatch(32), buildingHatch(16)];
     this.resources = new Map();
@@ -74,7 +75,7 @@ export class VectorBasemap {
     item ??= { charts: new Map() };
     this.resources.set(file, item);
     item.pending = true;
-    loadChart(file).then(data => {
+    loadChart(new URL(file, this.assetRoot)).then(data => {
       item.data = data;
       item.used = performance.now();
       const ready = [...this.resources].filter(([name, entry]) => name !== index.national && entry.data);
@@ -184,7 +185,7 @@ export class VectorBasemap {
     const alpha = lens ? 1 : Math.min(1, Math.max(0, (scale - 5.25) / 1.15));
     if (!alpha) {
       this.drawNational(ctx, camera, w, h, k, true);
-      return 0;
+      return { level: 0, labels: [] };
     }
     const level = Math.max(lens ? 13 : MIN_LEVEL, Math.min(MAX_LEVEL, Math.round(scale)));
     const { tiles, complete } = this.visibleTiles(level, camera, w, h, k);
@@ -217,31 +218,17 @@ export class VectorBasemap {
         }
       }
     }
-    this.drawLabels(ctx, labels, w, level);
     ctx.restore();
-    return tiles.at(-1)?.z ?? 0;
+    return { level: tiles.at(-1)?.z ?? 0, labels: labels.sort((a, b) => a.rank - b.rank) };
   }
+}
 
-  drawLabels(ctx, labels, w, level) {
-    const boxes = [], names = new Set();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.lineWidth = 3;
-    ctx.lineJoin = "round";
-    for (const { x, y, rank, name } of labels.sort((a, b) => a.rank - b.rank)) {
-      if (names.has(name)) continue;
-      ctx.font = (rank < 2 ? "12px" : "11px") + ' Georgia, "Microsoft YaHei", serif';
-      const half = ctx.measureText(name).width / 2;
-      if (x - half < 8 || x + half > w - 8) continue;
-      const gap = level < 11 ? 27 : 18;
-      const rect = [x - half - gap, y - 13, x + half + gap, y + 13];
-      if (boxes.some(b => b[0] < rect[2] && b[2] > rect[0] && b[1] < rect[3] && b[3] > rect[1])) continue;
-      boxes.push(rect);
-      names.add(name);
-      ctx.strokeStyle = "#f4f0e1db";
-      ctx.fillStyle = rank === 1 ? "#496e6c" : "#67705d";
-      ctx.strokeText(name, x, y);
-      ctx.fillText(name, x, y);
-    }
-  }
+export function paintChart(map, surface, job) {
+  const { width, height, dpr, camera, layer, language } = job;
+  const pxWidth = Math.round(width * dpr), pxHeight = Math.round(height * dpr);
+  if (surface.width !== pxWidth) surface.width = pxWidth;
+  if (surface.height !== pxHeight) surface.height = pxHeight;
+  const ctx = surface.getContext("2d", { alpha: false, willReadFrequently: true });
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return map.draw(ctx, camera, width, height, { lens: layer === "lens", language });
 }

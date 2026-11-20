@@ -131,6 +131,7 @@ export class AtlasView {
       accent.textContent = t("atlas.titleSecond");
       title.append(t("atlas.titleFirst"), getLanguage() === "en" ? " " : "", accent);
     }
+    title.classList.toggle("is-long", Boolean(site) && title.textContent.length > (getLanguage() === "en" ? 22 : 8));
     document.querySelector("#atlas-description").textContent = placeText(area.introduction ?? "atlas.countryIntro");
     const source = document.querySelector("#atlas-source");
     source.hidden = !site;
@@ -149,9 +150,9 @@ export class AtlasView {
     this.renderIndex();
     if (this.map.preview) {
       const place = PLACES[this.map.preview.id];
-      this.map.caption.textContent = placeText(place.name) + "  /  " + placeText(place.motif);
+      this.map.caption.textContent = placeText(place.motif);
     }
-    this.map.draw();
+    this.map.queueDraw();
   }
   coordinates([lon, lat]) { return lat.toFixed(3) + "° N   " + lon.toFixed(3) + "° E"; }
 }

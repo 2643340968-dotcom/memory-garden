@@ -7,7 +7,7 @@ import vectorIndex from "../src/atlas/maps/vector-index.json" with { type: "json
 import { indexedTile } from "../src/atlas/VectorBasemap.js";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "../src/atlas/places.js";
 import { groupMarkers } from "../src/atlas/markerLayout.js";
-import { routeAtZoom } from "../src/atlas/zoomRoute.js";
+import { adjacentStop, routeAtZoom } from "../src/atlas/zoomRoute.js";
 import { JIANGDONGMEN } from "../src/data/jiangdongmen.js";
 import { createMemoryPool } from "../src/data/memoryPool.js";
 import { getMemoryEchoLabel } from "../src/memory/MemoryExperience.js";
@@ -45,6 +45,25 @@ test("zooming in follows the geographic focus and tolerates small reversals at l
   const lake = PLACES.p31332.center;
   assert.deepEqual(routeAtZoom(country, 0.052, false, lake, fit), { ...nanjing, level: "place", place: "p31332" });
   assert.equal(routeAtZoom(nanjing, 0.052, false, [120, 36], fit), nanjing);
+});
+
+test("a single large gesture visits the intervening city in either direction and leaves free zoom alone", () => {
+  const fit = route => route.level === "place" ? 0.075 : 0.55;
+  const country = { level: "country" };
+  for (const [id, place] of Object.entries(PLACES)) {
+    const city = { level: "city", city: place.city };
+    const site = { ...city, level: "place", place: id };
+    const inward = routeAtZoom(country, 0.01, false, place.center, fit);
+    assert.deepEqual(adjacentStop(country, inward), city);
+    assert.deepEqual(adjacentStop(city, inward), site);
+    const outward = routeAtZoom(site, 90, true, place.center, fit);
+    assert.deepEqual(adjacentStop(site, outward), city);
+    assert.equal(adjacentStop(city, outward), outward);
+    assert.equal(adjacentStop(site, site), site);
+  }
+  const remote = [82, 33];
+  const free = routeAtZoom(country, 0.01, false, remote, fit);
+  assert.equal(adjacentStop(country, free), country);
 });
 
 const vectorRoot = new URL("../public/assets/atlas-vectors/", import.meta.url);

@@ -1,0 +1,51 @@
+@font-face {
+  font-family:"Garden Song";
+  src:url("./fonts/garden-song.woff2") format("woff2");
+  font-weight:200 900;
+  font-display:swap;
+}
+
+.png-page:lang(zh-CN) {
+  --song:"Garden Song","Noto Serif SC","Songti SC","STSong",SimSun,serif;
+  --hei:"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  line-break:strict;
+}
+.atlas:lang(zh-CN) { --serif:var(--song);--sans:var(--hei); }
+.atlas:lang(zh-CN) .atlas-wordmark { font-weight:540;letter-spacing:.055em; }
+.png-page:lang(zh-CN) #atlas-title {
+  font-family:var(--song);font-weight:530;line-height:1.12;letter-spacing:.008em;
+  text-wrap:balance;word-break:normal;overflow-wrap:break-word;
+}
+.atlas:lang(zh-CN) #atlas-title em { font-weight:inherit; }
+.atlas:lang(zh-CN) :is(.atlas-kicker,.atlas-index-label) { font-size:11px;font-weight:600;letter-spacing:.075em; }
+.atlas:lang(zh-CN) .atlas-description { max-width:21em;font:15px/1.86 var(--hei);letter-spacing:.025em; }
+.atlas:lang(zh-CN) .atlas-choice strong { font-weight:550;line-height:1.36; }
+.atlas:lang(zh-CN) :is(.atlas-choice small,.atlas-marker small) { letter-spacing:.025em; }
+.atlas:lang(zh-CN) #plate-caption { font-style:normal;font-weight:650;letter-spacing:.07em; }
+.png-page:lang(zh-CN) .garden-back { font-family:var(--song);font-weight:550;letter-spacing:.045em; }
+.png-page:lang(zh-CN) .brand-block h1 { font-family:var(--song);font-weight:520;letter-spacing:.065em; }
+.png-page:lang(zh-CN) :is(.brand-block .eyebrow,.brand-block .subtitle,.memory-entry-index,.memory-echo-label) {
+  font-family:var(--hei);font-size:11px;letter-spacing:.095em;font-weight:550;
+}
+.png-page:lang(zh-CN) .brand-block .subtitle { white-space:normal;line-height:1.55; }
+.png-page:lang(zh-CN) :is(.audio-toggle,.system-status,.meta-label,.reset-button,.memory-attachment-heading) { font-family:var(--hei);letter-spacing:.035em; }
+.png-page:lang(zh-CN) .guide-main { font-family:var(--song);font-weight:500;letter-spacing:.045em; }
+.png-page:lang(zh-CN) .memory-entry-panel h2 { font:540 clamp(27px,3vw,38px)/1.39 var(--song);letter-spacing:.018em; }
+.png-page:lang(zh-CN) :is(.memory-entry-description,.memory-echo-text,#memory-reader-text,.memory-entry-panel textarea) {
+  font-family:var(--song);letter-spacing:.025em;line-height:1.78;
+}
+.png-page:lang(zh-CN) .memory-entry-description { font-size:14px;color:#c0b4c5; }
+.png-page:lang(zh-CN) .memory-submit { font-family:var(--hei);font-weight:550;letter-spacing:.03em; }
+@media (min-width:880px) {
+  .atlas[data-level="place"] #atlas-title.is-long { font-size:clamp(34px,3.35vw,54px);line-height:1.12; }
+  .png-page:lang(zh-CN) .atlas[data-level="place"] #atlas-title.is-long { font-size:clamp(31px,3.25vw,50px);line-height:1.23; }
+}
+@media (max-width:879px), (max-width:950px) and (orientation:portrait) {
+  .atlas:lang(zh-CN) .atlas-description { max-width:none;font-size:13px;line-height:1.64; }
+}
+@media (max-width:520px) {
+  .atlas:lang(zh-CN) :is(.atlas-kicker,.atlas-index-label) { font-size:10px; }
+  .atlas:lang(zh-CN) .atlas-description { font-size:12px; }
+  .atlas[data-level="place"] #atlas-title.is-long,.png-page:lang(zh-CN) .atlas[data-level="place"] #atlas-title.is-long { font-size:27px; }
+  .png-page:lang(zh-CN) .brand-block .eyebrow { font-size:10px; }
+}

@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 34 tests, including visitor media, bidirectional zoom routing, atlas pack integrity and multiscale coverage for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
+- The automated suite has 35 tests, including visitor media, bidirectional camera stops and free zoom, atlas pack integrity and multiscale coverage for 85 sites, geographic clustering, per-place collections, bilingual source records and the Jiangdongmen bloom.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -37,7 +37,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 ## CURRENT VISUAL DIRECTION
 
 - The national atlas uses light warm paper, sage relief and blue-green water. The Jiangdongmen garden keeps its dark violet / plum-black atmosphere. Other gardens pick up their place's ink.
-- The basemap and hover lens redraw geographic paths at display resolution using `src/atlas/VectorBasemap.js` and self-hosted packs under `public/assets/atlas-vectors/`. The main PNG interface shares inset, control and panel corner radii. The writing card presents three visible attachment buttons with native previews.
+- The basemap and hover lens share a vector cache under `public/assets/atlas-vectors/`. An atlas worker paints device-resolution views while the camera moves the previous georeferenced frame. Project pins and motif labels reserve space ahead of street names. Chinese display type uses the bundled Noto Serif SC subset. The garden return and secondary controls use text and rules. The writing card retains three visible attachment buttons with native previews.
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
@@ -51,7 +51,7 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 ## CURRENT INTERACTION FLOW
 
 1. The visitor enters the national atlas at `/png.html`.
-2. Country, city and place use one pannable, zoomable map. Five national markers open Nanjing (21 sites), Beijing (22), Dunhuang (8), Chengdu (18) and Quanzhou (16). City markers group close neighbours and split with zoom. Wheel, buttons and pinch update the URL, breadcrumb, title, markers, status and index when the camera crosses a geographic level. Hover magnification only previews a place. A semantic zoom keeps the current camera and replaces the current history entry.
+2. Country, city and place use one pannable, zoomable map. Five national markers open Nanjing (21 sites), Beijing (22), Dunhuang (8), Chengdu (18) and Quanzhou (16). City markers group close neighbours and split with zoom. Each geographic level has a brief interruptible camera landing, with free wheel, button and pinch zoom between levels. Crossing a level replaces the current history entry and updates the breadcrumb, title, markers, status and index. Hover magnification previews a place.
 3. Entering any site loads the PNG field. Three clusters carry two local records and either a writing prompt, a prototype memory at Jiangdongmen or that site's latest visitor memory. The 80 added locations each have an original bilingual site note and a geographic record.
 4. Visitors can tap an existing cluster to read its memory, drag to grow more clusters or focus the canvas and press Enter to discover another memory.
 5. The writing dialog locks planting while open. All 85 sites accept text, one visitor image, audio or video file, or a file with a caption in the same card. Each site keeps its own drafts and submissions. The card previews files and reopens saved entries under Your memories here. Jiangdongmen grows a flower and reveals YOUR MEMORY on submission. The other sites confirm that the memory was saved for the current visit.

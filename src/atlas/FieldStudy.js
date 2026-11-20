@@ -4,12 +4,17 @@ import { mixInk } from "./identities.js";
 const studies = new Map();
 function pointsFor(motif) {
   if (!studies.has(motif)) {
-    studies.set(motif, Uint8Array.from(atob(plates[motif]), c => c.charCodeAt(0)));
+    const points = Uint8Array.from(atob(plates[motif]), c => c.charCodeAt(0));
+    const xs = [], ys = [];
+    for (let i = 0; i < points.length; i += 3) { xs.push(points[i]); ys.push(points[i + 1]); }
+    xs.sort((a,b)=>a-b); ys.sort((a,b)=>a-b);
+    const edge = Math.floor(xs.length * .003);
+    studies.set(motif, { points, left:xs[edge], right:xs.at(-edge-1), top:ys[edge], bottom:ys.at(-edge-1) });
   }
   return studies.get(motif);
 }
 
-const revealTime = 1150;
+const revealTime = 780;
 const tau = Math.PI * 2;
 function noise(slot) {
   let hash = Math.imul(slot + 1, 0x45d9f3b);
@@ -20,12 +25,14 @@ function noise(slot) {
 export class FieldStudy {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext("2d");
+    this.ctx = canvas.getContext("2d", { willReadFrequently: true });
     this.motion = matchMedia("(prefers-reduced-motion: reduce)");
-    const length = pointsFor("nanjing").length;
+    const length = pointsFor("nanjing").points.length;
     this.current = new Float32Array(length);
     this.from = new Float32Array(length);
     this.seeds = Float32Array.from({ length }, (_, i) => noise(i));
+    this.movers = [];
+    for (let i = 0; i < length; i += 3) if (this.seeds[i+2] > .8) this.movers.push(i);
     this.frame = 0;
     this.visible = false;
     this.observer = new ResizeObserver(() => this.resize());
@@ -36,11 +43,13 @@ export class FieldStudy {
 
   show(id, motif, ink) {
     const morph = this.place && this.visible && this.motif !== motif;
-    this.target = pointsFor(motif);
+    this.composition = pointsFor(motif);
+    this.print = null;
+    this.target = this.composition.points;
     this.place = id;
     this.motif = motif;
-    this.inks = [mixInk(ink, "#f4ebd6", 0.32), ink, mixInk(ink, "#16231f", 0.60),
-      mixInk(ink, "#d7ad62", 0.69)];
+    this.inks = [mixInk(ink, "#f4ebd6", 0.15), mixInk(ink, "#22221f", .22),
+      mixInk(ink, "#181b19", .64), mixInk(ink, "#c78c42", .57)];
     if (morph) {
       this.from.set(this.current);
     } else {
@@ -63,6 +72,12 @@ export class FieldStudy {
     this.refresh();
   }
 
+  setTraveling(value) {
+    if (this.traveling === value) return;
+    this.traveling = value;
+    this.refresh();
+  }
+
   hide() {
     this.place = null;
     this.setVisible(false);
@@ -71,11 +86,12 @@ export class FieldStudy {
   resize() {
     const width = this.canvas.clientWidth, height = this.canvas.clientHeight;
     if (!width || !height) return;
-    this.ratio = Math.min(devicePixelRatio || 1, 2);
+    this.ratio = Math.min(devicePixelRatio || 1, 3);
     this.canvas.width = Math.round(width * this.ratio);
     this.canvas.height = Math.round(height * this.ratio);
     this.width = width;
     this.height = height;
+    this.print = null;
     this.refresh();
   }
 
@@ -85,7 +101,7 @@ export class FieldStudy {
     if (!this.place || !this.visible || document.hidden) return;
     if (!this.width) { this.resize(); return; }
     this.paint(performance.now());
-    if (!this.motion.matches) this.frame = requestAnimationFrame(this.tick);
+    if (!this.motion.matches && !this.traveling) this.frame = requestAnimationFrame(this.tick);
   }
 
   tick = (now) => {
@@ -100,14 +116,34 @@ export class FieldStudy {
     const age = Math.max(0, now - this.started);
     const progress = quiet ? 1 : Math.min(1, age / revealTime);
     const sweep = quiet ? -100 : ((age / 3900 + 0.14) % 1) * 389 - 62;
-    const scale = Math.min(width / 380, height / 220);
+    const { left, right, top, bottom } = this.composition;
+    const scale = Math.min(width * .87 / ((right-left)*380/255), height * .87 / ((bottom-top)*220/255));
     const sx = scale * 380 / 255, sy = scale * 220 / 255;
-    const ox = (width - 380 * scale) / 2, oy = (height - 220 * scale) / 2;
+    const ox = (width - (left+right)*sx) / 2, oy = (height - (top+bottom)*sy) / 2;
     ctx.setTransform(this.ratio, 0, 0, this.ratio, 0, 0);
     ctx.clearRect(0, 0, width, height);
+    if (progress === 1) {
+      if (!this.print) {
+        this.print = document.createElement("canvas");
+        this.print.width = this.canvas.width; this.print.height = this.canvas.height;
+        const base = this.print.getContext("2d", { willReadFrequently: true });
+        base.scale(this.ratio, this.ratio);
+        current.set(target);
+        for (let i = 0; i < target.length; i+=3) {
+          if (seeds[i+2] > .8) continue;
+          const tone = target[i+2] < 116 ? 0 : target[i+2] < 175 ? 1 : 2;
+          const size = Math.max(.92, (tone === 2 ? 1.95 : 1.53) * scale);
+          base.fillStyle = this.inks[tone];
+          base.fillRect(ox + target[i]*sx, oy + target[i+1]*sy, size, size);
+        }
+      }
+      ctx.drawImage(this.print, 0, 0, width, height);
+    }
     const tones = this.inks.map(() => new Path2D());
     const glints = new Path2D(), filaments = new Path2D();
-    for (let i = 0; i < target.length; i += 3) {
+    const count = progress === 1 ? this.movers.length : target.length / 3;
+    for (let slot = 0; slot < count; slot++) {
+      const i = progress === 1 ? this.movers[slot] : slot * 3;
       const tx = target[i], ty = target[i + 1], grain = seeds[i + 2];
       let x = tx, y = ty, shade = target[i + 2], bend = 0;
       if (progress < 1) {
@@ -135,8 +171,8 @@ export class FieldStudy {
       }
       current[i] = x; current[i + 1] = y; current[i + 2] = shade;
       const px = ox + x * sx, py = oy + y * sy;
-      const tone = light > 0.36 && grain > 0.52 ? 3 : shade < 132 ? 0 : shade < 191 ? 1 : 2;
-      const size = Math.max(0.76, (tone === 2 ? 1.53 : tone === 3 ? 1.75 : 1.13) * scale);
+      const tone = light > 0.36 && grain > 0.62 ? 3 : shade < 116 ? 0 : shade < 175 ? 1 : 2;
+      const size = Math.max(.92, (tone === 2 ? 1.95 : tone === 3 ? 2.05 : 1.53) * scale);
       tones[tone].rect(px, py, size, size);
       if (grain > 0.968 && bend > 0.25) {
         filaments.moveTo(px, py);
