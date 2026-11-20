@@ -23,8 +23,9 @@ function noise(slot) {
 }
 
 export class FieldStudy {
-  constructor(canvas) {
+  constructor(canvas, { onDark = false } = {}) {
     this.canvas = canvas;
+    this.onDark = onDark;
     this.ctx = canvas.getContext("2d", { willReadFrequently: true });
     this.motion = matchMedia("(prefers-reduced-motion: reduce)");
     const length = pointsFor("nanjing").points.length;
@@ -48,8 +49,9 @@ export class FieldStudy {
     this.target = this.composition.points;
     this.place = id;
     this.motif = motif;
-    this.inks = [mixInk(ink, "#f4ebd6", 0.15), mixInk(ink, "#22221f", .22),
-      mixInk(ink, "#181b19", .64), mixInk(ink, "#c78c42", .57)];
+    this.inks = this.onDark
+      ? [mixInk(ink, "#d2c7b5", .46), mixInk(ink, "#efdfcb", .67), mixInk(ink, "#fff1dc", .87), "#fff2cb"]
+      : [mixInk(ink, "#f4ebd6", .15), mixInk(ink, "#22221f", .22), mixInk(ink, "#181b19", .64), mixInk(ink, "#c78c42", .57)];
     if (morph) {
       this.from.set(this.current);
     } else {

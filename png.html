@@ -31,7 +31,7 @@
           <div class="atlas-info">
             <div class="atlas-intro">
               <p id="atlas-kicker" class="atlas-kicker"></p>
-              <h1 id="atlas-title" tabindex="-1"></h1>
+              <h1 id="atlas-title" tabindex="-1">Site of <em>Memory</em></h1>
               <p id="atlas-description" class="atlas-description"></p>
               <a id="atlas-source" target="_blank" rel="noreferrer" data-i18n="atlas.source" hidden>About this place ↗</a>
             </div>
@@ -81,8 +81,16 @@
         </footer>
       </section>
 
-      <section id="garden-view" hidden data-i18n-aria-label="garden.aria" aria-label="Jiangdongmen memory garden">
-        <p id="garden-loading" role="status" data-i18n="garden.loading" hidden>Opening the garden…</p>
+      <section id="garden-view" hidden aria-label="Memory Garden">
+        <div id="garden-arrival" hidden>
+          <div class="garden-arrival-print">
+            <canvas id="garden-arrival-plate" aria-hidden="true"></canvas>
+            <h1 id="garden-arrival-title" tabindex="-1" aria-describedby="garden-arrival-place" data-i18n="garden.title">Memory Garden</h1>
+            <p id="garden-arrival-place"></p>
+          </div>
+          <p id="garden-loading" role="status" tabindex="-1" data-i18n="garden.loading" hidden>Opening the garden…</p>
+          <button id="garden-arrival-skip" type="button" data-i18n="garden.skip">Skip introduction</button>
+        </div>
         <div id="garden-field">
           <canvas
             id="scene"
@@ -93,10 +101,6 @@
 
           <div class="interface" aria-live="polite">
             <header class="brand-block">
-              <p class="eyebrow" data-i18n="brand.eyebrow">
-                INTERACTIVE MEMORY GARDEN
-              </p>
-              <h1 data-i18n="brand.title">SITE OF MEMORY</h1>
               <p class="subtitle" data-i18n="garden.location">NANJING · JIANGDONGMEN</p>
             </header>
 

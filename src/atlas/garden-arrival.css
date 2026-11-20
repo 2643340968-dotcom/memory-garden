@@ -1,0 +1,63 @@
+#garden-arrival {
+  position:absolute;
+  inset:0;
+  z-index:3;
+  display:grid;
+  place-items:center;
+  padding:54px 22px 64px;
+  color:#f7eddd;
+  text-align:center;
+  background:
+    radial-gradient(ellipse 48% 62% at 50% 42%,color-mix(in srgb,var(--place-ink) 39%,transparent),transparent 90%),
+    linear-gradient(145deg,color-mix(in srgb,var(--place-ink) 20%,#17151b),#121215 74%);
+  animation:garden-veil-in 390ms ease-out both;
+}
+#garden-arrival[inert] { pointer-events:none; }
+#garden-view.is-arriving #scene,
+#garden-view.is-arriving #memory-card-layer,
+#garden-view.is-arriving .interface > :not(.garden-navigation),
+#garden-view.is-arriving .garden-navigation .audio-controls { visibility:hidden; }
+#garden-view.is-arriving .interface { z-index:4; }
+.garden-arrival-print { width:min(100%,860px);grid-area:1/1;display:grid;justify-items:center; }
+#garden-arrival-plate { display:block;width:clamp(154px,20vmin,222px);aspect-ratio:1.64; }
+#garden-arrival-title {
+  margin:11px 0 0;outline:0;
+  font:normal clamp(44px,6.7vw,92px)/1.08 Baskerville,"Baskerville Old Face",Georgia,serif;
+  letter-spacing:-.045em;text-wrap:balance;
+  text-shadow:0 1px 18px color-mix(in srgb,var(--place-ink) 35%,transparent);
+  animation:garden-ink-in 580ms 200ms cubic-bezier(.22,.75,.24,1) both;
+}
+#garden-arrival-title:lang(zh-CN) { font:500 clamp(39px,5.6vw,76px)/1.28 var(--song);letter-spacing:.075em;text-indent:.075em; }
+#garden-arrival-place {
+  display:flex;align-items:center;justify-content:center;gap:14px;max-width:100%;margin:18px 0 0;
+  color:#e1d7ca;font:15px/1.5 Baskerville,Georgia,serif;text-wrap:balance;
+  animation:garden-ink-in 500ms 390ms ease-out both;
+}
+#garden-arrival-place:lang(zh-CN) { font:500 13px/1.65 var(--song);letter-spacing:.08em; }
+#garden-arrival-place::before,#garden-arrival-place::after {
+  content:"";width:clamp(18px,4vw,55px);height:1px;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--place-ink) 40%,#f7dfb7));
+}
+#garden-arrival-place::after { transform:rotate(180deg); }
+#garden-loading,#garden-arrival-skip {
+  position:absolute;bottom:max(18px,env(safe-area-inset-bottom));margin:0;
+  color:#dbd1c6;font:13px/1.45 "Segoe UI","Microsoft YaHei",sans-serif;
+}
+#garden-loading { left:clamp(20px,4vw,64px);padding:12px 0;animation:garden-veil-in 220ms 850ms both; }
+#garden-arrival.awaiting-field .garden-arrival-print { visibility:hidden; }
+#garden-arrival.awaiting-field #garden-loading { position:static;grid-area:1/1;align-self:center;outline:0;animation:none; }
+#garden-arrival-skip { right:clamp(20px,4vw,64px);padding:12px 4px;border:0;background:transparent;cursor:pointer;text-decoration:underline;text-underline-offset:4px; }
+#garden-arrival-skip:is(:hover,:focus-visible) { color:#fff3da; }
+#garden-arrival-skip:focus-visible { outline:2px solid #ecd9ba;outline-offset:2px; }
+#garden-view .brand-block .subtitle { margin:0;color:#e5dce3;font-size:12px;letter-spacing:.07em; }
+@keyframes garden-veil-in { from { opacity:0; } to { opacity:1; } }
+@keyframes garden-ink-in { from { opacity:0;transform:translateY(7px); } to { opacity:1;transform:none; } }
+@media (max-height:500px) {
+  #garden-arrival { padding-block:36px; }
+  #garden-arrival-plate { width:115px; }
+  #garden-arrival-title { margin-top:4px; }
+  #garden-arrival-place { margin-top:9px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  #garden-arrival,#garden-arrival-title,#garden-arrival-place,#garden-loading { animation:none; }
+}

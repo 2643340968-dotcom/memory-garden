@@ -36,12 +36,12 @@ GitHub Pages production is configured as a project site named `memory-garden` wi
 
 ## CURRENT VISUAL DIRECTION
 
-- The national atlas uses light warm paper, sage relief and blue-green water. The Jiangdongmen garden keeps its dark violet / plum-black atmosphere. Other gardens pick up their place's ink.
+- The national atlas uses light warm paper, sage relief and blue-green water. Ivory inner highlights and a place-tinted halo tie the map, controls and index to the garden glass. The Jiangdongmen garden keeps its dark violet / plum-black atmosphere. Other gardens pick up their place's ink.
 - The basemap and hover lens share a vector cache under `public/assets/atlas-vectors/`. An atlas worker paints device-resolution views while the camera moves the previous georeferenced frame. Project pins and motif labels reserve space ahead of street names. Chinese display type uses the bundled Noto Serif SC subset. The garden return and secondary controls use text and rules. The writing card retains three visible attachment buttons with native previews.
 - Soft lavender Zijincao PNG flowers.
 - Calm, mysterious, exhibition-like presentation.
 - Procedural grass fading irregularly into the distance.
-- The garden title uses the selected city and place in the active language. Hover or keyboard focus brings grains up from the pin into the site's illustrated silhouette. While the place is visible, a narrow band of warm light picks out a few grains and the lens rim. Only the small illustration canvas animates when the camera is still. Reduced motion shows a settled print.
+- The atlas is titled Site of Memory / 记忆之场. Entering a garden shows its illustrated motif, the bilingual Memory Garden / 记忆花园 title in the active language and the selected city and place, then fades into the field. The presentation is skippable and reduced motion shows a still title. In the field the header carries the location. On the atlas, hover or keyboard focus brings grains up from the pin into the site's illustrated silhouette. A narrow band of warm light picks out a few grains and the lens rim. Only the small illustration canvas animates when the camera is still.
 - The upper air starts empty. Sparse, incomplete particle-flower fragments are released only by BloomEvent growth, Memory Echo appearance, or BloomPatch decay; they rise, disperse, and fade instead of behaving as ambient decoration.
 - Memory UI uses translucent dark-violet frosted glass, pale-lavender text, a subtle lavender border, and restrained glow. Echoes can be compact text cards, slightly wider archival-image cards, or a smaller independent archive-voice indicator.
 - Passive PNG garden UI is non-selectable so planting drags cannot highlight the title or HUD. Inputs, textareas, buttons, and editable content explicitly retain normal text selection.

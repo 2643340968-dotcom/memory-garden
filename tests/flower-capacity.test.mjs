@@ -1634,8 +1634,8 @@ test("PNG public interface supports persistent English and Chinese exhibition co
   );
 
   for (const approvedCopy of [
-    "SITE OF MEMORY",
-    "Jiangdongmen memory garden",
+    "Site of Memory",
+    "Memory Garden",
     "Back to map",
     "What do you remember of this place?",
     "Text and attachments stay here for this visit and clear on reload.",
@@ -1652,9 +1652,18 @@ test("PNG public interface supports persistent English and Chinese exhibition co
   assert.match(pngEntrySource, /status\.inputWaiting/);
   assert.match(pngEntrySource, /status\.inputReady/);
   assert.match(pngHtml, /id="language-toggle"/);
-  assert.match(pngHtml, /data-i18n="brand\.title"/);
+  assert.match(pngHtml, /id="garden-arrival-title"[^>]+data-i18n="garden\.title"/);
+  assert.doesNotMatch(pngHtml.match(/<header class="brand-block">[\s\S]*?<\/header>/)[0], /<h1/);
   assert.match(pngHtml, /data-i18n-placeholder="entry\.placeholder"/);
   assert.equal(LANGUAGE_STORAGE_KEY, "memory-garden-language-v1");
+  for (const [language, separator, project, gardenName] of [
+    [LANGUAGES.ENGLISH, " ", "Site of Memory", "Memory Garden"],
+    [LANGUAGES.CHINESE, "", "记忆之场", "记忆花园"],
+  ]) {
+    const title = ["atlas.titleFirst", "atlas.titleSecond"].map(key => translate(key, {}, language)).join(separator);
+    assert.equal(title, project);
+    assert.equal(translate("garden.title", {}, language), gardenName);
+  }
   assert.equal(
     translate("brand.title", {}, LANGUAGES.ENGLISH),
     "SITE OF MEMORY",

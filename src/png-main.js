@@ -2,14 +2,16 @@ import "./styles.css";
 import "./atlas/atlas.css";
 import "./memory/visitor-media.css";
 import "./atlas/typography.css";
+import "./atlas/garden-arrival.css";
 import { createLanguageController, placeText, subscribeLanguage, t } from "./i18n/LanguageController.js";
 import { AtlasView } from "./atlas/AtlasView.js";
+import { GardenArrival } from "./atlas/GardenArrival.js";
 import { atlasHash, CITIES, PLACES, readAtlasRoute } from "./atlas/places.js";
 
 const language = createLanguageController().start();
 const atlasElement = document.querySelector("#memory-atlas");
 const gardenElement = document.querySelector("#garden-view");
-const loading = document.querySelector("#garden-loading");
+const arrival = new GardenArrival(document.querySelector("#garden-arrival"));
 const back = document.querySelector("#garden-back");
 const themeColor = document.querySelector('meta[name="theme-color"]');
 const atlas = new AtlasView((route, { fromZoom = false } = {}) => {
@@ -26,6 +28,22 @@ let garden;
 let lastRoute;
 let routeVersion = 0;
 
+function loadGarden() {
+  gardenPromise ??= import("./png-garden.js")
+    .then(({ openPNGGarden }) => openPNGGarden(language))
+    .then(runtime => {
+      if (!runtime) throw new Error("Garden initialization failed");
+      runtime.setRendering(false);
+      garden = runtime;
+      return runtime;
+    })
+    .catch(error => {
+      gardenPromise = null;
+      throw error;
+    });
+  return gardenPromise;
+}
+
 function localizeGarden(route) {
   const site = PLACES[route.place];
   const name = placeText(site.name);
@@ -38,7 +56,10 @@ function localizeGarden(route) {
     const hue = Math.atan2(Math.sqrt(3) * (g - b), 2 * r - g - b) * 180 / Math.PI;
     gardenElement.style.setProperty("--field-hue", (hue - 278) + "deg");
   }
-  gardenElement.setAttribute("aria-label", name + " · " + t("atlas.garden"));
+  const gardenTitle = t("garden.title") + " · " + locationLabel;
+  gardenElement.setAttribute("aria-label", gardenTitle);
+  document.title = gardenTitle;
+  document.querySelector("#garden-arrival-place").textContent = locationLabel;
   document.querySelector(".brand-block .subtitle").textContent = locationLabel;
   document.querySelector(".memory-entry-index").textContent = locationLabel;
   document.querySelector("#memory-entry-title").textContent = t("entry.placeTitle", { place: name });
@@ -54,9 +75,12 @@ async function showRoute({ fromZoom = false } = {}) {
   const inGarden = route.level === "garden";
   themeColor.content = inGarden ? "#2b2335" : "#f5f2e8";
   document.body.dataset.view = inGarden ? "garden" : "atlas";
-  atlasElement.hidden = inGarden;
+  atlasElement.inert = inGarden;
   gardenElement.hidden = !inGarden;
   if (!inGarden) {
+    arrival.close();
+    atlasElement.hidden = false;
+    document.title = t("document.title");
     if (garden?.memoryExperience.gardenActive) garden.memoryExperience.leave();
     const returning = previous?.level === "garden" && atlas.route?.place === route.place &&
       atlas.route?.level === route.level;
@@ -65,29 +89,31 @@ async function showRoute({ fromZoom = false } = {}) {
     return;
   }
 
+  // Keep the paper map underneath the opening veil until the field is ready.
+  atlasElement.hidden = !previous || previous.level === "garden";
+  if (garden?.memoryExperience.gardenActive && previous?.place !== route.place) garden.memoryExperience.leave();
   atlas.map.clearPreview();
   back.href = atlasHash({ ...route, level: "place" });
   localizeGarden(route);
-  back.focus({ preventScroll: true });
-  loading.hidden = Boolean(garden);
+  const titleHold = arrival.open(route.place, PLACES[route.place]);
   const fatal = document.querySelector("#fatal-error");
   fatal.hidden = true;
-  if (!gardenPromise) {
-    gardenPromise = import("./png-garden.js").then(({ openPNGGarden }) =>
-      openPNGGarden(language),
-    );
-  }
   try {
-    const [runtime, collection] = await Promise.all([gardenPromise, PLACES[route.place].loadCollection()]);
-    garden = runtime;
-    if (!garden) throw new Error("Garden initialization failed");
-    if (version === routeVersion) garden.memoryExperience.enter(collection, Boolean(PLACES[route.place].bloomOnSubmit));
-    else if (lastRoute.level !== "garden") garden.memoryExperience.leave();
+    const [runtime, collection] = await Promise.all([loadGarden(), PLACES[route.place].loadCollection()]);
+    if (version !== routeVersion) return;
+    arrival.loading.hidden = true;
+    await titleHold;
+    if (version !== routeVersion) return;
+    atlasElement.hidden = true;
+    runtime.memoryExperience.enter(collection, Boolean(PLACES[route.place].bloomOnSubmit));
+    arrival.reveal();
   } catch {
-    if (!garden) gardenPromise = null;
-    if (version === routeVersion) fatal.hidden = false;
-  } finally {
-    if (version === routeVersion) loading.hidden = true;
+    if (version === routeVersion) {
+      arrival.close();
+      atlasElement.hidden = true;
+      fatal.hidden = false;
+      back.focus({ preventScroll: true });
+    }
   }
 }
 
