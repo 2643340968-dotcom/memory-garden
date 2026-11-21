@@ -26,6 +26,32 @@ function petalDistance(radius, angle, flower, seed) {
   return (Math.hypot((axis - .40) / reach, side / width) - 1) * reach;
 }
 
+function edgeAt(radius, angle, specimen, seed) {
+  return petalDistance(radius, angle, specimen, seed) +
+      .012 * Math.sin(angle * 3 + seed + radius * 8) * ease(radius * 3);
+}
+
+// Use the painted contour to locate a travelling front in the wet-paper grid.
+// Values are distances from the flower centre in units of the stamp radius.
+const outlines = new Map();
+export function pigmentOutline(type) {
+  if (!outlines.has(type)) {
+    const radii = new Float32Array(128);
+    for (let i = 0; i < radii.length; i++) {
+      const angle = i * TAU / radii.length;
+      let inside = 0, outside = 1.1;
+      for (let j = 0; j < 11; j++) {
+        const radius = (inside + outside) * .5;
+        if (edgeAt(radius, angle, flowers[type], type) > 0) outside = radius;
+        else inside = radius;
+      }
+      radii[i] = .90 * (inside + outside) * .5;
+    }
+    outlines.set(type, radii);
+  }
+  return outlines.get(type);
+}
+
 // Bake only the pigment and the soft edge of each specimen. Independent
 // petals open at runtime; the fronts have their own ages, positions and dye.
 export function makePlates(specimen, seed, surface) {
@@ -39,9 +65,7 @@ export function makePlates(specimen, seed, surface) {
     const y = (row + .5 - size / 2) / (size * .45);
     const r = Math.hypot(x, y);
     if (r > 1.10) continue;
-    const a = Math.atan2(y, x), d = petalDistance(r, a, specimen, seed);
-    const drift = .012 * Math.sin(a * 3 + seed + r * 8) * ease(r * 3);
-    const edge = d + drift;
+    const a = Math.atan2(y, x), edge = edgeAt(r, a, specimen, seed);
     const petal = 1 - ease((edge + .092) / .225);
     const mist = bell(Math.max(0, edge) / .18) * (1 - ease((r - .85) / .24));
     const petalLight = ease((r - .13) / .76 + .10 * Math.sin(2 * a + seed));
@@ -50,12 +74,14 @@ export function makePlates(specimen, seed, surface) {
     const centreEdge = petalDistance(r / scale, a + .45, specimen, seed);
     const centre = specimen.dye ? bell(r / .24) * .9 : (1 - ease((centreEdge + .12) / .48)) * .85;
     const glint = bell(r / .105) * .22;
-    const ridge = .64 * bell(edge / .055) + .26 * bell((edge + .05) / .12) + .09 * bell((edge + .14) / .24);
+    const ridge = .43 * bell(edge / .078) + .40 * bell((edge + .065) / .15) + .17 * bell((edge + .16) / .26);
+    const crest = .46 * bell((edge - .027) / .080);
     const offset = 4 * (row * size + col);
     for (let ch = 0; ch < 3; ch++) {
       const pigment = mix(mix(root[ch], mid[ch], rootColor), tip[ch], petalLight);
       image.data[offset + ch] = mix(mix(pigment, heart[ch], centre), 255, glint);
-      front.data[offset + ch] = mix(mid[ch], tip[ch], .28 + .22 * Math.sin(a + seed));
+      const dye = mix(root[ch], mid[ch], .60 + .14 * Math.sin(a + seed));
+      front.data[offset + ch] = mix(dye, mix(tip[ch], 252, .43), crest);
     }
     image.data[offset + 3] = 255 * clamp(.79 * petal + .105 * mist + .11 * centre, 0, 1);
     front.data[offset + 3] = 255 * ridge * (1 - ease((r - .96) / .14));

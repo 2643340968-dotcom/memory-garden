@@ -4,24 +4,33 @@ import {project, under, mercator, latitude, blend, cameraProgress, coversView, f
 import {FlowBasemap, NavigationChart} from "../src/flow/FlowBasemap.js";
 import {AFTERGLOW, envelope, releaseWave, RippleField} from "../src/flow/ripples.js";
 import {openingPose} from "../src/flow/landing.js";
-import {flowerFront, openingFlowers} from "../src/flow/coverFlowers.js";
+import {flowerFront, frontsAt, openingFlowers} from "../src/flow/coverFlowers.js";
+import {WetPaper} from "../src/flow/wetPaper.js";
 import {nationalMarks} from "../src/flow/overview.js";
 import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
 import {CITIES, PLACES} from "../src/atlas/places.js";
 
 test("cover flower fronts grow continuously, overlap in time and dissolve before restarting", () => {
-  const active = [0.1, 1, 2, 3, 4, 5.3].map(flowerFront);
+  const active = [.015, .8, 2, 3.5, 5, 6.5, 7.7].map(flowerFront);
+  assert.ok(active[0].radius < .04);
   assert.ok(active.every(wave => wave.opacity > 0));
   assert.ok(active.every((wave, i) => i === 0 || wave.radius > active[i - 1].radius));
   assert.ok(active[0].opacity < active[2].opacity && active.at(-1).opacity < .01);
   assert.equal(flowerFront(-1), null);
-  assert.equal(flowerFront(5.4), null);
-  assert.ok([4.6, 2.8, 1].every(age => flowerFront(age)?.opacity > 0));
+  assert.ok(active.slice(2).every((wave, i) => wave.opacity < active[i + 1].opacity));
+  assert.equal(flowerFront(7.8), null);
+  const bloom = {delay:0, angle:0};
+  const train = frontsAt(bloom, 6.2);
+  assert.equal(train.length, 3);
+  assert.ok(train[0].radius > train[1].radius && train[1].radius > train[2].radius);
 });
 
 test("the top-down opening has staggered, different-sized flowers on both sides at phone and desktop widths", () => {
   for (const [w, h] of [[390, 540], [1440, 550]]) {
     const bed = openingFlowers(w, h);
+    const left = bed.filter(b => b.x < w / 2), right = bed.filter(b => b.x > w / 2);
+    assert.ok(Math.min(...right.map(b => b.delay)) > Math.max(...left.map(b => b.delay)));
+    assert.ok(left.some(b => frontsAt(b, 1.6).length) && right.every(b => !frontsAt(b, 1.6).length));
     for (const side of [bed.filter(b => b.x < w / 2), bed.filter(b => b.x > w / 2)]) {
       assert.ok(new Set(side.map(b => b.type)).size >= 5);
       assert.ok(Math.max(...side.map(b => b.radius)) > 2 * Math.min(...side.map(b => b.radius)));
@@ -29,6 +38,35 @@ test("the top-down opening has staggered, different-sized flowers on both sides 
       assert.ok(side.every(b => b.y >= 0 && b.y < h));
     }
   }
+});
+
+test("wet dye builds only where different flowers meet, then diffuses and dries gradually", () => {
+  const a = {x:70, y:82, radius:72, type:0, angle:0};
+  const b = {x:125, y:82, radius:72, type:1, angle:Math.PI};
+  const paper = new WetPaper(200, 160, [a, b]);
+  const reversed = new WetPaper(200, 160, [b, a]);
+  const touching = [.85, .9, 1.0].map(radius => ({radius, progress:.4, wetness:1}));
+  const distant = [{radius:.03, progress:.01, wetness:1}];
+  const amount = field => field.wet.reduce((total, value, i) => total + (i % 4 === 3 ? value : 0), 0);
+  for (let n = 0; n < 10; n++) paper.step([touching, []], .05);
+  for (let n = 0; n < 10; n++) paper.step([distant, distant], .05);
+  assert.equal(amount(paper), 0);
+  paper.step([touching, touching], .05);
+  const first = amount(paper);
+  assert.ok(first > 0);
+  for (let n = 1; n < 20; n++) paper.step([touching, touching], .05);
+  const pool = amount(paper);
+  assert.ok(pool > first * 4);
+  for (let n = 0; n < 20; n++) reversed.step([touching, touching], .05);
+  const channelError = paper.pixels.reduce((max, value, i) => Math.max(max, Math.abs(value - reversed.pixels[i])), 0);
+  assert.ok(channelError <= 1);
+  const fresh = paper.wet.slice();
+  for (let n = 0; n < 12; n++) paper.step([[], []], .05);
+  const tail = amount(paper);
+  assert.ok(tail > pool * .4 && tail < pool);
+  assert.ok(paper.wet.some((v, i) => i % 4 === 3 && v > fresh[i] + .001));
+  paper.clear();
+  assert.equal(amount(paper), 0);
 });
 
 test("Flow advances only through the pointed city and its places and retreats exactly one level", () => {

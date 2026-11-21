@@ -1,5 +1,6 @@
 import {clamp, smooth, TAU} from "./geometry.js";
 import {flowers, makePlates} from "./coverPigments.js";
+import {WetPaper} from "./wetPaper.js";
 
 // Positions in the two drifts, with room above the inner crowns for the
 // title and a clear passage between them below for the scroll cue.
@@ -16,8 +17,9 @@ const beds = [
 ];
 
 const ease = n => smooth(clamp(n, 0, 1));
-const frontLife = 5.4;
-const interval = 1.8;
+const frontLife = 7.8;
+const interval = 2.72;
+const stillTime = 10.4;
 
 async function loadPlates() {
   if (typeof Worker !== "undefined" && typeof OffscreenCanvas !== "undefined") {
@@ -50,21 +52,44 @@ export function openingFlowers(w, h) {
   const scale = Math.min(w, bedHeight * 2.55) * (w < 600 ? 1.19 : 1);
   const depth = Math.min(bedHeight, w * .81);
   const top = h - bedHeight + (bedHeight - depth) * .49;
-  return beds.map(([x, y, r, type, angle, delay], i) => ({
-    x:x * w, y:top + y * depth, radius:r * scale, type,
-    angle:angle * Math.PI / 180, delay, pace:1 + .09 * Math.sin(i * 2.6),
-  }));
+  return beds.map(([x, y, r, type, angle, delay], i) => {
+    const fromEdge = Math.max(0, Math.min(x, 1 - x) * 2);
+    return {
+      x:x * w, y:top + y * depth, radius:r * scale, type, angle:angle * Math.PI / 180,
+      delay:(x > .5 ? 1.75 : 0) + delay * .87 + fromEdge * .55,
+      pace:1 + .09 * Math.sin(i * 2.6),
+    };
+  });
 }
 
 export function flowerFront(age) {
   if (age <= 0 || age >= frontLife) return null;
   const t = age / frontLife;
+  const emergence = ease(t / .082);
   return {
-    radius: .65 + 1.24 * t * (1.35 - .35 * t),
-    opacity: .69 * ease(t / .17) * (1 - ease((t - .23) / .77)),
+    progress:t,
+    radius: .025 + 2.12 * t * (1.31 - .31 * t),
+    opacity: .86 * emergence * (1 - ease((t - .08) / .92)),
+    wetness: emergence * (1 - ease((t - .33) / .67)),
   };
 }
 
+export function frontsAt(bloom, time) {
+  const elapsed = time - bloom.delay - .40;
+  if (elapsed <= 0) return [];
+  // A bounded change in speed lets adjacent flowers breathe differently
+  // without the two sides drifting back into synchrony after several cycles.
+  const phase = bloom.angle * 2;
+  const clock = elapsed + .17 * (Math.sin(elapsed * .70 + phase) - Math.sin(phase));
+  const last = Math.floor(clock / interval);
+  const first = Math.max(0, Math.floor((clock - frontLife) / interval) + 1);
+  const fronts = [];
+  for (let i = first; i <= last; i++) {
+    const wave = flowerFront(clock - i * interval);
+    if (wave) fronts.push(wave);
+  }
+  return fronts;
+}
 
 function stamp(ctx, plate, radius) {
   ctx.drawImage(plate, -radius, -radius, radius * 2, radius * 2);
@@ -107,7 +132,7 @@ export class CoverFlowers {
     });
     this.observer.observe(canvas);
     motion.addEventListener("change", () => {
-      if (this.active && !motion.matches) this.time = 9.3;
+      if (this.active && !motion.matches) this.time = stillTime;
       this.wake();
     });
     document.addEventListener("visibilitychange", () => this.wake());
@@ -117,18 +142,27 @@ export class CoverFlowers {
     if (!w || !h) return;
     const dpr = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1900000 / (w * h)));
     const width = Math.round(w * dpr), height = Math.round(h * dpr);
-    if (this.canvas.width === width && this.canvas.height === height && this.blooms) return;
+    if (this.canvas.width === width && this.canvas.height === height && this.w === w && this.h === h) return;
     this.canvas.width = width;
     this.canvas.height = height;
     this.ctx.setTransform(width / w, 0, 0, height / h, 0, 0);
     this.w = w; this.h = h;
     this.blooms = openingFlowers(w, h);
+    this.paper = new WetPaper(w, h, this.blooms);
+    this.washCanvas ??= document.createElement("canvas");
+    this.washCanvas.width = this.paper.width;
+    this.washCanvas.height = this.paper.height;
+    this.washCtx = this.washCanvas.getContext("2d");
+    this.washImage = new ImageData(this.paper.pixels, this.paper.width, this.paper.height);
+    this.washTime = null;
   }
   open() {
     this.active = true;
     this.onPaper = true;
     this.time = 0;
     this.size();
+    this.paper?.clear();
+    this.washTime = null;
     this.loading ??= loadPlates().then(plates => {
       this.plates = plates;
       this.wake();
@@ -152,37 +186,34 @@ export class CoverFlowers {
     this.frame = requestAnimationFrame(now => this.tick(now));
   }
   tick(now) {
-    if (this.previous == null || now - this.previous >= 1000 / 30 - 1) {
+    if (this.previous == null || now - this.previous >= 1000 / 60 - 1) {
       this.time += this.previous == null ? 0 : Math.min(.12, (now - this.previous) / 1000);
       this.previous = now;
-      this.draw(this.motion.matches ? 9.3 : this.time);
+      this.draw(this.motion.matches ? stillTime : this.time);
     }
     if (!this.motion.matches) this.frame = requestAnimationFrame(next => this.tick(next));
   }
+  updateWash(time, fronts) {
+    if (this.motion.matches || (this.washTime == null && time > 1.8)) {
+      if (this.washTime === time) return;
+      // Recover earlier crossings in a resized field or a reduced-motion still.
+      this.paper.clear();
+      const step = .25;
+      for (let i = 11; i >= 0; i--)
+        this.paper.step(this.blooms.map(bloom => frontsAt(bloom, time - i * step)), step);
+    } else {
+      const dt = this.washTime == null ? 0 : time - this.washTime;
+      if (this.washTime != null && dt < 1 / 22) return;
+      this.paper.step(fronts, dt);
+    }
+    this.washCtx.putImageData(this.washImage, 0, 0);
+    this.washTime = time;
+  }
   draw(time) {
     const ctx = this.ctx;
+    const fronts = this.blooms.map(bloom => frontsAt(bloom, time));
+    this.updateWash(time, fronts);
     ctx.clearRect(0, 0, this.w, this.h);
-    ctx.globalCompositeOperation = "multiply";
-    for (const bloom of this.blooms) {
-      const age = Math.max(0, time - bloom.delay) * bloom.pace;
-      if (age <= 0) continue;
-      const plate = this.plates[bloom.type];
-      ctx.save();
-      ctx.translate(bloom.x, bloom.y);
-      ctx.rotate(bloom.angle);
-      const sinceOpening = age - 1.45;
-      for (let i = 0; i < 3; i++) {
-        const elapsed = sinceOpening - i * interval;
-        if (elapsed <= 0) continue;
-        const wave = flowerFront(elapsed % frontLife);
-        if (!wave) continue;
-        ctx.globalAlpha = wave.opacity * .83;
-        stamp(ctx, plate.ring, bloom.radius * wave.radius);
-      }
-      ctx.restore();
-    }
-    // Lay translucent petals over the shared pigment field. This preserves
-    // their highlights while the crossing fronts mix on the paper below.
     ctx.globalCompositeOperation = "source-over";
     for (const bloom of this.blooms) {
       const age = (time - bloom.delay) * bloom.pace;
@@ -193,5 +224,20 @@ export class CoverFlowers {
       corolla(ctx, this.plates[bloom.type], bloom, age);
       ctx.restore();
     }
+    // The inner front travels over the petals from the heart. Its dye
+    // diffuses into the paper where the outer shoulders of two fronts meet.
+    this.blooms.forEach((bloom, i) => {
+      if (!fronts[i].length) return;
+      ctx.save();
+      ctx.translate(bloom.x, bloom.y);
+      ctx.rotate(bloom.angle);
+      for (const wave of fronts[i]) {
+        ctx.globalAlpha = wave.opacity;
+        stamp(ctx, this.plates[bloom.type].ring, bloom.radius * wave.radius);
+      }
+      ctx.restore();
+    });
+    const {spacing, top, width, height} = this.paper;
+    ctx.drawImage(this.washCanvas, -spacing, top - spacing, width * spacing, height * spacing);
   }
 }
