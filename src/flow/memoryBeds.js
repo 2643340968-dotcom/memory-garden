@@ -66,8 +66,8 @@ class Meadow {
     ctx.clearRect(0,0,width,height);
     this.blooms.forEach((b,i) => {
       const tier=i<6?0:i<20?1:2, light=petalBreath(time,b.rhythm);
-      ctx.globalAlpha=ease((depth-tier*.25)/.32)*(.83+.17*light);
-      if (ctx.globalAlpha) at(ctx,b,()=>stamp(ctx,this.bodies[b.tone],b.radius*(.95+.11*light)));
+      ctx.globalAlpha=ease((depth-tier*.25)/.32)*(.76+.24*light);
+      if (ctx.globalAlpha) at(ctx,b,()=>stamp(ctx,this.bodies[b.tone],b.radius*(.78+.60*light)));
     });
     ctx.globalAlpha=1;
     return ctx.canvas;
@@ -95,10 +95,10 @@ class Meadow {
     faces.clearRect(0,0,width,height);
     this.blooms.forEach((b,i) => {
       const state = this.current.states[i], light = petalBreath(time,b.rhythm);
-      const radius = b.radius*(.95+.11*light);
+      const radius = b.radius*(.78+.60*light);
       at(wash,b,() => drawOuterFronts(wash,this.plate,radius,fronts[i],1.9));
       at(faces,b,() => {
-        faces.globalAlpha = .83+.17*light;
+        faces.globalAlpha = .76+.24*light;
         const body = Math.hypot(state.x,state.y) > .018 ? focusedBody(b,state,this.plate,1,time) : this.bodies[b.tone];
         stamp(faces,body,radius);
         drawInnerFronts(faces,this.plate,radius,fronts[i],1.25);

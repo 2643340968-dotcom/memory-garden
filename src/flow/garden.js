@@ -4,7 +4,7 @@ import {createMemoryPool} from "../data/memoryPool.js";
 import {VisitorMemoryCard} from "../memory/VisitorMemoryCard.js";
 import {clamp, hash} from "./geometry.js";
 import {forms, profileURL} from "./flowerForms.js";
-import {drawUnderstory, gardenDefs, gardenPositions, plantArtwork} from "./standingGarden.js";
+import {drawUnderstory, gardenDefs, gardenPositions, gardenStands, plantArtwork, plantStand} from "./standingGarden.js";
 
 import {GardenBreeze} from "./gardenBreeze.js";
 import {setPetalRhythm} from "./petalLight.js";
@@ -29,6 +29,16 @@ export class FlowGarden {
     this.ctx = this.canvas.getContext("2d");
     this.visits = new Map();
     this.page = 0;
+    this.invitation = el("garden-invitation");
+    el("invitation-write").onclick = () => this.openEditor();
+    el("invitation-browse").onclick = () => {
+      this.dismissInvitation();
+      this.seedLayer.querySelector("button")?.focus({preventScroll:true});
+    };
+    this.stalks.addEventListener("click", e => {
+      const id = e.target.closest(".stand-flower")?.closest(".memory-stand")?.dataset.memory;
+      if (id && this.visit) this.openRecord(this.recordById(id));
+    });
     this.sheet = el("sheet");
     this.breeze = new GardenBreeze(this.root, this.sheet);
     this.form = el("memory-form");
@@ -52,6 +62,9 @@ export class FlowGarden {
       this.card.hide();
       this.clearRecord();
       this.mode = null;
+      if (this.visit && !this.root.inert && this.focusAfterSheet && !this.seedLayer.contains(document.activeElement))
+        this.focusAfterSheet.focus({preventScroll:true});
+      this.focusAfterSheet = null;
     });
     this.sheet.addEventListener("click", event => {
       if (event.target !== this.sheet)
@@ -108,8 +121,14 @@ export class FlowGarden {
     this.page = 0;
     this.root.hidden = false;
     this.paint();
+    this.invitation.hidden = Boolean(this.visit.invitationDismissed);
+  }
+  dismissInvitation() {
+    if (this.visit) this.visit.invitationDismissed = true;
+    this.invitation.hidden = true;
   }
   leave(linger = false) {
+    this.invitation.hidden = true;
     this.breeze.clear();
     this.departure?.cancel();
     this.departure = null;
@@ -218,8 +237,11 @@ export class FlowGarden {
     const seed = Array.from(this.id).reduce((n, c) => n + c.charCodeAt(0), 0) % 97 / 17;
     drawUnderstory(this.ctx,w,h,Math.round(seed*17),forms[this.flower]);
     this.stalks.setAttribute("viewBox","0 0 "+w+" "+h);
-    const stems = [gardenDefs(forms[this.flower])];
     const now = performance.now();
+    const anchors = records.map(({id}) => ({id, x:positions.get(id)[0], y:positions.get(id)[1]}));
+    const stands = gardenStands(w,h,top,Math.round(seed*17),anchors)
+      .map(stand => plantStand(stand,h,now-this.entryTime));
+    const stems = [];
     const nodes = records.map((memory, i) => {
       const b = document.createElement("button");
       b.type = "button";
@@ -274,9 +296,9 @@ export class FlowGarden {
     });
     const focusId =
         this.seedLayer.contains(document.activeElement) ? document.activeElement.dataset.id : null;
-    this.stalks.replaceChildren(...stems);
+    this.stalks.replaceChildren(gardenDefs(forms[this.flower],this.flower),...stands.map(s=>s.stem),...stems);
     this.seedLayer.replaceChildren(...nodes);
-    this.breeze.bind(stems.slice(1),nodes);
+    this.breeze.bind(stems,nodes,stands);
     if (focusId)
       nodes.find(b => b.dataset.id === focusId)?.focus({preventScroll : true});
     el("pages").hidden = pages === 1;
@@ -291,6 +313,12 @@ export class FlowGarden {
         !(this.text.value.trim() || this.card.attachment);
   }
   showSheet(titleId) {
+    if (!this.sheet.open) {
+      this.focusAfterSheet = this.currentRecord
+        ? this.seedLayer.querySelector('[data-id="'+CSS.escape(this.currentRecord.id)+'"]')
+        : el("write");
+    }
+    this.dismissInvitation();
     this.breeze.rest();
     this.sheet.setAttribute("aria-labelledby", titleId);
     el("sheet-place").textContent = placeText(this.site.name);
@@ -369,6 +397,11 @@ export class FlowGarden {
       return;
     el("sheet-place").textContent = placeText(this.site.name);
     el("sheet-title").textContent = say("留下你的记忆", "Leave a memory");
+    el("invitation-title").textContent = say("关于这里，你记得什么？", "What do you remember here?");
+    el("invitation-note").textContent = say("点一朵花，读一段往事。你也可以留下文字、照片、一段声音或影像。",
+      "Pick a flower to read its story. You can also leave a few words, a photo, audio or video.");
+    el("invitation-write").textContent = say("留下记忆", "Leave a memory");
+    el("invitation-browse").textContent = say("先逛花园", "Explore the garden");
     el("writing-prompt").textContent = placeText(this.site.prompt);
     el("save").textContent = say("在这里发布记忆", "Place this memory here");
     el("close-sheet").setAttribute("aria-label", say("关闭", "Close"));

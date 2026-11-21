@@ -54,7 +54,7 @@ export function makePlates(form, surface) {
     const d = (inside ? -distance[p] : distance[p]) / half;
     if (d > .14) continue;
     const k = inside ? j : nearest[p] * 4;
-    const alpha = .96 * (1 - ease((d + .009) / .031)) + .04 * (1 - ease((d + .028) / .125));
+    const alpha = .68 * (1 - ease((d + .031) / .066)) + .32 * (1 - ease((d + .065) / .185));
     const feather = .30 * ease((d + .008) / .038);
     for (let ch = 0; ch < 3; ch++)
       dye.data[j + ch] = original[k + ch] + (tip[ch] - original[k + ch]) * feather;

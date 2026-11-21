@@ -9,11 +9,11 @@ import {openingPose} from "../src/flow/landing.js";
 import {flowerFront, frontsAt, openingFlowers} from "../src/flow/coverFlowers.js";
 import {WetPaper} from "../src/flow/wetPaper.js";
 import {PetalCurrent} from "../src/flow/petalCurrent.js";
-import {nationalMarks} from "../src/flow/overview.js";
+import {arrivalScore, nationalMarks} from "../src/flow/overview.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
 import {allForms, forms, plateURL, profileURL} from "../src/flow/flowerForms.js";
 import {meadowFlowers} from "../src/flow/memoryBeds.js";
-import {gardenPositions} from "../src/flow/standingGarden.js";
+import {gardenPositions, gardenStands} from "../src/flow/standingGarden.js";
 import {eventsForPlace} from "../src/flow/gardenEvents.js";
 import {windImpulse, settleStem, displacedCrown} from "../src/flow/gardenBreeze.js";
 import {petalBreath, rhythmFor} from "../src/flow/petalLight.js";
@@ -500,4 +500,36 @@ test("city flowers breathe out of phase and a featured event pulses more frequen
     assert.ok(Math.max(...values)-Math.min(...values)>.45);
     assert.ok(values.every(n=>n>=0 && n<=1));
   }
+});
+
+test("each national city receives one staggered fall at its own marker", () => {
+  for (const random of [()=>0,()=>.499,()=>.9999,Math.random]) {
+    const score=arrivalScore(nationalMarks.length,random);
+    assert.equal(score.length,18);
+    assert.equal(new Set(score.map(beat=>nationalMarks[beat.index].id)).size,18);
+    assert.equal(score[0].delay,0);
+    for (const [i,beat] of score.entries()) {
+      assert.ok(beat.fall>=600 && beat.fall<=850);
+      if (i) assert.ok(beat.delay>score[i-1].delay);
+    }
+    assert.ok(Math.max(...score.map(beat=>beat.delay+beat.fall))<4300);
+  }
+});
+
+test("the garden grows dense responsive stands tied to existing records, stable on a revisit", () => {
+  for (const [w,h] of [[320,568],[390,844],[1440,900],[1920,1080]]) {
+    const anchors=[{id:"first",x:w*.23,y:h*.44},{id:"second",x:w*.8,y:h*.60}];
+    const sample=gardenStands(w,h,90,17,anchors);
+    assert.deepEqual(sample,gardenStands(w,h,90,17,anchors));
+    assert.deepEqual(new Set(sample.map(s=>s.id)),new Set(["first","second"]));
+    assert.equal(new Set(sample.map(s=>s.tier)).size,3);
+    const flowers=sample.flatMap(s=>s.heads);
+    assert.ok(flowers.length>=(w<500?48:110) && flowers.length<=294);
+    assert.ok(flowers.every(f=>f.x>=0 && f.x<=w && f.y<h && f.y>90 && f.size>0));
+    assert.deepEqual(new Set(flowers.map(f=>f.view)),new Set(["front","side"]));
+    const added=gardenStands(w,h,90,17,[...anchors,{id:"new",x:w*.5,y:h*.55}]);
+    assert.deepEqual(added.flatMap(s=>s.heads),flowers);
+    assert.ok(added.some(s=>s.id==="new"));
+  }
+  assert.deepEqual(gardenStands(400,700,80,3,[]),[]);
 });

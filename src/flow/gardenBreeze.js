@@ -46,7 +46,7 @@ export class GardenBreeze {
     root.addEventListener("pointermove",e=>this.move(e));
     root.addEventListener("pointerdown",e=>{
       this.last=null;
-      this.start=e.pointerType==="touch" ? {x:e.clientX,y:e.clientY} : null;
+      this.start=e.pointerType==="touch" && !e.target.closest("#garden-invitation") ? {x:e.clientX,y:e.clientY} : null;
     });
     root.addEventListener("pointerleave",()=>{this.last=null;});
     root.addEventListener("pointercancel",()=>{this.start=this.last=null;});
@@ -59,18 +59,19 @@ export class GardenBreeze {
       this.start=this.last=null;
     });
   }
-  bind(stems, crowns) {
+  bind(stems, crowns, stands = []) {
     this.rest();
     this.plants=crowns.map((crown,i)=>{
       const stem=stems[i];
       return {stem,crown,x:parseFloat(crown.style.left),y:parseFloat(crown.style.top),
         rootX:Number(stem.dataset.rootX),rootY:Number(stem.dataset.rootY),
         frequency:4.7+(i%7)*.24,angle:0,velocity:0};
-    });
+    }).concat(stands.map((stand,i)=>({...stand,frequency:5.2+(i%5)*.31,angle:0,velocity:0})));
     this.bounds=this.root.getBoundingClientRect();
     this.radius=clamp(this.bounds.width*.20,108,245);
   }
   move(e) {
+    if (e.target.closest("#garden-invitation")) { this.last=null; return; }
     if (!e.isPrimary || !this.plants.length || this.quiet.matches || this.sheet.open ||
         document.hidden || this.root.inert || e.pointerType==="touch" && !this.start) return;
     const point={x:e.clientX-this.bounds.left,y:e.clientY-this.bounds.top,time:e.timeStamp};
@@ -96,10 +97,12 @@ export class GardenBreeze {
     for (const p of this.plants) {
       if (!p.velocity && !p.angle) continue;
       settleStem(p,dt);
-      const [dx,dy]=displacedCrown(p,p.angle);
       p.stem.setAttribute("transform","rotate("+p.angle.toFixed(3)+" "+p.rootX+" "+p.rootY+")");
-      p.crown.style.translate=dx.toFixed(2)+"px "+dy.toFixed(2)+"px";
-      p.crown.style.setProperty("--bend-angle",p.angle.toFixed(3)+"deg");
+      if (p.crown) {
+        const [dx,dy]=displacedCrown(p,p.angle);
+        p.crown.style.translate=dx.toFixed(2)+"px "+dy.toFixed(2)+"px";
+        p.crown.style.setProperty("--bend-angle",p.angle.toFixed(3)+"deg");
+      }
       moving ||= Boolean(p.velocity || p.angle);
     }
     this.frame=moving ? requestAnimationFrame(t=>this.tick(t)) : 0;
@@ -111,8 +114,8 @@ export class GardenBreeze {
     for (const p of this.plants) {
       p.angle=p.velocity=0;
       p.stem.removeAttribute("transform");
-      p.crown.style.removeProperty("translate");
-      p.crown.style.removeProperty("--bend-angle");
+      p.crown?.style.removeProperty("translate");
+      p.crown?.style.removeProperty("--bend-angle");
     }
   }
   clear() { this.rest(); this.plants=[]; }

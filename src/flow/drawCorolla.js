@@ -1,4 +1,4 @@
-import {frostPetals} from "./petalPaper.js";
+import {pigmentPlate, printPetals} from "./petalPaper.js";
 import {TAU} from "./geometry.js";
 
 // Each blade points along +x. Rounded shoulders, paired lobes and pointed
@@ -199,7 +199,8 @@ function paintCentre(ctx, form) {
   }
 }
 
-export function drawCorolla(ctx, size, form, focusX = 0, focusY = 0) {
+export function drawCorolla(target, size, form, focusX = 0, focusY = 0, displaySize = size) {
+  const plate = pigmentPlate(size), ctx = plate.ink;
   const unit = size * .416;
   ctx.save();
   ctx.setTransform(unit, 0, 0, unit, size / 2, size / 2);
@@ -226,5 +227,5 @@ export function drawCorolla(ctx, size, form, focusX = 0, focusY = 0) {
     ctx.restore();
   }
   ctx.restore();
-  frostPetals(ctx, size);
+  printPetals(target, plate, size, displaySize);
 }

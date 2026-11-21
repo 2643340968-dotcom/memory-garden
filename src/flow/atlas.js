@@ -117,7 +117,7 @@ export class FlowAtlas {
     this.cover = pose;
     this.flight = null;
     if (pose) {
-      this.overviewReveal.stop();
+      this.overviewReveal.stop(true);
       if (this.w) this.positionCover();
     } else {
       if (this.w) this.view = this.fit({level : "country"});
@@ -523,6 +523,7 @@ export class FlowAtlas {
     this.root.classList.toggle("provisional", this.surround.needed);
     if (chart)
       this.root.dataset.vectorLevel = chart.frame.level;
+    if (!f && chart && !this.surround.needed && this.route.level === "city") this.callbacks.cityLanded(this.route.city);
     const reserved = this.cover ? [] : this.drawPins(this.groups());
     this.overviewReveal.update(this.route.level === "country" && !this.cover, !f && !!chart && !this.dragging);
     this.glints.show(this.cover || f ? null : this.route.level);
@@ -554,6 +555,12 @@ export class FlowAtlas {
           pin.innerHTML = '<i class="stamp" aria-hidden="true"><canvas width="136" height="136"></canvas><b></b></i><span></span>';
           this.pins.set(g.id, pin);
           this.markers.append(pin);
+        }
+        if (g.national && !pin.querySelector(".rain-impact")) {
+          const ring = document.createElement("i");
+          ring.className = "rain-impact";
+          ring.setAttribute("aria-hidden", "true");
+          pin.prepend(ring);
         }
         pin.mark = g;
         const species = markFlower(g);
@@ -611,7 +618,7 @@ export class FlowAtlas {
     }
     this.visiblePins = screen;
     const blocked = screen.map(({x, y, pin}) => {
-      const radius = pin.classList.contains("hot") ? this.ripples.openRadius() * .82 : this.w <= 560 ? 9 : 15;
+      const radius = pin.classList.contains("hot") ? this.ripples.openRadius() * .82 : pin.mark.national ? (this.w <= 560 ? 13 : 18) : this.w <= 560 ? 9 : 15;
       return {left : x - radius, right : x + radius, top : y - radius, bottom : y + radius, pin};
     });
     screen.sort(
@@ -639,7 +646,7 @@ export class FlowAtlas {
                                                     (national && this.w < 620 ? 6 : 14)));
       const height = national && this.w <= 560 ? 20 : 24;
       const expanded = pin.dataset.id === this.hot || pin.dataset.id === this.selectedLabel;
-      const gap = expanded ? this.ripples.openRadius() * .92 + 3 : this.w <= 560 ? 13 : 19;
+      const gap = expanded ? this.ripples.openRadius() * .92 + 3 : national ? (this.w <= 560 ? 18 : 26) : this.w <= 560 ? 13 : 19;
       let show = false;
       let leader = false;
       for (const [dx, dy] of labelOffsets(width, height, gap, x > this.w * .76, national || hot)) {

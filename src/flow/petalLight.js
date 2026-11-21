@@ -45,7 +45,7 @@ export class MapGlints {
   }
   turn() {
     const visible = [...this.root.querySelectorAll(".pin:not([hidden])")];
-    if (visible.length && this.root.dataset.overview !== "paper") {
+    if (visible.length && (!this.root.dataset.overview || this.root.dataset.overview === "marks")) {
       if (!this.deck.length) {
         this.deck = visible.slice();
         for (let i=this.deck.length-1; i>0; i--) {
@@ -56,11 +56,13 @@ export class MapGlints {
       const pin = this.deck.pop();
       if (pin.isConnected && !pin.hidden && !pin.matches(".hot,:focus-visible")) {
         const face = pin.querySelector("canvas");
+        const crest = this.level === "country" ? 1.82 : this.level === "city" ? 1.58 : 1.48;
         const gleam = face.animate([
-          {transform:"scale(1)", filter:"brightness(1)"},
-          {offset:.43, transform:"scale(1.17)", filter:"brightness(1.13) saturate(1.12) drop-shadow(0 0 3px var(--pin-ink))"},
-          {transform:"scale(1)", filter:"brightness(1)"}
-        ], {duration:1500+Math.random()*780, easing:"ease-in-out"});
+          {transform:"scale(1)", opacity:1},
+          {offset:.19, transform:"scale(.82)", opacity:.80},
+          {offset:.57, transform:"scale("+crest+")", opacity:1},
+          {transform:"scale(1)", opacity:1}
+        ], {duration:2000+Math.random()*640, easing:"ease-in-out"});
         gleam.id = "flower-glint";
         this.shining.add(gleam);
         gleam.onfinish = gleam.oncancel = () => this.shining.delete(gleam);

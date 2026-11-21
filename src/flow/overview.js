@@ -28,29 +28,72 @@ export const nationalMarks = [
   })),
 ];
 
-// Hold the unmarked paper briefly on arrival. Each flower stays dry until attended.
+// Each beat belongs to a real pin, so its fall and rings track the map even during a pan.
+export function arrivalScore(count, random = Math.random) {
+  const order = Array.from({length:count}, (_, i) => i);
+  for (let i=count-1; i>0; i--) {
+    const j=Math.floor(random()*(i+1));
+    [order[i],order[j]]=[order[j],order[i]];
+  }
+  let beat=0;
+  return order.map(index => {
+    const delay=beat;
+    beat += 96 + Math.round(random()*100);
+    return {index,delay,fall:610+Math.round(random()*230),drift:Math.round((random()-.5)*42)};
+  });
+}
+
 export class OverviewReveal {
   constructor(root, pins, motion) {
     Object.assign(this, {root, pins, motion});
+    motion.addEventListener("change", () => {
+      if (motion.matches && root.dataset.overview) this.reveal();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && root.dataset.overview) this.reveal();
+    });
+    pins.addEventListener("focusin", () => {
+      if (root.dataset.overview === "rain") this.reveal();
+    });
   }
   update(onMap, settled) {
-    if (!onMap || document.hidden) { this.stop(); return; }
-    if (this.root.dataset.overview === "marks") return;
+    if (!onMap) { this.stop(); return; }
+    const phase = this.root.dataset.overview;
+    if (phase === "marks" || phase === "rain") return;
+    if (this.seen || this.motion.matches || document.hidden) { this.reveal(); return; }
     this.root.dataset.overview = "paper";
     this.pins.inert = true;
-    if (this.motion.matches) { this.reveal(); return; }
     if (!settled) { clearTimeout(this.timer); this.timer = 0; return; }
-    this.timer ||= setTimeout(() => this.reveal(), 820);
+    this.timer ||= setTimeout(() => this.rain(), 240);
+  }
+  rain() {
+    const pins = [...this.pins.querySelectorAll(".national")];
+    const score = arrivalScore(pins.length);
+    let end = 0;
+    for (const {index, delay, fall, drift} of score) {
+      const style = pins[index].style;
+      style.setProperty("--drop-start", delay+"ms");
+      style.setProperty("--drop-flight", fall+"ms");
+      style.setProperty("--impact", delay+fall+"ms");
+      style.setProperty("--slant", drift+"px");
+      end = Math.max(end,delay+fall);
+    }
+    this.seen = true;
+    this.pins.inert = false;
+    this.root.dataset.overview = "rain";
+    this.timer = setTimeout(() => this.reveal(), end+1150);
   }
   reveal() {
     clearTimeout(this.timer);
     this.timer = 0;
+    this.seen = true;
     this.root.dataset.overview = "marks";
     this.pins.inert = false;
   }
-  stop() {
+  stop(reset = false) {
     clearTimeout(this.timer);
     this.timer = 0;
+    if (reset) this.seen = false;
     delete this.root.dataset.overview;
     this.pins.inert = false;
   }

@@ -31,7 +31,7 @@ export function restFlower(pin) {
   if (!face) {
     face = document.createElement("canvas");
     face.width = face.height = n;
-    drawCorolla(face.getContext("2d"), n, allForms[species]);
+    drawCorolla(face.getContext("2d"), n, allForms[species], 0, 0, 48);
     restingFaces.set(key, face);
   }
   ctx.drawImage(face, 0, 0);

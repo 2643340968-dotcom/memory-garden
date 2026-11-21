@@ -1,4 +1,5 @@
 import {clamp, hash} from "./geometry.js";
+import {paperGrain} from "./petalPaper.js";
 import {profileURL} from "./flowerForms.js";
 
 const ns = "http://www.w3.org/2000/svg";
@@ -99,7 +100,82 @@ export function plantArtwork({x,y,size,phase,featured,city,view,bottom,width,bir
   }
   return plant;
 }
-export function gardenDefs(form) {
+// A stand shares a root and a real, nearby memory. Sampling in depth bands
+// keeps a small screen densely planted without multiplying its reading stops.
+export function gardenStands(w, h, top, seed, anchors) {
+  if (!anchors.length) return [];
+  const stands=[], rows=clamp(Math.round(w/148),3,13);
+  const height=Math.max(90,h-top);
+  for (let tier=0; tier<3; tier++) {
+    const count=rows+tier;
+    for (let i=0; i<count; i++) {
+      const key=(tier+1)*113+i, rand=salt=>hash(key,seed+salt);
+      const u=(i+.14+.72*rand(1))/count;
+      const v=.28+tier*.209+.115*Math.sin(u*6.5+tier*.87)+.155*(rand(2)-.5);
+      const x=w*u, y=top+v*height;
+      const owner=anchors.reduce((a,b)=>Math.hypot(x-a.x,y-a.y)<Math.hypot(x-b.x,y-b.y)?a:b);
+      const rootX=x+(rand(8)-.5)*Math.min(96,w*.15);
+      const scale=clamp(Math.min(w*.069,h*.083),23,65)*(.42+.25*tier);
+      const spread=Math.min(w/count*.79,scale*2.2);
+      const heads=Array.from({length:4+Math.floor(rand(3)*4)},(_,j)=>{
+        const order=(j+.22+.56*rand(11+j))/(7);
+        const fx=clamp(x+(order-.43)*spread*1.7,5,w-5);
+        const fy=Math.min(h-17,y+(rand(23+j)-.5)*scale*1.55+.25*Math.abs(fx-x));
+        return {x:fx,y:fy,size:scale*(.61+.63*rand(36+j)),tilt:(rand(48+j)-.5)*44,
+          view:rand(59+j)<.42?"front":"side"};
+      });
+      stands.push({id:owner.id,x,y,rootX,tier,heads,delay:rand(9)*770+tier*135});
+    }
+  }
+  return stands;
+}
+
+export function plantStand(stand, bottom, age) {
+  const {x,y,rootX,tier,heads,delay}=stand;
+  const group=svg("g",{class:"memory-stand","data-memory":stand.id});
+  const spray=svg("g",{class:"spray"});
+  const birth=delay-age;
+  if (birth>-1950) {
+    spray.classList.add("sprouting");
+    spray.style.transformOrigin=rootX+"px "+bottom+"px";
+    spray.style.setProperty("--birth",Math.round(birth)+"ms");
+  }
+  const stemInk=["#a5bfa5","#92b297","#79a188"][tier];
+  const stems=[], leaves=[];
+  spray.setAttribute("opacity",[.57,.73,.93][tier]);
+  heads.forEach(({x:cx,y:cy,size,tilt,view},i)=>{
+    const mid=(bottom-cy)*.49, bow=(cx-rootX)*.53+(i%2?1:-1)*size*.28;
+    stems.push("M"+rootX+" "+(bottom+2)+"Q"+(rootX+bow)+" "+(cy+mid)+" "+cx+" "+cy);
+    const t=.53, q=1-t;
+    const lx=rootX*q*q+2*(rootX+bow)*q*t+cx*t*t, ly=(bottom+2)*q*q+2*(cy+mid)*q*t+cy*t*t;
+    const dx=(i%2?1:-1)*size*.49;
+    leaves.push("M"+lx+" "+ly+"q"+(dx*.36)+" "+(-size*.43)+" "+dx+" "+(-size*.40)+"q"+(-dx*.18)+" "+(size*.36)+" "+(-dx)+" "+(size*.40)+"Z");
+    const flower=svg("use",{href:"#stand-"+view,class:"stand-flower",
+      transform:"translate("+cx+" "+cy+") rotate("+tilt+") scale("+size/100+")"});
+    spray.append(flower);
+  });
+  spray.prepend(svg("path",{d:stems.join(""),fill:"none",stroke:stemInk,"stroke-width":[.85,1.15,1.65][tier]}),
+    svg("path",{d:leaves.join(""),fill:stemInk,opacity:".81"}));
+  group.append(spray);
+  return {stem:group,x,y,rootX,rootY:bottom};
+}
+
+// Reuse one printed face per view across the distant stands. Bending a stem
+// then moves a small image without recalculating its SVG grain at every angle.
+const prints=new Map();
+function standPrint(source) {
+  if (!prints.has(source)) prints.set(source,(async()=>{
+    const img=new Image();
+    img.src=source;
+    await img.decode();
+    const tile=document.createElement("canvas");
+    tile.width=208; tile.height=187;
+    tile.getContext("2d").drawImage(img,0,0,tile.width,tile.height);
+    return tile.toDataURL("image/png");
+  })().catch(()=>source));
+  return prints.get(source);
+}
+export function gardenDefs(form, city) {
   const defs=svg("defs");
   const gradients=[
     ["stem-ink","#80ab98","#bad5ab","#6f9f8a"],
@@ -111,6 +187,12 @@ export function gardenDefs(form) {
     const grad=svg("linearGradient",{id,x1:0,y1:1,x2:.8,y2:0});
     for(const [offset,colour] of [[0,start],[.55,mid],[1,end]]) grad.append(svg("stop",{offset,"stop-color":colour}));
     defs.append(grad);
+  }
+  for (const view of ["front","side"]) {
+    const src=profileURL(city,view);
+    const face=svg("image",{id:"stand-"+view,x:-50,y:-78.75,width:100,height:90});
+    defs.append(face);
+    standPrint(src).then(url=>face.setAttribute("href",url));
   }
   return defs;
 }
@@ -125,7 +207,12 @@ export function drawUnderstory(ctx,w,h,seed,form) {
     wash.addColorStop(0,colour+"35"); wash.addColorStop(1,colour+"00");
     ctx.fillStyle=wash; ctx.fillRect(x-r,y-r,2*r,2*r);
   }
-  // Thin distant leaves give sparse gardens a ground plane without inventing memory records.
+  ctx.save();
+  ctx.globalAlpha=.26;
+  ctx.fillStyle=paperGrain(ctx);
+  ctx.fillRect(0,0,w,h);
+  ctx.restore();
+  // Thin distant leaves tie the bases of the clusters together.
   const count=Math.round(clamp(w/17,20,100));
   for(let i=0;i<count;i++) {
     const root=w*hash(i,seed+3), lean=(hash(i,9)-.5)*w*.17;

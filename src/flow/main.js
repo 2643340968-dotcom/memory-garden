@@ -44,7 +44,6 @@ touch.addEventListener("change", updateLandingHint);
 const remembered = {};
 function setMode(mode) {
   el("edition").dataset.tools = mode;
-  el("cover-book").hidden = mode !== "cover";
 }
 
 function closeChapter() {
@@ -77,6 +76,7 @@ const atlas = new FlowAtlas(el("map"), {
     readout();
   },
   choose : chooseSite,
+  cityLanded : city => flowerBook.cityLanded(city),
 });
 const landing = new AtlasLanding(el("landing"), atlas, () => {
   setMode("map");
@@ -119,7 +119,6 @@ function advance(inward, mark) {
   }
   if (route.level === "garden" && inward) {
     if (failed) void show(route);
-    else if (garden.id && el("arrival").hidden && !garden.sheet.open) garden.openEditor();
     return;
   }
   const next = nextMapLevel(route, inward, mark, remembered);
@@ -251,7 +250,7 @@ function chrome() {
   if (site) el("arrival-flower").src = profileURL(specimen, "side");
   el("title").classList.toggle("long", heading.length > (getLanguage() === "en" ? 24 : 8));
   const arrival = route.level === "arrival";
-  const tip = isGarden ? local("掠过枝叶可以起风。点花读记忆，下滚可留言，上滚回到题页。", "Brush the stems to stir a breeze. Select a flower to read, scroll down to write or up for the prelude.") :
+  const tip = isGarden ? local("掠过枝叶可以起风。点花读往事，点「留下记忆」可留言，上滚回到题页。", "Brush the stems to stir a breeze. Pick a flower to read or choose Leave a memory to write. Scroll up for the prelude.") :
       arrival ? local("下滚进入花园，上滚回到地点。", "Scroll down into the garden or up to the place.") :
       site ? local("划过花丛拨动涟漪。下滚抵达花园题页，上滚返回城市。", "Brush the flowers to stir their ripples. Scroll down to the garden prelude or up to the city.") :
       city ? local("指向想看的地点并下滚，上滚回到全国。", "Point to a place and scroll down to visit. Scroll up for the national map.") :
@@ -383,6 +382,7 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
   if (route?.level === "garden")
     garden.leave(!atTitle && !opening && !quiet.matches);
   route = next;
+  flowerBook.destination(next.city, next.level === "city" && (!previous || previous === "country"));
   if (route.city) remembered.city = route.city;
   if (route.place) remembered[route.city] = route.place;
   hovered = null;
@@ -402,7 +402,7 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
       landing.open(focus && turn > 1);
       return;
     }
-    if (route.level !== "country" && chapter && !restore)
+    if (route.level !== "country" && chapter && !restore && !flowerBook.pendingCity)
       playChapter();
     if (focus && turn > 1)
       (el("chapter").classList.contains("visible") ? el("title") : el("map")).focus({
@@ -461,6 +461,7 @@ document.addEventListener("keydown", e => {
     el("guide-toggle").focus();
     return;
   }
+  if (!el("city-leaf").hidden) { el("leaf-close").click(); return; }
   if (route.level === "arrival") { advance(false); return; }
   closeChapter();
 });
@@ -505,23 +506,14 @@ window.addEventListener("hashchange", () => {
   if (flowHash(route) !== flowHash(next))
     void show(next, {restore : true, opening : !location.hash});
 });
-// All surfaces share the wheel latch, including the arrival and the writing
-// card, so inertial events from one gesture cannot carry on into the next room.
+// Navigation gestures stop at the field. A sheet owns its native scrolling.
 document.addEventListener("wheel", event => {
-  if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
+  if (garden.sheet.open || el("flower-book").open || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
   const target = event.target;
   if (target.closest("#flower-book,#nearby,select,.guide-page,input,audio,video")) return;
   if (landing.active && !target.closest(".toolbar-shell")) return;
   const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
   const delta = event.deltaY * unit * (event.ctrlKey ? -1 : 1);
-  if (garden.sheet.open) {
-    if (target.closest("textarea")?.scrollTop > 0) return;
-    if (delta < 0 && garden.sheet.scrollTop <= 0 && atlas.wheel.consume(delta, event.timeStamp)) {
-      event.preventDefault();
-      garden.sheet.close();
-    }
-    return;
-  }
   event.preventDefault();
   if (!atlas.wheel.consume(delta, event.timeStamp)) return;
   advance(delta > 0, target.closest("#map") ? atlas.destinationAt(event) : undefined);
@@ -530,13 +522,18 @@ document.addEventListener("wheel", event => {
 function gardenSwipe(surface) {
   let start;
   surface.addEventListener("pointerdown", e => {
-    start = e.pointerType === "touch" && e.isPrimary ? [e.clientX, e.clientY] : null;
+    start = e.pointerType === "touch" && e.isPrimary ? {x:e.clientX,y:e.clientY,card:e.target.closest("#garden-invitation")} : null;
   });
   surface.addEventListener("pointercancel", () => { start = null; });
   surface.addEventListener("pointerup", e => {
     if (!start || e.pointerType !== "touch") return;
-    const dx = e.clientX - start[0], dy = e.clientY - start[1];
+    const dx = e.clientX - start.x, dy = e.clientY - start.y, card = start.card;
     start = null;
+    if (card) {
+      if (Math.hypot(dx,dy)>16)
+        card.addEventListener("click", suppressSwipeClick, {capture:true,once:true,signal:AbortSignal.timeout(380)});
+      return;
+    }
     if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx) * 1.2) {
       surface.addEventListener("click", suppressSwipeClick, {capture:true, once:true, signal:AbortSignal.timeout(380)});
       advance(dy < 0);
@@ -546,23 +543,10 @@ function gardenSwipe(surface) {
 function suppressSwipeClick(e) { e.preventDefault(); e.stopImmediatePropagation(); }
 gardenSwipe(el("garden"));
 gardenSwipe(el("arrival"));
-// Keep native scrolling and text/media controls in the writing and reading cards.
-let sheetTouch;
-garden.sheet.addEventListener("touchstart", event => {
-  const touch = event.touches[0];
-  sheetTouch = event.touches.length === 1 && garden.sheet.scrollTop <= 0 &&
-      !event.target.closest("textarea,input,button,audio,video") ? [touch.clientX,touch.clientY] : null;
-}, {passive:true});
-garden.sheet.addEventListener("touchcancel", () => { sheetTouch = null; });
-garden.sheet.addEventListener("touchend", event => {
-  if (!sheetTouch) return;
-  const touch = event.changedTouches[0], dx = touch.clientX-sheetTouch[0], dy = touch.clientY-sheetTouch[1];
-  sheetTouch = null;
-  if (garden.sheet.scrollTop <= 0 && dy > 55 && dy > Math.abs(dx)*1.2) garden.sheet.close();
-}, {passive:true});
+gardenSwipe(el("city-leaf"));
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || landing.active ||
-      e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
+      garden.sheet.open || e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
   if (!["PageDown","PageUp","ArrowDown","ArrowUp"].includes(e.key)) return;
   e.preventDefault();
   advance(e.key === "PageDown" || e.key === "ArrowDown", e.target.closest(".pin")?.mark);
