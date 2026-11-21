@@ -1,4 +1,6 @@
 import test from "node:test";
+import {readFileSync} from "node:fs";
+import {markFlower} from "../src/flow/atlas.js";
 import assert from "node:assert/strict";
 import {project, under, mercator, latitude, blend, cameraProgress, coversView, framePlacement} from "../src/flow/geometry.js";
 import {FlowBasemap, NavigationChart} from "../src/flow/FlowBasemap.js";
@@ -9,7 +11,7 @@ import {WetPaper} from "../src/flow/wetPaper.js";
 import {PetalCurrent} from "../src/flow/petalCurrent.js";
 import {nationalMarks} from "../src/flow/overview.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
-import {forms} from "../src/flow/flowerForms.js";
+import {allForms, flowerKey, forms, plateURL} from "../src/flow/flowerForms.js";
 import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
 import {CITIES, PLACES} from "../src/atlas/places.js";
 
@@ -32,9 +34,11 @@ test("the top-down opening has staggered, different-sized flowers on both sides 
   for (const [w, h] of [[390, 540], [1440, 550]]) {
     const bed = openingFlowers(w, h);
     const left = bed.filter(b => b.x < w / 2), right = bed.filter(b => b.x > w / 2);
-    assert.ok(Math.min(...right.map(b => b.delay)) > Math.max(...left.map(b => b.delay)));
-    assert.ok(left.some(b => frontsAt(b, 1.6).length) && right.every(b => !frontsAt(b, 1.6).length));
-    for (const side of [bed.filter(b => b.x < w / 2), bed.filter(b => b.x > w / 2)]) {
+    assert.ok(Math.abs(Math.min(...left.map(b => b.delay)) - Math.min(...right.map(b => b.delay))) < .15);
+    for (const side of [left, right]) {
+      const inward = side.slice().sort((a,b) => Math.abs(w/2-b.x) - Math.abs(w/2-a.x));
+      assert.ok(inward.slice(1).every((b,i) => b.delay >= inward[i].delay));
+      assert.ok(frontsAt(inward[0], 1.6).length && !frontsAt(inward.at(-1), 1.6).length);
       assert.ok(new Set(side.map(b => b.type)).size >= 5);
       assert.ok(Math.max(...side.map(b => b.radius)) > 2 * Math.min(...side.map(b => b.radius)));
       assert.ok(Math.max(...side.map(b => b.delay)) - Math.min(...side.map(b => b.delay)) > 1);
@@ -349,52 +353,49 @@ test("city, street and building tiles share the same feature fills in both zoom 
   }
 });
 
-test("overlapping map ripples add only fine neutral outlines and clear after release", () => {
-  const field = Object.create(RippleField.prototype), strokes = [], centres = [];
-  field.ctx = {
-    setTransform() {},
-    clearRect() {},
-    save() {},
-    restore() {},
-    rotate() {},
-    beginPath() {},
-    moveTo() {},
-    lineTo() {},
-    closePath() {},
-    translate(x, y) {
-      centres.push([ x, y ]);
-    },
-    stroke() {
-      strokes.push([ this.strokeStyle, this.globalAlpha, this.lineWidth ]);
-    }
-  };
-  Object.assign(field, {
-    width : 600,
-    height : 400,
-    dpr : 1,
-    canvas : {dataset : {}},
-    motion : {matches : false},
-    project : p => p
+test("a geographic flower has the matching finished plate at every scale", () => {
+  const keys = new Set();
+  for (const mark of nationalMarks) {
+    assert.equal(markFlower(mark), mark.id);
+    keys.add(mark.id);
+  }
+  for (const [id, place] of Object.entries(PLACES)) {
+    const mark = {site:id, city:place.city, members:[id]};
+    assert.equal(markFlower(mark), flowerKey(place.study));
+    assert.equal(markFlower({...mark, members:[id,"neighbour"]}), place.city);
+    keys.add(markFlower(mark));
+  }
+  assert.equal(keys.size, 28);
+  for (const key of keys) {
+    assert.ok(allForms[key]);
+    const source = readFileSync(new URL("../public/" + plateURL(key), import.meta.url), "utf8");
+    assert.match(source, /viewBox=/);
+    assert.match(source, /<radialGradient/);
+    assert.match(source, /<g id="blossom">/);
+    assert.doesNotMatch(source, /NaN|undefined|<image[ >]/);
+  }
+});
+
+test("attending two flowers draws each species' own outward fronts and releases them separately", () => {
+  const drawn = [], centres = [];
+  const field = Object.assign(Object.create(RippleField.prototype), {
+    width: 600, height: 400, dpr: 1, canvas: {dataset: {}}, motion: {matches:false}, project: p => p,
+    ctx: {setTransform(){}, clearRect(){}, save(){}, restore(){}, translate(x,y){centres.push([x,y]);},
+          drawImage(ring,x,y,w){drawn.push({ring,width:w,alpha:this.globalAlpha});}}
   });
-  field.waves = [ [ 200, 200 ], [ 235, 205 ] ].map((center, i) => ({
-                                                     key : String(i),
-                                                     center,
-                                                     depth : "city",
-                                                     start : 0,
-                                                     left : 600,
-                                                     seed : i + .3,
-                                                     ux : 1,
-                                                     uy : 0,
-                                                     tx : 1,
-                                                     ty : 0
-                                                   }));
-  field.draw(1400, true);
-  assert.deepEqual(centres, [ [ 200, 200 ], [ 235, 205 ] ]);
-  assert.equal(strokes.length, 6);
-  assert.ok(strokes.every(
-      ([ color, alpha, width ]) => color === "#899d9e" && alpha > 0 && alpha < .5 && width <= 1));
-  field.draw(600 + AFTERGLOW, true);
-  assert.equal(strokes.length, 6);
+  field.waves = [[200,200],[234,206]].map((center,i) => {
+    const bloom = {type:i ? "wuhan" : "nanjing", radius:46, angle:0, delay:-2.75};
+    return {key:bloom.type, center, start:0, left:i ? null : 900, bloom, pin:{isConnected:false},
+            current:new PetalCurrent([bloom]), plate:{ring:bloom.type}};
+  });
+  field.draw(1450, true);
+  assert.deepEqual(centres, [[200,200],[234,206]]);
+  assert.deepEqual(new Set(drawn.map(d => d.ring)), new Set(["wuhan","nanjing"]));
+  assert.ok(drawn.every(d => d.width > 80 && d.alpha > 0 && d.alpha <= 1));
+  field.draw(900 + AFTERGLOW, true);
+  assert.deepEqual(field.waves.map(w => w.key), ["wuhan"]);
+  releaseWave(field.waves, "wuhan", 5000);
+  field.draw(5000 + AFTERGLOW, true);
   assert.equal(field.canvas.dataset.waves, "0");
 });
 

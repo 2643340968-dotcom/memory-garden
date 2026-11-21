@@ -7,10 +7,10 @@ import {FlowGarden} from "./garden.js";
 import {AtlasLanding} from "./landing.js";
 import {MapToolbar} from "./toolbar.js";
 import {FlowerBook} from "./flowerBook.js";
-import {placePhase, waterprint} from "./ripples.js";
-import {clamp, smooth} from "./geometry.js";
+import {flowerKey, plateURL} from "./flowerForms.js";
 
 const el = id => document.getElementById(id);
+const flowerBackground = key => 'url("' + new URL(plateURL(key), document.baseURI).href + '")';
 const local = (zh, en) => getLanguage() === "zh-CN" ? zh : en;
 const overview = {
   level : "country"
@@ -35,6 +35,7 @@ const touch = matchMedia("(hover:none)");
 function updateLandingHint() {
   const scroll = local(touch.matches ? "上滑进入地图" : "下滑进入地图", touch.matches ? "Swipe up to enter" : "Scroll to enter");
   const drag = local(touch.matches ? "横划花瓣" : "拖动花瓣", touch.matches ? "Brush petals sideways" : "Drag the petals");
+  el("landing-cue").setAttribute("aria-label", local("进入全国地图", "Enter the national atlas"));
   el("landing-hint").textContent = quiet.matches ? scroll : drag + " · " + scroll;
 }
 quiet.addEventListener("change", updateLandingHint);
@@ -179,8 +180,8 @@ function legend(isGarden) {
   el("legend").replaceChildren(...values.map(([ kind, label ]) => {
     const span = document.createElement("span");
     span.className = kind;
-    if (!isGarden)
-      span.style.setProperty("--dot", paper[kind]);
+    if (isGarden) span.style.setProperty("--specimen", flowerBackground(flowerKey(PLACES[route.place].study)));
+    else span.style.setProperty("--dot", paper[kind]);
     span.textContent = label;
     return span;
   }));
@@ -225,12 +226,15 @@ function chrome() {
                  counts.cities + " cities  /  " + counts.places + " places");
   const heading = site ? placeText(site.name) : city ? placeText(city.name) : project;
   el("title").textContent = heading;
+  const specimen = site ? flowerKey(site.study) : route.city;
+  el("folio").style.setProperty("--specimen", specimen ? flowerBackground(specimen) : "none");
+  if (site) el("arrival-flower").src = plateURL(specimen);
   el("title").classList.toggle("long", heading.length > (getLanguage() === "en" ? 24 : 8));
-  const tip = isGarden ? local("轻触印记，读一段记忆。", "Select a mark to read a memory.") :
+  const tip = isGarden ? local("轻触一朵花，读一段记忆。", "Touch a flower to read a memory.") :
       site ? local("点选当前地点进入花园，上滚返回城市。", "Select this place to enter its garden, or scroll up to return to the city.") :
       city ? local("指向地点下滚，或轻触地点进入近景。点开数字可选附近地点，上滚返回全国。", "Scroll down over a place or tap it to move closer. Select a number for nearby places. Scroll up to return to China.") :
-      local("指向带地名的城市下滚，或轻触进入城市地图。其余圆点可查看地名。",
-            "Scroll down over a labelled city or tap it to explore. Select a smaller dot to see its name.");
+      local("指向花朵看城市与花名，拖动花瓣可拨动渐变。在带地名的城市下滚或轻触，进入城市地图。",
+            "Point to a flower to see its city and species. Drag the petals to stir the colour. Scroll down over a labelled city or tap it to explore.");
   el("intro").textContent = site ? placeText(site.introduction) : tip;
   el("guide-tip").textContent = tip;
   const guide = local("地图导览、图例与来源", "Map guide, legend and sources");
@@ -289,35 +293,21 @@ function chrome() {
   else
     atlas.invalidate();
 }
-let passageFrame = 0, paperFade, passageStart = 0;
+let passage, paperFade;
 function paintPassage(origin) {
-  const canvas = document.querySelector(".arrival-ink"), ctx = canvas.getContext("2d");
-  const start = performance.now(), seed = placePhase(route.place);
-  passageStart = start;
-  function frame(now) {
-    if (el("arrival").hidden)
-      return;
-    const w = canvas.clientWidth, h = canvas.clientHeight, dpr = Math.min(devicePixelRatio || 1, 1.5);
-    const width = Math.round(w * dpr), height = Math.round(h * dpr);
-    if (width !== canvas.width || height !== canvas.height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    const age = quiet.matches ? 1.3 : (now - start) / 1000;
-    const f = smooth(clamp(age / 1.15, 0, 1));
-    const cx = w * ((origin?.[0] ?? .5) * (1 - f) + .5 * f),
-          cy = h * ((origin?.[1] ?? .49) * (1 - f) + .49 * f);
-    const radius = Math.min(w * .51, h * .46, 332) * (.25 + .75 * f);
-    waterprint(ctx, cx, cy, radius, age * .82 + seed * .31, seed, .76);
-    if (!quiet.matches)
-      passageFrame = requestAnimationFrame(frame);
-  }
-  frame(start);
+  const flower = el("arrival-flower");
+  if (quiet.matches) return;
+  const rect = flower.getBoundingClientRect(), host = el("edition").getBoundingClientRect();
+  const dx = origin ? host.x + host.width * origin[0] - rect.x - rect.width / 2 : 0;
+  const dy = origin ? host.y + host.height * origin[1] - rect.y - rect.height / 2 : 18;
+  passage = flower.animate([
+    {transform: "translate(" + dx + "px," + dy + "px) scale(.20) rotate(-12deg)", opacity: .55},
+    {transform: "none", opacity: 1}
+  ], {duration: 1220, easing: "cubic-bezier(.2,.64,.24,1)"});
 }
 function closeTitle() {
-  cancelAnimationFrame(passageFrame);
+  passage?.cancel();
+  passage = null;
   paperFade?.cancel();
   paperFade = null;
   clearTimeout(holdTimer);
@@ -414,10 +404,7 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
     if (turn !== version)
       return;
     atlas.root.hidden = true;
-    const phase = quiet.matches ?
-        1.15 :
-        (performance.now() - passageStart) / 1000 * .82 + placePhase(route.place) * .31;
-    garden.enter(route.place, collection, phase);
+    garden.enter(route.place, collection, !quiet.matches && !skipped ? 440 : 0);
     el("write").disabled = false;
     chrome();
     await finishTitle(turn);

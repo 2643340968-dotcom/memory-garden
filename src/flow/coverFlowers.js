@@ -1,24 +1,23 @@
-import {clamp, smooth, TAU} from "./geometry.js";
+import {clamp, smooth} from "./geometry.js";
 import {loadPlates} from "./coverPlates.js";
 import {WetPaper} from "./wetPaper.js";
-import {forms} from "./flowerForms.js";
+import {allForms} from "./flowerForms.js";
 import {drawCorolla} from "./drawCorolla.js";
 import {PetalCurrent} from "./petalCurrent.js";
 
-// Positions in the two drifts, with room above the inner crowns for the
-// title and a clear passage between them below for the scroll cue.
+// Two beds leave the title, introduction and petal cue in clear paper.
 const beds = [
-  // x, y, relative radius, city, rotation in degrees, opening delay
-  [.054,.33,.142,"harbin", 12,.22], [.151,.19,.069,"hohhot",-16,.02],
-  [.192,.41,.123,"beijing", 21,.45], [.063,.61,.142,"dunhuang",-12,.36],
-  [.102,.85,.073,"urumqi", 15,1.24], [.229,.70,.116,"guangzhou",-19,.67],
-  [.313,.49,.070,"kashgar", 16,1.17], [.377,.575,.123,"nanjing", 22,.09],
-  [.448,.63,.069,"lhasa", -8,.91],
-  [.946,.30,.144,"chengdu",-12,.38], [.844,.23,.075,"xining", 12,.04],
-  [.815,.414,.112,"qingdao", 23,.70], [.941,.58,.142,"haikou", -8,.46],
-  [.919,.84,.065,"wuhan", 28,1.29], [.797,.70,.121,"quanzhou",-17,.17],
-  [.698,.48,.063,"xian",  8,1.15], [.624,.59,.128,"kunming",-16,.47],
-  [.554,.64,.073,"shenyang", 11,.29],
+  // x, y, relative radius, city, rotation in degrees
+  [.054,.33,.142,"harbin", 12], [.151,.19,.069,"hohhot",-16],
+  [.192,.41,.123,"beijing", 21], [.063,.61,.142,"dunhuang",-12],
+  [.102,.85,.073,"urumqi", 15], [.229,.70,.116,"guangzhou",-19],
+  [.313,.49,.070,"kashgar", 16], [.377,.575,.123,"nanjing", 22],
+  [.448,.63,.069,"lhasa", -8],
+  [.946,.30,.144,"chengdu",-12], [.844,.23,.075,"xining", 12],
+  [.815,.414,.112,"qingdao", 23], [.941,.58,.142,"haikou", -8],
+  [.919,.84,.065,"wuhan", 28], [.797,.70,.121,"quanzhou",-17],
+  [.698,.48,.063,"xian",  8], [.624,.59,.128,"kunming",-16],
+  [.554,.64,.073,"shenyang", 11],
 ];
 
 const ease = n => smooth(clamp(n, 0, 1));
@@ -31,11 +30,11 @@ export function openingFlowers(w, h) {
   const scale = Math.min(w, bedHeight * 2.55) * (w < 600 ? 1.13 : .92);
   const depth = Math.min(bedHeight, w * .81);
   const top = h - bedHeight + (bedHeight - depth) * .49;
-  return beds.map(([x, y, r, type, angle, delay], i) => {
-    const fromEdge = Math.max(0, Math.min(x, 1 - x) * 2);
+  return beds.map(([x, y, r, type, angle], i) => {
+    const fromEdge = Math.max(0, Math.min(x, 1 - x) - .05);
     return {
       x:x * w, y:top + y * depth, radius:r * scale, type, angle:angle * Math.PI / 180,
-      delay:(x > .5 ? 1.75 : 0) + delay * .87 + fromEdge * .55,
+      delay:.06 + fromEdge * 8.6 + (x > .5 ? .08 : 0),
       pace:1 + .09 * Math.sin(i * 2.6),
     };
   });
@@ -70,8 +69,25 @@ export function frontsAt(bloom, time) {
   return fronts;
 }
 
-function stamp(ctx, plate, radius, x = 0, y = 0) {
+export function stamp(ctx, plate, radius, x = 0, y = 0) {
   ctx.drawImage(plate, x - radius, y - radius, radius * 2, radius * 2);
+}
+
+export function drawOuterFronts(ctx, plate, radius, fronts, opacity = 1) {
+  for (const wave of fronts) {
+    const stirred = wave.x != null, start = stirred ? .58 : .78;
+    if (wave.radius < start) continue;
+    ctx.globalAlpha = Math.min(1, opacity * (stirred ? .97 : .35) * wave.opacity * ease((wave.radius - start) / .24));
+    stamp(ctx, plate.ring, radius * wave.radius, (wave.x ?? 0) * radius, (wave.y ?? 0) * radius);
+  }
+}
+
+export function drawInnerFronts(ctx, plate, radius, fronts, opacity = 1) {
+  for (const wave of fronts) {
+    if (wave.radius > 1.03) continue;
+    ctx.globalAlpha = opacity * (wave.x != null ? .55 : .17) * wave.opacity * (1 - ease((wave.radius - .72) / .31));
+    stamp(ctx, plate.light, radius * wave.radius, (wave.x ?? 0) * radius, (wave.y ?? 0) * radius);
+  }
 }
 
 // Reveal the actual specimen outward from its heart, including asymmetric
@@ -106,7 +122,7 @@ function newCanvas(width, height) {
 
 // A resting flower uses the original plate. Re-ink only flowers reached by
 // the hand, keeping their baked edge alpha and their botanical registration.
-function focusedBody(bloom, state, plate, pixels, time) {
+export function focusedBody(bloom, state, plate, pixels, time) {
   const offset = Math.hypot(state.x, state.y);
   if (offset < .012) return plate.body;
   if (!state.paint) {
@@ -124,7 +140,7 @@ function focusedBody(bloom, state, plate, pixels, time) {
   paint.drawImage(plate.body, 0, 0, n, n);
   paint.globalCompositeOperation = "source-atop";
   paint.globalAlpha = ease(offset / .10);
-  drawCorolla(paint, n, forms[bloom.type], state.x, state.y);
+  drawCorolla(paint, n, allForms[bloom.type], state.x, state.y);
   paint.globalAlpha = 1;
   paint.globalCompositeOperation = "source-over";
   return sheet;
@@ -165,7 +181,7 @@ export class CoverFlowers {
     const available = () => this.active && this.onPaper && !this.obscured && !this.motion.matches && this.current;
     surface.addEventListener("pointerdown", event => {
       if (!event.isPrimary) { this.endDrag(); return; }
-      if (!available() || event.button !== 0) return;
+      if (!available() || event.button !== 0 || event.target.closest("button")) return;
       this.pointer = event.pointerId;
       this.lastPoint = point(event);
       surface.setPointerCapture(event.pointerId);
@@ -208,20 +224,24 @@ export class CoverFlowers {
   }
   size() {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
-    if (!w || !h || !this.plates) return;
+    if (!w || !h) return;
     const dpr = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1900000 / (w * h)));
     const width = Math.round(w * dpr), height = Math.round(h * dpr);
-    if (this.canvas.width === width && this.canvas.height === height && this.w === w && this.h === h)
-      return;
-    this.canvas.width = width;
-    this.canvas.height = height;
-    this.ctx.setTransform(width / w, 0, 0, height / h, 0, 0);
-    this.w = w;
-    this.h = h;
-    this.pixels = width / w;
-    this.endDrag();
-    this.blooms = openingFlowers(w, h);
-    this.current = new PetalCurrent(this.blooms);
+    const resized = this.canvas.width !== width || this.canvas.height !== height || this.w !== w || this.h !== h;
+    if (!resized && (!this.plates || this.paper)) return;
+    if (resized) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+      this.ctx.setTransform(width / w, 0, 0, height / h, 0, 0);
+      this.w = w;
+      this.h = h;
+      this.pixels = width / w;
+      this.endDrag();
+      this.blooms = openingFlowers(w, h);
+      this.current = new PetalCurrent(this.blooms);
+    }
+    if (!this.plates) return;
+    this.proofs = null;
     this.paper = new WetPaper(w, h, this.blooms, this.plates);
     this.crowns = newCanvas(width, height).getContext("2d");
     this.crowns.setTransform(width / w, 0, 0, height / h, 0, 0);
@@ -263,7 +283,7 @@ export class CoverFlowers {
     cancelAnimationFrame(this.frame);
     this.previous = null;
     if (!this.active || !this.onPaper || this.obscured || document.hidden || this.motion.matches) this.endDrag();
-    if (!this.active || !this.onPaper || this.obscured || document.hidden || !this.blooms || !this.plates)
+    if (!this.active || !this.onPaper || this.obscured || document.hidden || !this.blooms)
       return;
     this.frame = requestAnimationFrame(now => this.tick(now));
   }
@@ -296,6 +316,26 @@ export class CoverFlowers {
   }
   draw(time) {
     const ctx = this.ctx;
+    if (!this.plates) {
+      // Start unfolding on the first frame while the worker measures the wet rims.
+      this.proofs ??= new Map();
+      ctx.clearRect(0, 0, this.w, this.h);
+      for (const bloom of this.blooms) {
+        const age = (time - bloom.delay) * bloom.pace;
+        if (age <= 0) continue;
+        if (!this.proofs.has(bloom.type)) {
+          const proof = newCanvas(176, 176);
+          drawCorolla(proof.getContext("2d"), proof.width, allForms[bloom.type]);
+          this.proofs.set(bloom.type, proof);
+        }
+        ctx.save();
+        ctx.translate(bloom.x, bloom.y);
+        ctx.rotate(bloom.angle);
+        corolla(ctx, this.scratch, this.proofs.get(bloom.type), bloom, age);
+        ctx.restore();
+      }
+      return;
+    }
     const fronts = this.blooms.map((bloom, i) => {
       const train = frontsAt(bloom, time);
       if (!this.motion.matches && this.current.states[i].waves.length)
@@ -313,12 +353,7 @@ export class CoverFlowers {
       ctx.save();
       ctx.translate(bloom.x, bloom.y);
       ctx.rotate(bloom.angle);
-      for (const wave of fronts[i]) {
-        const stirred = wave.x != null, start = stirred ? .58 : .78;
-        if (wave.radius < start) continue;
-        ctx.globalAlpha = Math.min(1, (stirred ? .97 : .35) * wave.opacity * ease((wave.radius - start) / .24));
-        stamp(ctx, plate.ring, bloom.radius * wave.radius, (wave.x ?? 0) * bloom.radius, (wave.y ?? 0) * bloom.radius);
-      }
+      drawOuterFronts(ctx, plate, bloom.radius, fronts[i]);
       ctx.restore();
       crowns.save();
       crowns.translate(bloom.x, bloom.y);
@@ -331,11 +366,7 @@ export class CoverFlowers {
       corolla(crowns, this.scratch, body, bloom, age);
       // The wave inside a flower is reflected light. Only its outer lip can
       // carry pigment into a neighbour. It cannot deposit colour on a face.
-      for (const wave of fronts[i]) {
-        if (wave.radius > 1.03) continue;
-        crowns.globalAlpha = (wave.x != null ? .55 : .17) * wave.opacity * (1 - ease((wave.radius - .72) / .31));
-        stamp(crowns, plate.light, bloom.radius * wave.radius, (wave.x ?? 0) * bloom.radius, (wave.y ?? 0) * bloom.radius);
-      }
+      drawInnerFronts(crowns, plate, bloom.radius, fronts[i]);
       crowns.restore();
     });
     const {spacing, top, width, height} = this.paper;

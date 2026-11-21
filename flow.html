@@ -52,21 +52,28 @@
         <canvas id="waves" aria-hidden="true"></canvas><div id="pins"></div>
       </div>
       <div id="garden" class="garden" hidden role="group" aria-label="记忆花园" tabindex="-1">
-        <canvas id="waterbed" aria-hidden="true"></canvas><canvas id="garden-water" aria-hidden="true"></canvas><div id="seeds"></div>
+        <canvas id="waterbed" aria-hidden="true"></canvas><div id="seeds"></div>
       </div>
       <div id="nearby" role="group" aria-label="附近地点" hidden></div>
       <section id="landing" hidden aria-labelledby="landing-title">
         <div class="landing-wash" aria-hidden="true"></div>
         <canvas id="landing-flowers" aria-hidden="true"></canvas>
-        <div class="landing-type">
-          <h1 id="landing-title">记忆之场</h1>
-          <p id="landing-intro">沿着地图走进记忆花园，读一段往事，也可以留下自己的记忆。</p>
+        <div id="landing-scroll" role="region" tabindex="0" aria-describedby="landing-hint">
+          <div class="scroll-distance"><div class="landing-type">
+            <h1 id="landing-title">记忆之场</h1>
+            <p id="landing-intro">沿着地图走进记忆花园，读一段往事，也可以留下自己的记忆。</p>
+            <button type="button" class="landing-cue" id="landing-cue">
+              <span id="landing-hint">下滑进入地图</span>
+              <svg viewBox="0 0 48 30" width="46" height="29" aria-hidden="true">
+                <defs><linearGradient id="petal-tip" x2=".8" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#ba93b5"/><stop offset=".55" stop-color="#e9b4b7"/><stop offset="1" stop-color="#d8a66d"/></linearGradient></defs>
+                <path d="M6 4C16 3 23 8 24 19C16 17 9 12 6 4Z" fill="url(#petal-tip)"/>
+                <path d="M42 4C32 3 25 8 24 19C32 17 39 12 42 4Z" fill="#a9c9b5"/>
+                <path d="M12 8Q21 13 24 22Q27 14 36 8" fill="none" stroke="#686952" stroke-width="1.1" stroke-linecap="round"/>
+                <path d="M24 21Q24.7 24 27 24.5Q24.7 25.3 24 28Q23.3 25.3 21 24.5Q23.3 24 24 21Z" fill="#cb9a6c"/>
+              </svg>
+            </button>
+          </div></div>
         </div>
-        <div class="landing-cue">
-          <span id="landing-hint">下滑进入地图</span>
-          <span class="scroll-stroke" aria-hidden="true"></span>
-        </div>
-        <div id="landing-scroll" role="region" tabindex="0" aria-describedby="landing-hint"><div class="scroll-distance" aria-hidden="true"></div></div>
       </section>
       <div class="heading" id="chapter">
         <p id="folio"></p><h2 id="title" tabindex="-1"></h2><p id="intro"></p>
@@ -74,7 +81,7 @@
       <p id="notice" class="notice" role="status"></p>
     </section>
     <section id="arrival" hidden aria-labelledby="arrival-title">
-      <canvas class="arrival-ink" aria-hidden="true"></canvas><p id="arrival-place"></p>
+      <img id="arrival-flower" alt="" width="200" height="200"><p id="arrival-place"></p>
       <h2 id="arrival-title" tabindex="-1"></h2><p id="arrival-note"></p><button type="button" id="skip"></button><button type="button" id="arrival-back" hidden></button>
     </section>
   </main>

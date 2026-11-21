@@ -2,7 +2,7 @@ import {TAU} from "./geometry.js";
 
 // Each blade points along +x. Rounded shoulders, paired lobes and pointed
 // bracts give the same small vocabulary very different silhouettes.
-const blades = {
+export const blades = {
   floret: "M-.03 0Q.19 -.36 .44 -.69C.68 -.98 .90 -.73 1 0C.88 .78 .65 .96 .43 .67Q.17 .33 -.03 0Z",
   spoon: "M-.03 0C.20 -.03 .34 -.28 .47 -.62C.61 -1.05 .86 -1.04 .98 -.43Q1.06 0 .98 .43C.85 1.04 .61 1.05 .47 .62C.32 .26 .18 .04 -.03 0Z",
   oval: "M-.05 0C.12 -.34 .44 -.93 .69 -.95C.94 -.99 1.04 -.42 .99 -.03C1.03 .42 .89 .94 .67 .92C.39 .89 .12 .31 -.05 0Z",

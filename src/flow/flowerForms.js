@@ -59,3 +59,35 @@ export const forms = {
   haikou: form("#fff1c9", "#f2cbd4", "#e9a0be", "#cc80ad", "#a4c5a8",
     [whorl(3, 1, .59, "bract", -90)], "bracts"),
 };
+
+const extraForms = {
+  iris: form("#fff2bd", "#dbd4ea", "#ab9aca", "#947cb2", "#ecb75f",
+    [whorl(3, 1, .47, "fan", 90), whorl(3, .81, .24, "lance", 30)], "six"),
+  magnolia: form("#fff9db", "#f4e5dc", "#e7c8d0", "#ca9eb2", "#a5bf97",
+    [whorl(6, 1, .31, "lance", -90), whorl(3, .75, .33, "cup", -60)], "pod"),
+  osmanthus: {...form("#fff3bd", "#ffdc94", "#ebaf75", "#dc9983", "#c88d60",
+    [whorl(4, .97, .48, "oval", 45)], "eye"), florets: [[-.39,.24,.58,0],[.33,.26,.47,20],[.02,-.38,.54,-16]]},
+  chrysanthemum: form("#fff3c1", "#f6d7aa", "#eeb394", "#da869e", "#d7a752",
+    [whorl(17, 1, .14, "spoon", -90), whorl(13, .75, .16, "curl", -78), whorl(9, .47, .14, "spoon", -90)], "disc"),
+  orchid: form("#fff5c9", "#e6dfbd", "#b8c5a3", "#a3b19e", "#d48eaa",
+    [whorl(3, 1, .18, "lance", -90), whorl(2, .72, .28, "fold", -22), whorl(1, .63, .32, "ruffle", 90)], "throat"),
+  jasmine: form("#fffbe6", "#f2eccf", "#d4ddba", "#a8c4ab", "#daa961",
+    [whorl(7, .99, .32, "curl", -90), whorl(5, .64, .31, "cup", -64)], "eye"),
+  cherry: form("#fff3d6", "#f9dae1", "#edb0c9", "#d590b5", "#dbac72",
+    [whorl(5, 1, .51, "ruffle", -90)], "threads"),
+  tamarisk: {...form("#fff1cf", "#f6cbd9", "#de9cb8", "#c189a6", "#c28e9c",
+    [whorl(5, .93, .36, "point", -90)], "eye"), florets: [[-.21,.53,.37,6],[.17,.35,.34,29],[-.20,.10,.31,8],[.20,-.06,.28,20],[-.05,-.29,.25,0],[.14,-.48,.21,15],[.13,-.72,.14,0]]},
+  daylily: form("#fff2b9", "#ffdea4", "#efa57e", "#d98787", "#bba469",
+    [whorl(3, 1, .33, "lance", -90), whorl(3, .96, .44, "point", -30)], "six"),
+  honeysuckle: {...form("#fff6be", "#f4df9c", "#e5bd7a", "#cdac81", "#cf9957",
+    [whorl(1, .94, .25, "fan", -88), whorl(1, .88, .16, "keel", -142), whorl(1, .69, .18, "lance", -37)], "column"),
+    florets: [[-.14,.48,.86,-27],[.13,.36,.92,35]]},
+};
+
+const studyCities = {
+  zijincao: "nanjing", peony: "beijing", lotus: "dunhuang", coral: "quanzhou",
+  hibiscus: "chengdu", plum: "wuhan", camellia: "qingdao", lilac: "harbin",
+};
+export const allForms = {...forms, ...extraForms};
+export const flowerKey = study => studyCities[study] ?? study;
+export const plateURL = key => "./assets/flow-flowers/" + key + ".svg";

@@ -2,8 +2,8 @@ import {PLACES} from "../atlas/places.js";
 import {getLanguage, getLocalizedMemoryText, placeText, t} from "../i18n/LanguageController.js";
 import {createMemoryPool} from "../data/memoryPool.js";
 import {VisitorMemoryCard} from "../memory/VisitorMemoryCard.js";
-import {clamp, hash, noise, smooth, TAU} from "./geometry.js";
-import {placePhase, waterprint} from "./ripples.js";
+import {clamp, hash} from "./geometry.js";
+import {allForms, flowerKey, plateURL} from "./flowerForms.js";
 
 const el = id => document.getElementById(id);
 const say = (cn, en) => getLanguage() === "zh-CN" ? cn : en;
@@ -36,70 +36,48 @@ function gardenPositions(count, area) {
   return pts.slice(0, count);
 }
 
-function drawBed(ctx, w, h, area, seed) {
-  ctx.fillStyle = "#faf8f2";
+// Fine contour lines and translucent leaves are printed once beneath the live flowers.
+function drawBed(ctx, w, h, area, seed, form) {
+  ctx.fillStyle = "#faf8f1";
   ctx.fillRect(0, 0, w, h);
-  const {x, y, w : aw, h : ah} = area;
-  // A plan view of three interleaving beds. Fine printed islands are terrain;
-  // only button-backed marks carry a particular memory.
-  const current = (u, n) => .52 + .16 * Math.sin(u * 6.4 + seed + n * .48) +
-      .14 * Math.cos(u * 9.1 - .8 + n * .88) + .09 * (u - .5);
-  const spacing = w < 650 ? 4.3 : 5.1;
-  const palette = [ "#8bbfc4", "#75b6d3", "#a298c9", "#a7c789", "#df9b82" ];
-  const prints = palette.map(() => new Path2D());
-  for (let py = 0; py < h; py += spacing)
-    for (let px = 0; px < w; px += spacing) {
-      const u = (px - x) / aw, v = (py - y) / ah;
-      const n = noise(u * 11 + seed, v * 11 + seed);
-      const d = Math.min(Math.abs(v - current(u, -.65)), Math.abs(v - current(u, 1.1)) + .06);
-      const extent = clamp(1.26 - Math.abs(u - .5) * 2, 0, 1);
-      const islands = noise(u * 5.2 - seed, v * 6.7 + 5.5);
-      const density = clamp((.23 - d) * 3.7 + (n - .49) * 1.15 + (islands - .52) * .95, 0, 1) * extent;
-      if (density < .07)
-        continue;
-      const radius = (.18 + density * 2.18) * (w < 600 ? .84 : 1);
-      const index = Math.min(4, Math.floor(noise(u * 5 + 2.3, v * 6 + .2) * 5));
-      const p = prints[index];
-      p.moveTo(px + radius, py);
-      p.arc(px, py, radius, 0, TAU);
-    }
-  prints.forEach((path, i) => {
-    ctx.fillStyle = palette[i];
-    ctx.fill(path);
-  });
-  // Broken clusters of tiny ink grains describe the bed between readable marks.
-  const grains = palette.map(() => new Path2D());
-  const stations = Math.round(clamp(aw / 12, 32, 110)), salt = Math.round(seed * 51);
-  for (let n = 0; n < stations; n++) {
-    const u = hash(n, salt), v = current(u, hash(n, 14) * 2 - 1) + (hash(n, 31) - .5) * .32;
-    const px = x + u * aw, py = y + v * ah, spread = 4 + hash(n, 8) * 8;
-    const plate = grains[Math.floor(hash(n, 33) * grains.length)];
-    for (let j = 0; j < 9; j++) {
-      const angle = TAU * hash(n, j + 1), d = hash(n, j + 15) * spread;
-      const gx = px + Math.cos(angle) * d, gy = py + Math.sin(angle) * d * .64,
-            r = .55 + hash(n, 53 + j) * 1.3;
-      plate.moveTo(gx + r, gy);
-      plate.arc(gx, gy, r, 0, TAU);
-    }
+  const bank = (u, v) => area.y + area.h * (.54 + .17 * Math.sin(u * 4.2 + seed + .62 * v) +
+      .069 * Math.cos(u * 8.5 - v * .82) + v * .25);
+  for (const [u, v, colour] of [[.23,.14,form.tip],[.73,-.38,"#bacfba"],[.61,.63,form.mid]]) {
+    const x = area.x + u * area.w, y = bank(u, v), r = Math.min(w, h) * .52;
+    const wash = ctx.createRadialGradient(x, y, 0, x, y, r);
+    wash.addColorStop(0, colour + "4a");
+    wash.addColorStop(.48, colour + "20");
+    wash.addColorStop(1, colour + "00");
+    ctx.fillStyle = wash;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  grains.forEach((path, i) => {
-    ctx.fillStyle = palette[i];
-    ctx.fill(path);
-  });
-  for (let i = 0; i < 61; i++) {
-    const k = i / 60, channel = (k - .5) * .22;
+  for (let i = 0; i < 26; i++) {
+    const v = (i - 12) / 13;
     ctx.beginPath();
-    for (let j = 0; j <= 115; j++) {
-      const u = -.29 + j / 115 * 1.61, px = x + aw * u,
-            py = y + ah * (current(u, k * 2 - .8) + channel + .026 * Math.sin(13 * u + seed + k * 3));
-      if (!j)
-        ctx.moveTo(px, py);
-      else
-        ctx.lineTo(px, py);
+    for (let j = 0; j <= 100; j++) {
+      const u = -.22 + j * .0144, x = area.x + u * area.w, y = bank(u, v);
+      if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
     }
-    ctx.strokeStyle = i % 7 === 0 ? "#777ba854" : i % 2 ? "#7fb9c047" : "#b995ba3f";
-    ctx.lineWidth = i % 6 === 0 ? 1 : .58;
+    ctx.lineWidth = i % 6 ? .65 : 1.15;
+    ctx.strokeStyle = i % 5 ? "#a7b79e40" : form.hem + "3d";
     ctx.stroke();
+  }
+  for (let i = 0; i < 52; i++) {
+    const u = hash(i, 12 + seed) * 1.35 - .17, v = (hash(i, 31) - .5) * 2;
+    const x = area.x + u * area.w, y = bank(u, v);
+    const angle = Math.atan2(bank(u + .01, v) - y, area.w * .01) + (i % 2 ? -.55 : .55);
+    const length = 4 + hash(i, 6) * Math.min(20, area.w * .026);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.scale(length, length * .25);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(.5, -1, 1, 0);
+    ctx.quadraticCurveTo(.55, .7, 0, 0);
+    ctx.fillStyle = i % 4 ? "#9cb89757" : form.hem + "45";
+    ctx.fill();
+    ctx.restore();
   }
 }
 
@@ -109,11 +87,6 @@ export class FlowGarden {
     this.readout = readout;
     this.root = el("garden");
     this.canvas = el("waterbed");
-    this.water = el("garden-water");
-    this.ink = this.water.getContext("2d");
-    this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
-    this.quiet.addEventListener("change", () => this.wakeWater());
-    document.addEventListener("visibilitychange", () => this.wakeWater());
     this.seedLayer = el("seeds");
     this.ctx = this.canvas.getContext("2d");
     this.visits = new Map();
@@ -167,11 +140,14 @@ export class FlowGarden {
     this.resize = new ResizeObserver(() => this.paint());
     this.resize.observe(this.root);
   }
-  enter(id, collection, phase = 1.15) {
-    this.entryPhase = phase;
-    this.entryTime = performance.now();
+  enter(id, collection, revealDelay = 0) {
+    this.born = new Map();
+    this.slots = [];
+    this.entryTime = performance.now() + revealDelay;
     this.id = id;
     this.site = PLACES[id];
+    this.flower = flowerKey(this.site.study);
+    this.root.style.setProperty("--flower-ink", allForms[this.flower].hem);
     this.collection = collection;
     if (!this.visits.has(id))
       this.visits.set(id, {
@@ -187,10 +163,6 @@ export class FlowGarden {
     this.paint();
   }
   leave() {
-    cancelAnimationFrame(this.waterFrame);
-    this.waterFrame = 0;
-    this.pools = null;
-    this.attended = null;
     if (this.sheet.open)
       this.sheet.close();
     this.card.hide();
@@ -221,39 +193,6 @@ export class FlowGarden {
   }
   seedHint(mark) {
     this.readout(mark ? this.label(this.visit.pool.getById(mark.dataset.id)) : null);
-    const id = mark?.dataset.kind === "featured" ? mark.dataset.id : null;
-    if (id !== this.attended) {
-      this.attended = id;
-      this.wakeWater();
-    }
-  }
-  wakeWater() {
-    if (!this.pools || this.waterFrame || document.hidden || !this.id)
-      return;
-    this.waterFrame = requestAnimationFrame(now => {
-      this.waterFrame = 0;
-      if (!this.pools || !this.id || document.hidden)
-        return;
-      const dt = clamp((now - (this.lastWater ?? now)) / 1000, 0, .08);
-      this.lastWater = now;
-      const ctx = this.ink;
-      ctx.clearRect(0, 0, this.water.width, this.water.height);
-      let moving = false;
-      const remaining = this.quiet.matches ? 0 : 1 - smooth(clamp((now - this.entryTime) / 1050, 0, 1));
-      for (const p of this.pools) {
-        const target = p.id === this.attended && !this.sheet.open ? 1 : 0;
-        p.energy += (target - p.energy) * (1 - Math.exp(-dt * (target ? 3.2 : 1.7)));
-        if (!this.quiet.matches)
-          p.phase += dt * p.energy * .88;
-        const x = p.x + (this.waterCenter.x - p.x) * remaining * .45;
-        const y = p.y + (this.waterCenter.y - p.y) * remaining * .45;
-        waterprint(ctx, x, y, p.r, p.phase, p.seed, .94);
-        if (target || p.energy > .015)
-          moving = true;
-      }
-      if (moving && !this.quiet.matches)
-        this.wakeWater();
-    });
   }
   turn(n) {
     this.page += n;
@@ -292,31 +231,23 @@ export class FlowGarden {
     if (key === this.layoutKey)
       return;
     this.layoutKey = key;
-    this.waterCenter = {x : w * .5, y : h * .49};
+    // Publishing puts the newest memory first in reading order. Give it a vacant
+    // physical spot so the flowers that are already growing keep their roots.
+    const ids = new Set(records.map(memory => memory.id));
+    const nextSlots = Array.from({length:records.length}, (_, i) => {
+      const id = this.slots[i];
+      return ids.delete(id) ? id : null;
+    });
+    const arriving = ids.values();
+    this.slots = nextSlots.map(id => id ?? arriving.next().value);
     const pts = gardenPositions(records.length, area);
+    const positions = new Map(this.slots.map((id, i) => [id, pts[i]]));
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const seed = Array.from(this.id).reduce((n, c) => n + c.charCodeAt(0), 0) % 97 / 17;
-    drawBed(this.ctx, w, h, area, seed);
-    const wdpr = Math.min(dpr, 1.65);
-    this.water.width = Math.round(w * wdpr);
-    this.water.height = Math.round(h * wdpr);
-    this.ink.setTransform(wdpr, 0, 0, wdpr, 0, 0);
-    this.pools = featured.map((memory, i) => {
-      const prior = this.pools?.find(p => p.id === memory.id);
-      return {
-        id : memory.id,
-        x : pts[i][0],
-        y : pts[i][1],
-        seed : placePhase(this.id) + i * 2.9,
-        r : clamp(Math.min(area.w, area.h) * (.34 + i * .045), 58, w < 600 ? 137 : 218),
-        phase : prior?.phase ?? (this.entryPhase + i * .87),
-        energy : prior?.energy ?? 1
-      };
-    });
-    this.lastWater = performance.now();
-    this.wakeWater();
+    drawBed(this.ctx, w, h, area, seed, allForms[this.flower]);
+    const now = performance.now();
     const nodes = records.map((memory, i) => {
       const b = document.createElement("button");
       b.type = "button";
@@ -325,17 +256,31 @@ export class FlowGarden {
       b.dataset.kind = i < featured.length ? "featured" :
           (memory.image || memory.audio)   ? "archive" :
                                              "personal";
-      b.style.left = pts[i][0] + "px";
-      b.style.top = pts[i][1] + "px";
-      b.style.setProperty("--turn", Math.round(hash(i, 7) * 150) + "deg");
-      b.style.setProperty(
-          "--seed-size", i < featured.length ? (i ? 37 : 44) + "px" : (11 + hash(i, 4) * 8) + "px");
-      b.style.setProperty(
-          "--seed-ink", [ "#546f99", "#736b9e", "#658888", "#a27279" ][Math.floor(hash(i, 8) * 4)]);
+      const [x, y] = positions.get(memory.id);
+      b.style.left = x + "px";
+      b.style.top = y + "px";
+      const phase = hash(Array.from(memory.id).reduce((n, ch) => n + ch.charCodeAt(0), 0), 7);
+      b.style.setProperty("--turn", (phase - .5) * 55 + "deg");
+      const featuredSize = clamp(Math.min(area.w, area.h) * .27, compact ? 81 : 113, compact ? 106 : 162);
+      const size = i < featured.length ? featuredSize * (i ? .88 : 1) :
+          (compact ? 32 : 44) * (.86 + phase * .45);
+      b.style.setProperty("--seed-size", size + "px");
       const label = this.label(memory);
       b.setAttribute("aria-label", label);
-      const m = document.createElement("i");
-      m.setAttribute("aria-hidden", "true");
+      const m = new Image();
+      m.alt = "";
+      m.draggable = false;
+      m.src = plateURL(this.flower);
+      m.className = "garden-blossom";
+      if (!this.born.has(memory.id)) {
+        const personal = memory.label === "YOUR MEMORY";
+        this.born.set(memory.id, personal ? now : Math.max(now, this.entryTime) + Math.min(i, 18) * 55);
+      }
+      const delay = this.born.get(memory.id) - now;
+      if (delay > -1850) {
+        m.classList.add("unfolding");
+        m.style.animationDelay = delay + "ms";
+      }
       const caption = document.createElement("span");
       caption.textContent = label;
       b.append(m, caption);

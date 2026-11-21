@@ -53,6 +53,10 @@ export class AtlasLanding {
         this.scroll.scrollTop = this.inputProgress * (this.scroll.scrollHeight - this.scroll.clientHeight);
     });
     this.resize.observe(this.scroll);
+    section.querySelector("#landing-cue").onclick = () => {
+      this.target = 1;
+      this.follow();
+    };
     this.control.onclick = () => this.enter();
     document.addEventListener("keydown", event => {
       if (!this.active || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||

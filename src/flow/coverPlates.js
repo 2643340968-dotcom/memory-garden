@@ -1,7 +1,7 @@
-import {forms} from "./flowerForms.js";
+import {allForms, forms} from "./flowerForms.js";
 import {makePlates} from "./coverPigments.js";
 
-function workerPlates() {
+function workerPlates(keys) {
   return new Promise(resolve => {
     let worker;
     const finish = value => {
@@ -11,6 +11,7 @@ function workerPlates() {
     try {
       worker = new Worker(new URL("./cover.worker.js", import.meta.url), {type: "module"});
       worker.onmessage = event => finish(event.data);
+      worker.postMessage(keys);
       worker.onmessageerror = () => finish(null);
       worker.onerror = event => {
         event.preventDefault();
@@ -22,9 +23,9 @@ function workerPlates() {
   });
 }
 
-async function bake() {
+async function bake(keys) {
   if (typeof Worker !== "undefined" && typeof OffscreenCanvas !== "undefined") {
-    const result = await workerPlates();
+    const result = await workerPlates(keys);
     if (result) return result;
   }
   const surface = size => {
@@ -33,14 +34,18 @@ async function bake() {
     return c;
   };
   const plates = {};
-  for (const [city, form] of Object.entries(forms)) {
+  for (const key of keys) {
     await new Promise(resolve => setTimeout(resolve, 0));
-    plates[city] = makePlates(form, surface);
+    plates[key] = makePlates(allForms[key], surface);
   }
   return plates;
 }
 
-let collection;
-export function loadPlates() {
-  return collection ??= bake();
+let cities, sites;
+export function loadPlates(includeSites = false) {
+  cities ??= bake(Object.keys(forms));
+  if (!includeSites) return cities;
+  sites ??= Promise.all([cities, bake(Object.keys(allForms).filter(key => !forms[key]))])
+    .then(([a, b]) => ({...a, ...b}));
+  return sites;
 }
