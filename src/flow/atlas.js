@@ -6,6 +6,7 @@ import {getLanguage, placeText} from "../i18n/LanguageController.js";
 import {blend, cameraProgress, clamp, latitude, mercator, project, under} from "./geometry.js";
 import {RippleField} from "./ripples.js";
 import {FlowBasemap, NavigationChart, paintChart} from "./FlowBasemap.js";
+import {nationalMarks, OverviewRipples} from "./overview.js";
 
 const stops = {
   country : 860,
@@ -26,6 +27,23 @@ const seas = [
   [ 89.6, 32, "青藏高原", "Tibetan Plateau" ]
 ];
 
+const labelDirections = Array.from({length : 16}, (_, index) => {
+  const angle = index * Math.PI / 8;
+  return [Math.cos(angle), Math.sin(angle)];
+});
+function* labelOffsets(width, height, gap, preferWest, national) {
+  const east = [gap, -height / 2], west = [-width - gap, -height / 2];
+  yield* preferWest ? [west, east] : [east, west];
+  yield [-width / 2, gap];
+  yield [-width / 2, -height - gap];
+  if (!national) return;
+  // Keep crowded national labels readable without moving a geographic dot.
+  for (let radius = 22; radius <= 146; radius += 8) {
+    for (const [ux, uy] of labelDirections)
+      yield [ux * radius - width / 2, uy * radius - height / 2];
+  }
+}
+
 export class FlowAtlas {
   constructor(root, callbacks) {
     this.root = root;
@@ -36,6 +54,7 @@ export class FlowAtlas {
     this.pointers = new Map();
     this.pins = new Map();
     this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
+    this.overviewRipples = new OverviewRipples(root, this.markers, this.quiet);
     this.charts = new AtlasCharts(root, () => this.invalidate(), {
       surfaces : {base : "#base"},
       makeWorker : () => new Worker(new URL("./chart.worker.js", import.meta.url), {type : "module"}),
@@ -65,6 +84,7 @@ export class FlowAtlas {
     this.dpr = dpr;
     const fit = this.fit(this.route);
     this.view = old && this.manual ? {...this.view, span : this.view.span * fit.span / old.span} : fit;
+    if (this.cover) this.positionCover();
     this.flight = null;
     this.notes.width = Math.round(w * dpr);
     this.notes.height = Math.round(h * dpr);
@@ -84,8 +104,28 @@ export class FlowAtlas {
     const my = country ? (mercator(54) + mercator(18)) * .5 : mercator(lat);
     return {x : lon - (cx - .5) * span, y : my + (cy - .5) * h / k, span};
   }
+  positionCover() {
+    const target = this.fit({level : "country"});
+    const span = target.span / this.cover.scale;
+    this.view = {...target, span, y : target.y + this.cover.drift * this.h * span / this.w};
+  }
+  setCover(pose) {
+    if (pose && !this.cover) this.ripples.clear();
+    this.cover = pose;
+    this.flight = null;
+    if (pose) {
+      this.overviewRipples.stop();
+      if (this.w) this.positionCover();
+    } else {
+      if (this.w) this.view = this.fit({level : "country"});
+      this.overviewRipples.update(true, false);
+    }
+    this.invalidate();
+  }
   show(route, {restore = null, keep = false, immediate = false} = {}) {
     this.unhover();
+    this.selectedLabel = null;
+    if (route.level !== "country") this.overviewRipples.stop();
     this.active = true;
     this.route = route;
     this.root.hidden = false;
@@ -102,6 +142,7 @@ export class FlowAtlas {
   }
   hide(holdFrame = false) {
     this.unhover();
+    this.overviewRipples.stop();
     this.active = false;
     this.pointers.clear();
     this.flight = null;
@@ -152,7 +193,7 @@ export class FlowAtlas {
     this.ripples.leave(this.hot);
     this.pins.get(this.hot)?.classList.remove("hot");
     this.hot = null;
-    this.callbacks.read(null);
+    this.callbacks.read(this.pins.get(this.selectedLabel)?.mark ?? null);
     this.invalidate();
   }
   hover(pin) {
@@ -162,15 +203,19 @@ export class FlowAtlas {
     const mark = pin.mark;
     this.hot = mark.id;
     pin.classList.add("hot");
-    this.ripples.strike(mark.id, PLACES[mark.site].center, this.route.level);
+    this.ripples.strike(mark.id, mark.center, this.route.level);
     this.callbacks.read(mark);
     this.invalidate();
   }
   activate(pin) {
     const mark = pin.mark;
     this.callbacks.gesture();
-    this.ripples.strike(mark.id, PLACES[mark.site].center, this.route.level, true);
+    this.ripples.strike(mark.id, mark.center, this.route.level, true);
     if (mark.national) {
+      if (!mark.city) {
+        this.selectLabel(this.selectedLabel === mark.id ? null : mark.id);
+        return;
+      }
       this.callbacks.navigate({level : "city", city : mark.city});
       return;
     }
@@ -193,6 +238,12 @@ export class FlowAtlas {
       return;
     }
     this.callbacks.choose(mark.site);
+  }
+  selectLabel(id) {
+    if (this.selectedLabel === id) return;
+    this.selectedLabel = id;
+    this.callbacks.read(this.pins.get(id ?? this.hot)?.mark ?? null);
+    this.invalidate();
   }
   bind() {
     const {root, markers} = this;
@@ -228,6 +279,7 @@ export class FlowAtlas {
     root.addEventListener("pointerdown", e => {
       if (e.button !== 0 || this.pointers.size >= 2)
         return;
+      if (!e.target.closest(".pin")) this.selectLabel(null);
       const point = this.point(e);
       this.callbacks.gesture();
       this.wheel = null;
@@ -302,7 +354,14 @@ export class FlowAtlas {
         end(e);
     });
     window.addEventListener("pointerup", end);
-    document.addEventListener("visibilitychange", () => this.invalidate());
+    root.addEventListener("keydown", e => {
+      if (e.key === "Escape") this.selectLabel(null);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) this.overviewRipples.stop();
+      else this.invalidate();
+    });
+    this.quiet.addEventListener("change", () => this.invalidate());
     document.fonts?.ready.then(() => this.invalidate());
     document.querySelector("#zoom-in").onclick = () => this.zoom(1.85);
     document.querySelector("#zoom-out").onclick = () => this.zoom(1 / 1.85);
@@ -353,12 +412,10 @@ export class FlowAtlas {
   groups() {
     const national = this.route.level === "country";
     if (national)
-      return Object.entries(CITIES).map(
-          ([ city, data ]) =>
-              ({id : city, site : data.places[0], city, national : true, members : [ data.places[0] ]}));
+      return nationalMarks;
     const pts = CITIES[this.route.city].places.map(id => {
       const p = PLACES[id], [ x, y ] = project(this.view, this.w, this.h, p.center);
-      return {id, site : id, city : p.city, x, y};
+      return {id, site : id, city : p.city, name : p.name, center : p.center, x, y};
     });
     const rest = pts.filter(p => p.id !== this.route.place),
           selected = pts.find(p => p.id === this.route.place);
@@ -388,13 +445,13 @@ export class FlowAtlas {
       landing = blend(this.view, f.to, Math.min(.22, .15 / gap));
     }
     const detail = this.charts.update(
-        "base", this.view, this.w, this.h, this.dpr, getLanguage(), !!f || this.dragging, landing);
+        "base", this.view, this.w, this.h, this.dpr, getLanguage(), !!f || this.dragging || !!this.cover, landing);
     const chart = this.surround.select(detail, this.view, this.w, this.h, getLanguage(), this.dpr);
     this.root.classList.toggle("provisional", this.surround.needed);
     if (chart)
       this.root.dataset.vectorLevel = chart.frame.level;
-    const groups = this.groups();
-    const reserved = this.drawPins(groups);
+    const reserved = this.cover ? [] : this.drawPins(this.groups());
+    this.overviewRipples.update(this.route.level === "country" && !this.cover, !f && !!chart && !this.dragging);
     this.annotate(chart, reserved);
     this.charts.flush();
     this.ripples.present(now, !!this.flight);
@@ -425,18 +482,19 @@ export class FlowAtlas {
           this.markers.append(pin);
         }
         pin.mark = g;
-        pin.style.setProperty("--pin-ink", cityInks[g.city]);
-        const name = placeText(g.national ? CITIES[g.city].name : PLACES[g.site].name);
+        pin.style.setProperty("--pin-ink", cityInks[g.city] ?? "#6d817d");
+        const name = placeText(g.name);
         pin.lastElementChild.textContent = name;
         pin.firstElementChild.firstElementChild.textContent =
             g.members.length > 1 ? g.members.length : "";
         pin.setAttribute(
             "aria-label",
-            name +
+            name + (!g.city ? (zh() ? " · 地图标注" : " · Map location") : "") +
                 (g.members.length > 1 ? (zh() ? " · 附近 " : " · ") + g.members.length +
                          (zh() ? " 处地点" : " nearby places") :
                                         ""));
         pin.classList.toggle("national", !!g.national);
+        pin.classList.toggle("annotation", !g.city);
         pin.classList.toggle("cluster", g.members.length > 1);
       }
       for (const id of gone) {
@@ -448,43 +506,60 @@ export class FlowAtlas {
     }
     const screen = [];
     for (const [id, pin] of this.pins) {
-      const [x, y] = project(this.view, this.w, this.h, PLACES[pin.mark.site].center);
+      const [x, y] = project(this.view, this.w, this.h, pin.mark.center);
       pin.hidden = x < -5 || y < -5 || x > this.w + 5 || y > this.h + 5;
       if (pin.hidden)
         continue;
       pin.style.transform = `translate(${x}px,${y}px)`;
-      const hot = id === this.hot || id === this.route.place;
+      const hot = id === this.hot || id === this.route.place || id === this.selectedLabel;
+      if (!pin.mark.city) pin.setAttribute("aria-pressed", String(id === this.selectedLabel));
       pin.classList.toggle("active", hot);
       screen.push({pin, x, y, hot});
     }
-    const blocked = screen.map(
-        ({x, y, pin}) => ({left : x - 12, right : x + 12, top : y - 12, bottom : y + 12, pin}));
+    const blocked = screen.map(({x, y, pin}) => {
+      const radius = pin.mark.national ? (pin.mark.city ? 8 : 5) : 12;
+      return {left : x - radius, right : x + radius, top : y - radius, bottom : y + radius, pin};
+    });
     screen.sort(
         (a, b) => Number(b.hot) - Number(a.hot) || b.pin.mark.members.length - a.pin.mark.members.length);
     this.ctx.font = (this.w < 620 ? "13" : "15") + "px system-ui";
     for (const {pin, x, y, hot} of screen) {
-      const label = pin.lastElementChild,
-            width = Math.min(this.w * .42, Math.ceil(this.ctx.measureText(label.textContent).width + 14)),
-            half = 13;
-      const gap = pin.mark.national || pin.mark.members.length > 1 ? 18 : 13;
-      const east = [ gap, -half ], west = [ -width - gap, -half ];
-      const sides = x > this.w * .76 ? [ west, east ] : [ east, west ];
-      const opts = [...sides, [ -width / 2, 13 ], [ -width / 2, -33 ] ];
+      if (!pin.mark.city && !hot) {
+        pin.lastElementChild.hidden = true;
+        pin.classList.remove("with-leader");
+        continue;
+      }
+      const label = pin.lastElementChild, national = pin.mark.national;
+      const width = Math.min(this.w * .42, Math.ceil(this.ctx.measureText(label.textContent).width +
+                                                    (national && this.w < 620 ? 6 : 14)));
+      const height = national && this.w <= 560 ? 20 : 24;
+      const gap = national ? (this.w < 620 ? 10 : 12) : pin.mark.members.length > 1 ? 18 : 13;
       let show = false;
-      for (const [dx, dy] of opts) {
-        const box = {left : x + dx, right : x + dx + width, top : y + dy, bottom : y + dy + 24};
+      let leader = false;
+      for (const [dx, dy] of labelOffsets(width, height, gap, x > this.w * .76, national)) {
+        const box = {left : x + dx, right : x + dx + width, top : y + dy, bottom : y + dy + height};
         if (box.left < 2 || box.right > this.w - 2 || box.top < 1 || box.bottom > this.h - 1)
           continue;
-        if (blocked.some(other => other.pin !== pin && overlaps(box, other, 1)))
+        if (blocked.some(other => (national || other.pin !== pin) && overlaps(box, other, 1)))
           continue;
         label.style.left = dx + "px";
         label.style.top = dy + "px";
         label.style.width = width + "px";
+        if (national) {
+          const vx = clamp(0, dx, dx + width), vy = clamp(0, dy, dy + height);
+          const length = Math.hypot(vx, vy);
+          leader = length > 16;
+          if (leader) {
+            pin.style.setProperty("--leader-length", (length - 1) + "px");
+            pin.style.setProperty("--leader-angle", Math.atan2(vy, vx) + "rad");
+          }
+        }
         blocked.push(box);
         show = true;
         break;
       }
       label.hidden = !show;
+      pin.classList.toggle("with-leader", leader);
     }
     return blocked;
   }

@@ -144,11 +144,11 @@ function readout(gardenLabel = null) {
   if (!route)
     return;
   const isGarden = route.level === "garden";
-  const pos = !isGarden && hovered ? PLACES[hovered.site].center :
+  const pos = !isGarden && hovered ? hovered.center :
                                      PLACES[route.place]?.center ?? CITIES[route.city]?.center;
   let label = local("全国地图", "National atlas");
   if (hovered && !isGarden)
-    label = placeText(hovered.national ? CITIES[hovered.city].name : PLACES[hovered.site].name);
+    label = placeText(hovered.name);
   else if (isGarden)
     label = gardenLabel ?? local("花园俯视图", "Garden plan");
   else if (route.city)
@@ -183,8 +183,10 @@ function chrome() {
   const project = local("记忆之场", "Site of Memory"), gardenName = local("记忆花园", "Memory Garden");
   el("edition-name").textContent = project;
   el("landing-title").textContent = project;
+  el("landing-translation").textContent = local("Site of Memory", "记忆之场");
+  el("landing-translation").lang = local("en", "zh-CN");
   el("landing-hint").textContent =
-      local(touch.matches ? "上滑，展开地图" : "向下滚动，展开地图", "Scroll to unfold the map");
+      local(touch.matches ? "上滑进入地图" : "下滑进入地图", touch.matches ? "Swipe to enter" : "Scroll to enter");
   el("landing-scroll")
       .setAttribute("aria-label", local("滚动进入全国地图", "Scroll into the national atlas"));
   el("open-map").textContent = local("进入地图", "Enter map");
@@ -208,8 +210,8 @@ function chrome() {
   const tip = isGarden ? local("轻触印记，读一段记忆。", "Select a mark to read a memory.") :
       site             ? local("点选此处，进入花园。", "Select this place to enter its garden.") :
       city          ? local("点开数字，再选一处地点。", "Open a numbered group, then choose a place.") :
-      touch.matches ? local("轻触城市，循着水纹进入。", "Touch a city and follow the ripples.") :
-                      local("指向城市，看水纹散开。", "Hover over a city to set its waters in motion.");
+      local("全国有 18 个圆点。点选带地名的五座城市可进入城市地图，轻触小圆点可查看地名。",
+            "Explore the five labelled cities, or select any of the other thirteen dots to see its name.");
   el("intro").textContent = site ? placeText(site.introduction) : tip;
   el("guide-tip").textContent = tip;
   const guide = local("地图导览、图例与来源", "Map guide, legend and sources");

@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 45 tests, including visitor media, bidirectional zoom, atlas pack integrity and multiscale coverage for 85 sites, bilingual flowers and source records, per-place collections, and the Jiangdongmen bloom. Flow Atlas coverage includes the reversible scroll-driven opening, camera registration and velocity, full coverage on fast camera reversals, the pale national and street palettes, and overlapping outline ripples.
+- The automated suite has 46 tests, including visitor media, bidirectional zoom, atlas pack integrity and multiscale coverage for 85 sites, bilingual flowers and source records, per-place collections, and the Jiangdongmen bloom. Flow Atlas coverage includes its eighteen overview marks, the reversible scroll zoom, camera registration and velocity, full coverage on fast camera reversals, the pale national and street palettes, and overlapping outline ripples.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -25,7 +25,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 
 - `/png.html` → `src/png-main.js` → national atlas, then a lazy-loaded PNG garden with the selected site's collection.
 - `/flow.html` → `src/flow/main.js` → an independently styled pale vector atlas and top-down garden. This entry shares the place catalogue, vector chart cache and memory intake. Its title cards, water fronts, camera, garden marks and page-local visit state belong to the new edition.
-- Opening the bare Flow URL presents a centered title controlled by native scrolling or touch. The header gathers the controls. `#atlas` and deeper links open their geographic destinations directly. The home imprint reopens the cover.
+- Opening the bare Flow URL presents a bilingual title high on a blank sheet, with actions at the top. A short scroll or swipe zooms the geographic camera into a still national map. Eighteen circular marks then appear. Five open the original city collections and thirteen show geographic names. Random, short-lived rings animate on the national dots. `#atlas` and deeper links open their geographic destinations directly. The circular home mark reopens the cover.
 - `src/flow/FlowBasemap.js` draws geographic features on the same warm paper in overview, navigation and detailed views. The map uses pale water, vegetation and building fills. Hover and focus trace thin grey-blue ripples. The garden and its arrival use their own coloured water effect.
 - `/model.html` → `src/model-main.js` → preserved GLB flower version.
 - `/` → `./png.html` → national atlas.

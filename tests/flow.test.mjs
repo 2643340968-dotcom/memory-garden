@@ -4,12 +4,15 @@ import {project, under, mercator, latitude, blend, cameraProgress, coversView, f
 import {FlowBasemap, NavigationChart} from "../src/flow/FlowBasemap.js";
 import {AFTERGLOW, envelope, releaseWave, RippleField} from "../src/flow/ripples.js";
 import {openingPose} from "../src/flow/landing.js";
+import {nationalMarks} from "../src/flow/overview.js";
+import {CITIES, PLACES} from "../src/atlas/places.js";
 
 test(
     "scrolling the cover in either direction recovers the same title, paper and map registration", () => {
       const start = openingPose(0), middle = openingPose(.46), end = openingPose(1);
       assert.equal(start.title, 1);
       assert.equal(start.wash, 1);
+      assert.ok(start.scale < .6 && start.scale < middle.scale && middle.scale < end.scale);
       assert.ok(middle.title > 0 && middle.title < 1 && middle.drift < start.drift);
       assert.equal(end.title, 0);
       assert.equal(end.wash, 0);
@@ -25,6 +28,18 @@ test(
         assert.equal(still.scale, 1);
       }
     });
+
+test("the national sheet holds eighteen geographic dots and only its five collection cities open a route", () => {
+  assert.equal(nationalMarks.length, 18);
+  assert.equal(new Set(nationalMarks.map(mark => mark.id)).size, 18);
+  const destinations = nationalMarks.filter(mark => mark.city);
+  assert.deepEqual(destinations.map(mark => mark.id).sort(), Object.keys(CITIES).sort());
+  for (const mark of destinations) assert.deepEqual(mark.center, PLACES[mark.site].center);
+  const labels = nationalMarks.filter(mark => !mark.city);
+  assert.ok(labels.every(mark => mark.name.length === 2 && !mark.site && !mark.members.length));
+  const x = labels.map(mark => mark.center[0]), y = labels.map(mark => mark.center[1]);
+  assert.ok(Math.max(...x) - Math.min(...x) > 45 && Math.max(...y) - Math.min(...y) > 24);
+});
 
 test("flow atlas keeps geographic anchors registered through zoom and its reverse", () => {
   const country = {x : 104.8, y : mercator(36), span : 90};

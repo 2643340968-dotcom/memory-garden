@@ -3,13 +3,13 @@ import {clamp, smooth} from "./geometry.js";
 // Native scrolling supplies the distance, including touch inertia and reversals.
 // The atlas receives wheel and pan only after this separate scroll surface ends.
 export function openingPose(fraction, quiet = false) {
-  const p = clamp(fraction, 0, 1), rest = 1 - smooth(p);
+  const p = clamp(fraction, 0, 1), zoom = smooth(p), rest = 1 - zoom;
   return {
-    title : 1 - smooth(clamp((p - .045) / .72, 0, 1)),
-    wash : 1 - smooth(clamp((p - .04) / .93, 0, 1)),
-    lift : quiet ? 0 : 22 * smooth(p),
-    drift : quiet ? 0 : 32 * rest,
-    scale : quiet ? 1 : 1 + .055 * rest,
+    title : 1 - smooth(clamp((p - .025) / .57, 0, 1)),
+    wash : 1 - smooth(clamp((p - .10) / .75, 0, 1)),
+    lift : quiet ? 0 : 13 * zoom,
+    drift : quiet ? 0 : .12 * rest,
+    scale : quiet ? 1 : .46 ** rest,
   };
 }
 
@@ -32,15 +32,23 @@ export class AtlasLanding {
       const length = this.scroll.scrollHeight - this.scroll.clientHeight;
       if (length <= 0)
         return;
-      this.progress = clamp(this.scroll.scrollTop / length, 0, 1);
-      if (this.scroll.scrollTop >= length - 1)
-        this.enter(true);
-      else
-        this.paint();
+      const next = this.scroll.scrollTop >= length - 1 ? 1 : clamp(this.scroll.scrollTop / length, 0, 1);
+      const forward = next > this.inputProgress;
+      clearTimeout(this.snapTimer);
+      // Finish a short notch visually without moving the physical scroll rail.
+      // A reversal continues from the visitor's last actual input position.
+      if (!(forward && this.target === 1)) this.target = next;
+      if (forward && next >= .22 && this.target < 1)
+        this.snapTimer = setTimeout(() => {
+          this.target = 1;
+          this.follow();
+        }, 240);
+      this.inputProgress = next;
+      this.follow();
     }, {passive : true});
     this.resize = new ResizeObserver(() => {
       if (this.active)
-        this.scroll.scrollTop = this.progress * (this.scroll.scrollHeight - this.scroll.clientHeight);
+        this.scroll.scrollTop = this.inputProgress * (this.scroll.scrollHeight - this.scroll.clientHeight);
     });
     this.resize.observe(this.scroll);
     this.control.onclick = () => this.enter();
@@ -79,7 +87,7 @@ export class AtlasLanding {
   }
   open(focus = false) {
     this.active = true;
-    this.progress = 0;
+    this.progress = this.target = this.inputProgress = 0;
     this.carryUntil = 0;
     this.section.hidden = false;
     this.control.hidden = false;
@@ -90,21 +98,39 @@ export class AtlasLanding {
     if (focus)
       this.scroll.focus({preventScroll : true});
   }
+  follow() {
+    if (this.frame) return;
+    let last = performance.now();
+    const advance = now => {
+      this.frame = 0;
+      if (!this.active) return;
+      const dt = Math.max(0, now - last);
+      last = now;
+      const gain = this.quiet.matches ? 1 : 1 - Math.exp(-dt / 90);
+      this.progress += (this.target - this.progress) * gain;
+      if (Math.abs(this.target - this.progress) < .0015) this.progress = this.target;
+      this.paint();
+      if (this.progress === 1) this.enter(true);
+      else if (this.progress !== this.target) this.frame = requestAnimationFrame(advance);
+    };
+    this.frame = requestAnimationFrame(advance);
+  }
   paint() {
-    const {title, wash, lift, drift, scale} = openingPose(this.progress, this.quiet.matches);
+    const pose = openingPose(this.progress, this.quiet.matches);
     const style = this.stage.style;
-    style.setProperty("--cover-title", title);
-    style.setProperty("--cover-wash", wash);
-    style.setProperty("--cover-feather", 16 * (1 - smooth(this.progress)) + "%");
-    style.setProperty("--cover-pins", smooth(clamp((this.progress - .36) / .50, 0, 1)));
-    style.setProperty("--cover-lift", -lift + "vh");
-    style.setProperty("--cover-drift", drift + "%");
-    style.setProperty("--cover-scale", scale);
+    style.setProperty("--cover-title", pose.title);
+    style.setProperty("--cover-wash", pose.wash);
+    style.setProperty("--cover-lift", -pose.lift + "vh");
+    this.atlas.setCover(pose);
   }
   close() {
     if (!this.active)
       return;
     this.active = false;
+    clearTimeout(this.snapTimer);
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
+    this.atlas.setCover(null);
     this.stage.classList.remove("show-opening");
     this.section.hidden = this.control.hidden = true;
     this.atlas.root.inert = false;
