@@ -11,10 +11,9 @@
 <body>
   <main id="edition" data-tools="cover">
     <div class="toolbar-shell">
-    <button type="button" id="tools-grip" aria-controls="toolbar-panel" aria-expanded="false" aria-label="展开地图工具" hidden></button>
     <header class="masthead" id="toolbar-panel">
       <a class="home" href="./flow.html" aria-label="项目首页">
-        <span class="imprint" aria-hidden="true"></span><span id="edition-name" class="sr"></span>
+        <svg class="home-symbol" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.3 12 4l9 7.3M5.7 10v9.4h4.1v-5.2h4.4v5.2h4.1V10"/></svg><span id="home-name">首页</span>
       </a>
       <nav id="trail" aria-label="地图位置"></nav>
       <div class="header-tools">
@@ -48,11 +47,11 @@
     </div>
     <section id="stage" class="stage" data-surface="atlas">
       <div id="map" class="map" role="group" aria-label="地图" tabindex="-1">
-        <canvas id="surround" aria-hidden="true"></canvas><canvas id="base" aria-hidden="true"></canvas><canvas id="notations" aria-hidden="true"></canvas>
+        <canvas id="surround" aria-hidden="true"></canvas><canvas id="base" aria-hidden="true"></canvas><canvas id="memory-beds" aria-hidden="true"></canvas><canvas id="notations" aria-hidden="true"></canvas>
         <canvas id="waves" aria-hidden="true"></canvas><div id="pins"></div>
       </div>
       <div id="garden" class="garden" hidden role="group" aria-label="记忆花园" tabindex="-1">
-        <canvas id="waterbed" aria-hidden="true"></canvas><div id="seeds"></div>
+        <canvas id="waterbed" aria-hidden="true"></canvas><svg id="stalks" aria-hidden="true" preserveAspectRatio="none"></svg><div id="seeds"></div>
       </div>
       <div id="nearby" role="group" aria-label="附近地点" hidden></div>
       <section id="landing" hidden aria-labelledby="landing-title">
@@ -88,6 +87,7 @@
   <dialog id="flower-book" aria-labelledby="flower-book-title">
     <header class="book-head">
       <h2 id="flower-book-title"></h2>
+      <div id="book-views" role="group"><button type="button" data-view="overhead"></button><button type="button" data-view="front"></button><button type="button" data-view="side"></button></div>
       <button type="button" id="book-language" class="language"></button>
       <button type="button" id="close-book" class="close" autofocus>×</button>
     </header>

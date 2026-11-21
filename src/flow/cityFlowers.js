@@ -1,5 +1,4 @@
-// Project selections for the national marks. Reasons refer to the named place,
-// park, artwork or archive; smaller sites retain their own botanical selections.
+// The Flow edition carries one flower identity from each city to its sites and garden.
 export const cityFlowers = {
   nanjing: {
     name: ["紫金草", "Chinese violet cress"],

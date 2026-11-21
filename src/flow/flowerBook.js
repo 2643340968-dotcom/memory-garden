@@ -1,11 +1,17 @@
 import {nationalMarks} from "./overview.js";
 import {cityFlowers} from "./cityFlowers.js";
-import {plateURL} from "./flowerForms.js";
+import {plateURL, profileURL} from "./flowerForms.js";
 import {placeText} from "../i18n/LanguageController.js";
 
 export class FlowerBook {
   constructor(dialog, onVisibility) {
     this.dialog = dialog;
+    this.view = "overhead";
+    this.views = dialog.querySelector("#book-views");
+    this.views.onclick = e => {
+      const view = e.target.closest("[data-view]")?.dataset.view;
+      if (view) { this.view = view; this.updateLanguage(this.zh); }
+    };
     this.grid = dialog.querySelector(".book-grid");
     this.openControl = document.getElementById("open-flower-book");
     this.closeControl = dialog.querySelector("#close-book");
@@ -32,8 +38,7 @@ export class FlowerBook {
       }
       this.onVisibility(false);
       if (document.activeElement === document.body || this.openControl.closest("[inert]")) {
-        const grip = document.getElementById("tools-grip");
-        (grip.hidden ? document.getElementById("guide-toggle") : grip).focus({preventScroll: true});
+        document.querySelector(".home").focus({preventScroll:true});
       }
     });
   }
@@ -65,7 +70,7 @@ export class FlowerBook {
       caption.append(city, name, reason, source);
       item.append(plate, caption);
       this.grid.append(item);
-      return {mark, plate, city, name, reason, source};
+      return {mark, art, plate, city, name, reason, source};
     });
     this.updateLanguage(this.zh);
   }
@@ -80,8 +85,17 @@ export class FlowerBook {
     language.textContent = zh ? "英文" : "Chinese";
     language.setAttribute("aria-label", zh ? "切换为英文" : "Switch to Chinese");
     const i = zh ? 0 : 1;
-    for (const {mark, plate, city, name, reason, source} of this.entries ?? []) {
+    const views = {overhead:["俯视","Above"], front:["正面","Front"], side:["侧面","Side"]};
+    this.views.setAttribute("aria-label", zh ? "花朵视角" : "Flower view");
+    for (const b of this.views.children) {
+      b.textContent = views[b.dataset.view][i];
+      b.setAttribute("aria-pressed", String(this.view === b.dataset.view));
+    }
+    for (const {mark, art, plate, city, name, reason, source} of this.entries ?? []) {
       const flower = cityFlowers[mark.id];
+      const url = this.view === "overhead" ? plateURL(mark.id) : profileURL(mark.id, this.view);
+      plate.href = url;
+      art.src = url;
       city.textContent = placeText(mark.name);
       name.textContent = flower.name[i];
       plate.setAttribute("aria-label", (zh ? "打开正式花图 · " : "Open flower plate · ") + flower.name[i]);

@@ -21,11 +21,20 @@ export function envelope(wave, now, reduced = false) {
 }
 // A stationary mark is painted once. Only the attended flower and the still-wet
 // rims need new frames, independently of the map tiles or the camera.
+const restingFaces = new Map();
 export function restFlower(pin) {
   const canvas = pin.querySelector("canvas");
   const ctx = canvas.getContext("2d"), n = canvas.width;
   ctx.clearRect(0, 0, n, n);
-  drawCorolla(ctx, n, allForms[pin.dataset.species]);
+  const species = pin.dataset.species, key = species + ":" + n;
+  let face = restingFaces.get(key);
+  if (!face) {
+    face = document.createElement("canvas");
+    face.width = face.height = n;
+    drawCorolla(face.getContext("2d"), n, allForms[species]);
+    restingFaces.set(key, face);
+  }
+  ctx.drawImage(face, 0, 0);
 }
 
 export class RippleField {

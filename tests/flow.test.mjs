@@ -11,7 +11,9 @@ import {WetPaper} from "../src/flow/wetPaper.js";
 import {PetalCurrent} from "../src/flow/petalCurrent.js";
 import {nationalMarks} from "../src/flow/overview.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
-import {allForms, flowerKey, forms, plateURL} from "../src/flow/flowerForms.js";
+import {allForms, forms, plateURL, profileURL} from "../src/flow/flowerForms.js";
+import {meadowFlowers} from "../src/flow/memoryBeds.js";
+import {gardenPositions} from "../src/flow/standingGarden.js";
 import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
 import {CITIES, PLACES} from "../src/atlas/places.js";
 
@@ -149,22 +151,27 @@ test("wet dye builds only where different flowers meet, then diffuses and dries 
   assert.equal(amount(paper), 0);
 });
 
-test("Flow advances only through the pointed city and its places and retreats exactly one level", () => {
-  const country = {level: "country"};
-  assert.equal(nextMapLevel(country, true), null);
-  assert.equal(nextMapLevel(country, false), null);
+test("one scroll follows a chosen or remembered branch between the cover, three map stops and garden", () => {
+  const opening = {level:"opening"}, country = {level:"country"};
+  assert.deepEqual(nextMapLevel(opening, true), country);
+  assert.deepEqual(nextMapLevel(country, false), opening);
+  assert.deepEqual(nextMapLevel(country, true), {level:"city", city:"nanjing"});
   for (const mark of nationalMarks) {
     const city = nextMapLevel(country, true, mark);
     if (!mark.city) { assert.equal(city, null); continue; }
-    assert.deepEqual(city, {level: "city", city: mark.city});
+    assert.deepEqual(city, {level:"city", city:mark.city});
+    assert.deepEqual(nextMapLevel(country, true, null, {city:mark.city}), city);
     assert.deepEqual(nextMapLevel(city, false), country);
     assert.equal(nextMapLevel(city, true, mark), null);
-    assert.equal(nextMapLevel(city, true), null);
+    assert.equal(nextMapLevel(city, true).place, CITIES[mark.city].places[0]);
     for (const [id, data] of Object.entries(PLACES)) {
-      const place = nextMapLevel(city, true, {site: id});
-      if (data.city !== city.city) { assert.equal(place, null); continue; }
-      assert.deepEqual(place, {level: "place", city: city.city, place: id});
-      assert.equal(nextMapLevel(place, true, {site: id}), null);
+      const place = nextMapLevel(city, true, {site:id});
+      if (data.city !== mark.city) { assert.equal(place, null); continue; }
+      assert.deepEqual(place, {level:"place", city:mark.city, place:id});
+      assert.deepEqual(nextMapLevel(city, true, null, {[mark.city]:id}), place);
+      const garden = {level:"garden", city:mark.city, place:id};
+      assert.deepEqual(nextMapLevel(place, true), garden);
+      assert.deepEqual(nextMapLevel(garden, false), place);
       assert.deepEqual(nextMapLevel(place, false), city);
     }
   }
@@ -179,6 +186,8 @@ test("a sustained trackpad tail takes one step and a deliberate reversal can int
   assert.equal(wheel.consume(-42, 828), false);
   assert.equal(wheel.consume(-26, 1100), true);
   assert.equal(wheel.consume(100, 1110), true);
+  for (const time of [1220, 1440, 1780, 1950]) assert.equal(wheel.consume(8,time), false);
+  assert.equal(wheel.consume(90,2200), true);
 });
 
 test("street labels stay in the chosen language even when a vector tile lacks a translation", () => {
@@ -353,26 +362,51 @@ test("city, street and building tiles share the same feature fills in both zoom 
   }
 });
 
-test("a geographic flower has the matching finished plate at every scale", () => {
-  const keys = new Set();
+test("each city keeps one species across its sites, with distinct overhead, front and side artwork", () => {
+  const drawings = new Set();
   for (const mark of nationalMarks) {
     assert.equal(markFlower(mark), mark.id);
-    keys.add(mark.id);
-  }
-  for (const [id, place] of Object.entries(PLACES)) {
-    const mark = {site:id, city:place.city, members:[id]};
-    assert.equal(markFlower(mark), flowerKey(place.study));
-    assert.equal(markFlower({...mark, members:[id,"neighbour"]}), place.city);
-    keys.add(markFlower(mark));
-  }
-  assert.equal(keys.size, 28);
-  for (const key of keys) {
-    assert.ok(allForms[key]);
-    const source = readFileSync(new URL("../public/" + plateURL(key), import.meta.url), "utf8");
-    assert.match(source, /viewBox=/);
-    assert.match(source, /<radialGradient/);
+    assert.ok(allForms[mark.id]);
+    const source = readFileSync(new URL("../public/" + plateURL(mark.id), import.meta.url), "utf8");
     assert.match(source, /<g id="blossom">/);
-    assert.doesNotMatch(source, /NaN|undefined|<image[ >]/);
+    for (const view of ["front","side"]) {
+      const svg = readFileSync(new URL("../public/" + profileURL(mark.id, view), import.meta.url), "utf8");
+      assert.match(svg, /viewBox="0 0 160 144"/);
+      assert.match(svg, /<radialGradient/);
+      assert.ok(svg.includes("translate(80 126)") || svg.includes("M80 126"));
+      assert.doesNotMatch(svg, /NaN|undefined|<image[ >]/);
+      drawings.add(svg.split("</defs>").at(-1));
+    }
+  }
+  assert.equal(drawings.size, 36);
+  for (const [id, {city}] of Object.entries(PLACES)) {
+    assert.equal(markFlower({site:id, city, members:[id]}), city);
+    assert.equal(markFlower({site:id, city, members:[id, "neighbour"]}), city);
+  }
+});
+
+test("each place has a stable, layered bed of overlapping flowers in its city's ink", () => {
+  const patterns = new Set();
+  for (const [id,{city}] of Object.entries(PLACES)) {
+    const blooms = meadowFlowers(id,city);
+    assert.deepEqual(blooms,meadowFlowers(id,city));
+    assert.ok(blooms.length >= 46 && blooms.length <= 54);
+    assert.ok(blooms.every(b => b.type === city && b.radius > 0));
+    assert.ok(new Set(blooms.map(b => b.ink)).size === 3);
+    assert.ok(blooms.some((a,i) => blooms.slice(i+1).some(b =>
+      a.tone !== b.tone && Math.hypot(a.x-b.x,a.y-b.y) < a.radius+b.radius)));
+    patterns.add(blooms.map(b => b.x.toFixed(1)).join(","));
+  }
+  assert.equal(patterns.size, Object.keys(PLACES).length);
+});
+
+test("a newly planted memory gets a new crown position without moving existing stems", () => {
+  for (const [w,h] of [[340,560],[1240,740]]) {
+    const area = {x:20,y:80,w,h};
+    const pts = gardenPositions(19,area);
+    assert.deepEqual(gardenPositions(20,area).slice(0,19),pts);
+    for (const [x,y] of pts) assert.ok(x >= 20 && x <= 20+w && y >= 80 && y <= 80+h);
+    assert.equal(new Set(pts.map(p=>p.join(","))).size,19);
   }
 });
 

@@ -1,15 +1,26 @@
 import {CITIES, PLACES} from "../atlas/places.js";
 
-export function nextMapLevel(route, inward, mark) {
+// A blank stretch of paper follows the last browsed branch. On the first visit
+// that branch begins at the project's original collection in Jiangdongmen.
+export function nextMapLevel(route, inward, mark, remembered = {}) {
+  const {level, city, place} = route;
   if (!inward) {
-    if (route.level === "place") return {level: "city", city: route.city};
-    if (route.level === "city") return {level: "country"};
+    if (level === "garden") return {level:"place", city, place};
+    if (level === "place") return {level:"city", city};
+    if (level === "city") return {level:"country"};
+    if (level === "country") return {level:"opening"};
     return null;
   }
-  if (route.level === "country" && mark?.national && Object.hasOwn(CITIES, mark.city))
-    return {level: "city", city: mark.city};
-  if (route.level === "city" && !mark?.national && PLACES[mark?.site]?.city === route.city)
-    return {level: "place", city: route.city, place: mark.site};
+  if (level === "opening") return {level:"country"};
+  if (level === "country") {
+    const destination = mark ? mark.city : remembered.city ?? "nanjing";
+    return Object.hasOwn(CITIES, destination) ? {level:"city", city:destination} : null;
+  }
+  if (level === "city" || level === "place") {
+    const site = mark?.site ?? (level === "place" ? place : remembered[city] ?? CITIES[city]?.places[0]);
+    if (mark?.national || PLACES[site]?.city !== city) return null;
+    return {level:level === "place" ? "garden" : "place", city, place:site};
+  }
   return null;
 }
 
@@ -19,13 +30,19 @@ export class WheelGesture {
   consume(delta, now) {
     const sign = Math.sign(delta);
     if (!sign) return false;
-    if (sign !== this.sign || now - this.last > 180) {
+    const magnitude = Math.abs(delta);
+    // A street tile can delay delivery of a small inertial tick during a flight.
+    // A fresh full notch or a reversal still responds immediately after a short pause.
+    const tail = this.used && magnitude <= Math.min(16, this.peak * .35);
+    if (sign !== this.sign || now - this.last > (tail ? 620 : 180)) {
+      this.peak = 0;
       this.sum = 0;
       this.used = false;
     }
     this.sign = sign;
     this.last = now;
-    this.sum += Math.abs(delta);
+    this.peak = Math.max(this.peak, magnitude);
+    this.sum += magnitude;
     if (this.used || this.sum < 8) return false;
     this.used = true;
     return true;

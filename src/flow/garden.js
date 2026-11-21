@@ -3,7 +3,8 @@ import {getLanguage, getLocalizedMemoryText, placeText, t} from "../i18n/Languag
 import {createMemoryPool} from "../data/memoryPool.js";
 import {VisitorMemoryCard} from "../memory/VisitorMemoryCard.js";
 import {clamp, hash} from "./geometry.js";
-import {allForms, flowerKey, plateURL} from "./flowerForms.js";
+import {forms, profileURL} from "./flowerForms.js";
+import {drawUnderstory, gardenDefs, gardenPositions, plantArtwork} from "./standingGarden.js";
 
 const el = id => document.getElementById(id);
 const say = (cn, en) => getLanguage() === "zh-CN" ? cn : en;
@@ -14,73 +15,6 @@ const sources = {
   "北京市人民政府 / Beijing Government": ["北京市人民政府", "Beijing Government"],
   "Wikipedia · 维基百科": ["维基百科", "Wikipedia"],
 };
-const GOLDEN = .618033988749895;
-
-function gardenPositions(count, area) {
-  const {x, y, w, h} = area;
-  const pts = [ [ x + w * .35, y + h * .31 ], [ x + w * .71, y + h * .68 ] ];
-  for (let i = 2; i < count; i++) {
-    let best = null, score = -1;
-    for (let c = 0; c < 56; c++) {
-      const n = i * 37 + c, px = x + w * (.055 + .89 * ((n * GOLDEN) % 1)),
-            py = y + h * (.08 + .84 * ((n * .41421356237) % 1));
-      const distance =
-          Math.min(...pts.map(([ ax, ay ], j) => Math.hypot(px - ax, py - ay) - (j < 2 ? 32 : 0)));
-      if (distance > score) {
-        score = distance;
-        best = [ px, py ];
-      }
-    }
-    pts.push(best);
-  }
-  return pts.slice(0, count);
-}
-
-// Fine contour lines and translucent leaves are printed once beneath the live flowers.
-function drawBed(ctx, w, h, area, seed, form) {
-  ctx.fillStyle = "#faf8f1";
-  ctx.fillRect(0, 0, w, h);
-  const bank = (u, v) => area.y + area.h * (.54 + .17 * Math.sin(u * 4.2 + seed + .62 * v) +
-      .069 * Math.cos(u * 8.5 - v * .82) + v * .25);
-  for (const [u, v, colour] of [[.23,.14,form.tip],[.73,-.38,"#bacfba"],[.61,.63,form.mid]]) {
-    const x = area.x + u * area.w, y = bank(u, v), r = Math.min(w, h) * .52;
-    const wash = ctx.createRadialGradient(x, y, 0, x, y, r);
-    wash.addColorStop(0, colour + "4a");
-    wash.addColorStop(.48, colour + "20");
-    wash.addColorStop(1, colour + "00");
-    ctx.fillStyle = wash;
-    ctx.fillRect(x - r, y - r, r * 2, r * 2);
-  }
-  for (let i = 0; i < 26; i++) {
-    const v = (i - 12) / 13;
-    ctx.beginPath();
-    for (let j = 0; j <= 100; j++) {
-      const u = -.22 + j * .0144, x = area.x + u * area.w, y = bank(u, v);
-      if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-    }
-    ctx.lineWidth = i % 6 ? .65 : 1.15;
-    ctx.strokeStyle = i % 5 ? "#a7b79e40" : form.hem + "3d";
-    ctx.stroke();
-  }
-  for (let i = 0; i < 52; i++) {
-    const u = hash(i, 12 + seed) * 1.35 - .17, v = (hash(i, 31) - .5) * 2;
-    const x = area.x + u * area.w, y = bank(u, v);
-    const angle = Math.atan2(bank(u + .01, v) - y, area.w * .01) + (i % 2 ? -.55 : .55);
-    const length = 4 + hash(i, 6) * Math.min(20, area.w * .026);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.scale(length, length * .25);
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(.5, -1, 1, 0);
-    ctx.quadraticCurveTo(.55, .7, 0, 0);
-    ctx.fillStyle = i % 4 ? "#9cb89757" : form.hem + "45";
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
 export class FlowGarden {
   constructor({saved, readout}) {
     this.saved = saved;
@@ -88,6 +22,7 @@ export class FlowGarden {
     this.root = el("garden");
     this.canvas = el("waterbed");
     this.seedLayer = el("seeds");
+    this.stalks = el("stalks");
     this.ctx = this.canvas.getContext("2d");
     this.visits = new Map();
     this.page = 0;
@@ -141,13 +76,17 @@ export class FlowGarden {
     this.resize.observe(this.root);
   }
   enter(id, collection, revealDelay = 0) {
+    this.departure?.cancel();
+    this.departure = null;
+    this.root.inert = false;
+    this.root.classList.remove("departing");
     this.born = new Map();
     this.slots = [];
     this.entryTime = performance.now() + revealDelay;
     this.id = id;
     this.site = PLACES[id];
-    this.flower = flowerKey(this.site.study);
-    this.root.style.setProperty("--flower-ink", allForms[this.flower].hem);
+    this.flower = this.site.city;
+    this.root.style.setProperty("--flower-ink", forms[this.flower].hem);
     this.collection = collection;
     if (!this.visits.has(id))
       this.visits.set(id, {
@@ -162,7 +101,9 @@ export class FlowGarden {
     this.root.hidden = false;
     this.paint();
   }
-  leave() {
+  leave(linger = false) {
+    this.departure?.cancel();
+    this.departure = null;
     if (this.sheet.open)
       this.sheet.close();
     this.card.hide();
@@ -174,9 +115,21 @@ export class FlowGarden {
     this.id = null;
     this.visit = null;
     this.card.attachment = null;
-    this.root.hidden = true;
+    this.root.inert = true;
+    const finish = () => {
+      this.root.hidden = true;
+      this.root.classList.remove("departing");
+      this.seedLayer.replaceChildren();
+      this.stalks.replaceChildren();
+      this.departure = null;
+    };
+    if (linger && !this.root.hidden) {
+      this.root.classList.add("departing");
+      this.departure = this.root.animate([{transform:"none",opacity:1},{transform:"translateY(17%)",opacity:0}],
+        {duration:490,easing:"cubic-bezier(.3,.08,.3,1)"});
+      this.departure.onfinish = finish;
+    } else finish();
     el("pages").hidden = true;
-    this.seedLayer.replaceChildren();
     this.layoutKey = null;
   }
   label(memory) {
@@ -210,18 +163,18 @@ export class FlowGarden {
       return;
     const dpr = Math.min(devicePixelRatio || 1, 2, Math.sqrt(8000000 / (w * h)));
     const compact = w < 740;
-    const top = h * (compact ? .09 : .10);
+    const top = Math.max(h * .10, el("toolbar-panel").getBoundingClientRect().bottom + (compact ? 9 : 17));
     const area = {
-      x : w * (compact ? .05 : .08),
+      x : w * (compact ? .085 : .073),
       y : top,
-      w : w * (compact ? .9 : .84),
-      h : Math.max(95, h - top - Math.max(65, h * .12))
+      w : w * (compact ? .83 : .854),
+      h : Math.max(95, h - top - Math.max(24, h * .04))
     };
     const featured = this.collection.memories.filter(m => this.collection.featuredLabels[m.id]);
     const regular =
         [...this.visit.pool.sessionMemories ].reverse().concat(this.collection.memories.filter(
             m => !this.collection.featuredLabels[m.id] && m.label !== "writing-prompt"));
-    const cap = Math.max(4, Math.min(46, Math.floor(area.w * area.h / (compact ? 5200 : 6400))));
+    const cap = Math.max(4, Math.min(32, Math.floor(area.w * area.h / (compact ? 17800 : 24500))));
     const pages = Math.max(1, Math.ceil(regular.length / cap));
     this.page = clamp(this.page, 0, pages - 1);
     const records = featured.concat(regular.slice(this.page * cap, (this.page + 1) * cap));
@@ -246,7 +199,9 @@ export class FlowGarden {
     this.canvas.height = Math.round(h * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const seed = Array.from(this.id).reduce((n, c) => n + c.charCodeAt(0), 0) % 97 / 17;
-    drawBed(this.ctx, w, h, area, seed, allForms[this.flower]);
+    drawUnderstory(this.ctx,w,h,Math.round(seed*17),forms[this.flower]);
+    this.stalks.setAttribute("viewBox","0 0 "+w+" "+h);
+    const stems = [gardenDefs(forms[this.flower])];
     const now = performance.now();
     const nodes = records.map((memory, i) => {
       const b = document.createElement("button");
@@ -260,26 +215,31 @@ export class FlowGarden {
       b.style.left = x + "px";
       b.style.top = y + "px";
       const phase = hash(Array.from(memory.id).reduce((n, ch) => n + ch.charCodeAt(0), 0), 7);
-      b.style.setProperty("--turn", (phase - .5) * 55 + "deg");
-      const featuredSize = clamp(Math.min(area.w, area.h) * .27, compact ? 81 : 113, compact ? 106 : 162);
+      b.style.setProperty("--turn", (phase - .5) * 25 + "deg");
+      const featuredSize = clamp(Math.min(area.w, area.h) * .31, compact ? 87 : 148, compact ? 123 : 208);
       const size = i < featured.length ? featuredSize * (i ? .88 : 1) :
-          (compact ? 32 : 44) * (.86 + phase * .45);
+          (compact ? 47 : 65) * (.82 + phase * .55);
       b.style.setProperty("--seed-size", size + "px");
       const label = this.label(memory);
       b.setAttribute("aria-label", label);
       const m = new Image();
       m.alt = "";
       m.draggable = false;
-      m.src = plateURL(this.flower);
+      const slot = this.slots.indexOf(memory.id);
+      const view = slot % 3 === 0 ? "front" : "side";
+      m.src = profileURL(this.flower,view);
+      b.dataset.view = view;
       m.className = "garden-blossom";
       if (!this.born.has(memory.id)) {
         const personal = memory.label === "YOUR MEMORY";
         this.born.set(memory.id, personal ? now : Math.max(now, this.entryTime) + Math.min(i, 18) * 55);
       }
       const delay = this.born.get(memory.id) - now;
-      if (delay > -1850) {
+      stems.push(plantArtwork({x,y,size,phase,featured:i<featured.length,city:this.flower,view,bottom:h,width:w,birth:delay}));
+      if (delay > -2850) {
         m.classList.add("unfolding");
-        m.style.animationDelay = delay + "ms";
+        m.style.setProperty("--birth",delay + "ms");
+        b.style.setProperty("--birth",delay + "ms");
       }
       const caption = document.createElement("span");
       caption.textContent = label;
@@ -288,6 +248,7 @@ export class FlowGarden {
     });
     const focusId =
         this.seedLayer.contains(document.activeElement) ? document.activeElement.dataset.id : null;
+    this.stalks.replaceChildren(...stems);
     this.seedLayer.replaceChildren(...nodes);
     if (focusId)
       nodes.find(b => b.dataset.id === focusId)?.focus({preventScroll : true});

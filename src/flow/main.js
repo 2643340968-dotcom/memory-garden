@@ -5,9 +5,10 @@ import {FlowAtlas} from "./atlas.js";
 import {paper} from "./FlowBasemap.js";
 import {FlowGarden} from "./garden.js";
 import {AtlasLanding} from "./landing.js";
-import {MapToolbar} from "./toolbar.js";
+import {nationalMarks} from "./overview.js";
+import {nextMapLevel} from "./levels.js";
 import {FlowerBook} from "./flowerBook.js";
-import {flowerKey, plateURL} from "./flowerForms.js";
+import {plateURL, profileURL} from "./flowerForms.js";
 
 const el = id => document.getElementById(id);
 const flowerBackground = key => 'url("' + new URL(plateURL(key), document.baseURI).href + '")';
@@ -16,7 +17,7 @@ const overview = {
   level : "country"
 };
 const counts = {
-  cities : Object.keys(CITIES).length,
+  cities : nationalMarks.length,
   places : Object.keys(PLACES).length
 };
 const visits = new Map();
@@ -40,7 +41,11 @@ function updateLandingHint() {
 }
 quiet.addEventListener("change", updateLandingHint);
 touch.addEventListener("change", updateLandingHint);
-const toolbar = new MapToolbar(el("edition"));
+const remembered = {};
+function setMode(mode) {
+  el("edition").dataset.tools = mode;
+  el("cover-book").hidden = mode !== "cover";
+}
 
 function closeChapter() {
   clearTimeout(chapterTimer);
@@ -59,11 +64,11 @@ function playChapter() {
 function mapGesture() {
   landing.enter();
   closeChapter();
-  toolbar.expand(false);
+  el("guide").open = false;
 }
 const atlas = new FlowAtlas(el("map"), {
   navigate : r => navigate(r),
-  step : r => navigate(r, {chapter : false, focus : false}),
+  step : (inward, mark) => advance(inward, mark),
   gesture : mapGesture,
   read : mark => {
     hovered = mark;
@@ -74,7 +79,7 @@ const atlas = new FlowAtlas(el("map"), {
   choose : chooseSite,
 });
 const landing = new AtlasLanding(el("landing"), atlas, () => {
-  toolbar.setMode("map");
+  setMode("map");
   if (route?.level === "country" && !location.hash)
     history.pushState({flowFrom : "opening"}, "", "#atlas");
 });
@@ -83,8 +88,8 @@ const flowerBook = new FlowerBook(el("flower-book"), open => {
   landing.flowers.wake();
 });
 
-function openLanding() {
-  toolbar.setMode("cover");
+function openLanding(reverse = false) {
+  setMode("cover");
   closeChapter();
   const home = new URL(location.href);
   home.hash = "";
@@ -94,7 +99,7 @@ function openLanding() {
     void show(overview, {opening : true, focus : false});
   else {
     atlas.show(overview, {immediate : true});
-    landing.open(true);
+    landing.open(true, reverse);
   }
 }
 const savedMessage = () => local("已留在此处的花园，本次到访可回看。", "Saved in this garden for your visit.");
@@ -106,6 +111,22 @@ const garden = new FlowGarden({
   },
   readout : label => readout(label)
 });
+
+function advance(inward, mark) {
+  if (landing.active) {
+    if (inward) el("landing-cue").click();
+    return;
+  }
+  if (route.level === "garden" && inward) {
+    if (!el("arrival").hidden) { if (!failed) el("skip").click(); }
+    else if (garden.id && !garden.sheet.open) garden.openEditor();
+    return;
+  }
+  const next = nextMapLevel(route, inward, mark, remembered);
+  if (!next) return;
+  if (next.level === "opening") { openLanding(true); return; }
+  navigate(next, {chapter:false, focus:false, restore:!inward});
+}
 
 function chooseSite(id) {
   if (route.level === "garden")
@@ -156,7 +177,7 @@ function readout(gardenLabel = null) {
   if (hovered && !isGarden)
     label = placeText(hovered.name);
   else if (isGarden)
-    label = gardenLabel ?? local("花园俯视图", "Garden plan");
+    label = gardenLabel ?? local("记忆花园", "Memory Garden");
   else if (route.city)
     label = placeText((PLACES[route.place] ?? CITIES[route.city]).name);
   el("readout").textContent = label;
@@ -180,7 +201,7 @@ function legend(isGarden) {
   el("legend").replaceChildren(...values.map(([ kind, label ]) => {
     const span = document.createElement("span");
     span.className = kind;
-    if (isGarden) span.style.setProperty("--specimen", flowerBackground(flowerKey(PLACES[route.place].study)));
+    if (isGarden) span.style.setProperty("--specimen", 'url("' + new URL(profileURL(route.city), document.baseURI).href + '")');
     else span.style.setProperty("--dot", paper[kind]);
     span.textContent = label;
     return span;
@@ -190,7 +211,7 @@ function chrome() {
   const isGarden = route.level === "garden", city = CITIES[route.city], site = PLACES[route.place];
   const n = city?.places.length;
   const project = local("记忆之场", "Site of Memory"), gardenName = local("记忆花园", "Memory Garden");
-  el("edition-name").textContent = project;
+  el("home-name").textContent = local("首页", "Home");
   el("landing-title").textContent = project;
   const intro = el("landing-intro");
   if (getLanguage() === "zh-CN") {
@@ -213,28 +234,26 @@ function chrome() {
   el("flow-language").textContent = el("sheet-language").textContent = local("英文", "Chinese");
   for (const b of [el("flow-language"), el("sheet-language")])
     b.setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
-  toolbar.updateLabel();
   flowerBook.updateLanguage(getLanguage() === "zh-CN");
   el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
   document.querySelector(".north span").textContent = local("北", "N");
   if (el("notice").textContent) el("notice").textContent = savedMessage();
   el("folio").textContent = site ? placeText(city.name) + "  /  " +
-          (isGarden ? local("花园俯视图", "Garden plan") : local("地点地图", "Local map")) :
+          (isGarden ? local("记忆花园", "Memory Garden") : local("地点地图", "Local map")) :
       city ? local("城市地图", "City atlas") + "  /  " + local(n + " 处地点", n + " places") :
              local(
                  counts.cities + " 座城市  /  " + counts.places + " 处地点",
                  counts.cities + " cities  /  " + counts.places + " places");
   const heading = site ? placeText(site.name) : city ? placeText(city.name) : project;
   el("title").textContent = heading;
-  const specimen = site ? flowerKey(site.study) : route.city;
+  const specimen = route.city;
   el("folio").style.setProperty("--specimen", specimen ? flowerBackground(specimen) : "none");
-  if (site) el("arrival-flower").src = plateURL(specimen);
+  if (site) el("arrival-flower").src = profileURL(specimen, "side");
   el("title").classList.toggle("long", heading.length > (getLanguage() === "en" ? 24 : 8));
-  const tip = isGarden ? local("轻触一朵花，读一段记忆。", "Touch a flower to read a memory.") :
-      site ? local("点选当前地点进入花园，上滚返回城市。", "Select this place to enter its garden, or scroll up to return to the city.") :
-      city ? local("指向地点下滚，或轻触地点进入近景。点开数字可选附近地点，上滚返回全国。", "Scroll down over a place or tap it to move closer. Select a number for nearby places. Scroll up to return to China.") :
-      local("指向花朵看城市与花名，拖动花瓣可拨动渐变。在带地名的城市下滚或轻触，进入城市地图。",
-            "Point to a flower to see its city and species. Drag the petals to stir the colour. Scroll down over a labelled city or tap it to explore.");
+  const tip = isGarden ? local("点花读记忆，下滚可留言，上滚回到地点。", "Select a flower to read. Scroll down to write or up to return to the place.") :
+      site ? local("划过花丛拨动涟漪。下滚进入花园，上滚返回城市。", "Brush the flowers to stir their ripples. Scroll down into the garden or up to the city.") :
+      city ? local("指向想看的地点并下滚，上滚回到全国。", "Point to a place and scroll down to visit. Scroll up for the national map.") :
+      local("指向带地名的城市并下滚，上滚回到首页。", "Point to a labelled city and scroll down to explore. Scroll up for Home.");
   el("intro").textContent = site ? placeText(site.introduction) : tip;
   el("guide-tip").textContent = tip;
   const guide = local("地图导览、图例与来源", "Map guide, legend and sources");
@@ -246,14 +265,14 @@ function chrome() {
   el("stage").dataset.surface = isGarden ? "garden" : "atlas";
   el("stage").dataset.level = route.level;
   el("enter").hidden = route.level !== "place";
-  el("enter").textContent = local("进入花园  ↗", "Enter the garden  ↗");
+  el("enter").textContent = local("进入花园 ↓", "Enter garden ↓");
   el("write").hidden = !isGarden;
   el("write").textContent = local("＋  留下记忆", "＋  Leave a memory");
   const back = el("back");
   back.hidden = !isGarden;
   if (isGarden) {
     back.href = atlasHash({...route, level : "place"});
-    back.textContent = local("← 返回地图", "← Back to map");
+    back.textContent = local("↑ 返回地点", "↑ Back to place");
   }
   el("map-tools").hidden = isGarden;
   document.querySelector(".north").hidden = isGarden;
@@ -270,7 +289,7 @@ function chrome() {
       new Option(placeText((country ? CITIES : PLACES)[id].name), id)));
     target.setAttribute("aria-label", prompt);
   }
-  el("zoom-out").disabled = country;
+  el("zoom-out").disabled = false;
   for (const [id, label] of [["zoom-out", local("返回上一级", "Return one level")],
                              ["fit", local("地图居中", "Recenter map")]]) {
     el(id).title = label;
@@ -315,11 +334,9 @@ function closeTitle() {
   releaseTitle = null;
   el("arrival").hidden = true;
   el("stage").inert = false;
-  document.querySelector(".toolbar-shell").inert = false;
 }
-function holdTitle(origin = null) {
+function holdTitle(origin = null, replay = false) {
   el("stage").inert = true;
-  document.querySelector(".toolbar-shell").inert = true;
   el("arrival").hidden = false;
   el("arrival").classList.remove("fading");
   if (!quiet.matches)
@@ -330,7 +347,7 @@ function holdTitle(origin = null) {
   const readingTime = el("arrival-note").textContent.length * (getLanguage() === "en" ? 29 : 88);
   return new Promise(resolve => {
     releaseTitle = resolve;
-    holdTimer = setTimeout(resolve, Math.min(5800, Math.max(2600, readingTime)));
+    holdTimer = setTimeout(resolve, replay ? Math.min(5000, Math.max(2400, readingTime)) : 1240);
   });
 }
 async function finishTitle(turn) {
@@ -368,21 +385,23 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
   clearTimeout(noticeTimer);
   el("notice").textContent = "";
   if (route?.level === "garden")
-    garden.leave();
+    garden.leave(returning && !opening && !quiet.matches);
   route = next;
+  if (route.city) remembered.city = route.city;
+  if (route.place) remembered[route.city] = route.place;
   hovered = null;
   skipped = false;
   failed = false;
-  toolbar.setMode(route.level === "garden" ? "garden" : opening ? "cover" : "map");
+  setMode(route.level === "garden" ? "garden" : opening ? "cover" : "map");
   if (route.level !== "garden") {
-    garden.root.hidden = true;
+    if (!garden.departure) garden.root.hidden = true;
     atlas.show(route, {
       restore : restore && !opening ? visits.get(atlasHash(route)) : null,
       immediate : opening || turn === 1
     });
     if (returning && !quiet.matches)
       atlas.root.animate(
-          [ {opacity : .18}, {opacity : 1} ], {duration : 470, easing : "cubic-bezier(.2,.62,.28,1)"});
+          [ {opacity:.4, transform:"translateY(-4vh)"}, {opacity:1, transform:"none"} ], {duration : 530, easing : "cubic-bezier(.2,.62,.28,1)"});
     chrome();
     if (opening && route.level === "country") {
       landing.open(focus && turn > 1);
@@ -404,7 +423,7 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
     if (turn !== version)
       return;
     atlas.root.hidden = true;
-    garden.enter(route.place, collection, !quiet.matches && !skipped ? 440 : 0);
+    garden.enter(route.place, collection, !quiet.matches && !skipped ? 200 : 0);
     el("write").disabled = false;
     chrome();
     await finishTitle(turn);
@@ -443,7 +462,7 @@ el("replay").onclick = async () => {
   el("guide").open = false;
   skipped = false;
   const turn = version;
-  await holdTitle();
+  await holdTitle(null, true);
   await finishTitle(turn);
 };
 document.addEventListener("pointerdown", e => {
@@ -462,13 +481,6 @@ document.addEventListener("keydown", e => {
     el("guide-toggle").focus();
     return;
   }
-  if (toolbar.expanded) {
-    toolbar.expand(false);
-    toolbar.grip.focus({preventScroll: true});
-    return;
-  }
-  if (landing.active)
-    landing.enter();
   closeChapter();
 });
 el("enter").onclick = () => {
@@ -491,7 +503,7 @@ el("edition").addEventListener("click", e => {
     history.back();
     return;
   }
-  navigate(next, {restore : route.level === "garden"});
+  navigate(next, {restore : true});
 });
 function changeLanguage() {
   const lang = getLanguage() === "en" ? "zh-CN" : "en";
@@ -511,6 +523,68 @@ window.addEventListener("hashchange", () => {
   const next = readAtlasRoute(location.hash);
   if (atlasHash(route) !== atlasHash(next))
     void show(next, {restore : true, opening : !location.hash});
+});
+// All five surfaces share the wheel latch, including the arrival and the writing
+// card, so inertial events from one gesture cannot carry on into the next room.
+document.addEventListener("wheel", event => {
+  if (Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
+  const target = event.target;
+  if (target.closest("#flower-book,#nearby,select,.guide-page,input,audio,video")) return;
+  if (landing.active && !target.closest(".toolbar-shell")) return;
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
+  const delta = event.deltaY * unit * (event.ctrlKey ? -1 : 1);
+  if (garden.sheet.open) {
+    if (target.closest("textarea")?.scrollTop > 0) return;
+    if (delta < 0 && garden.sheet.scrollTop <= 0 && atlas.wheel.consume(delta, event.timeStamp)) {
+      event.preventDefault();
+      garden.sheet.close();
+    }
+    return;
+  }
+  event.preventDefault();
+  if (!atlas.wheel.consume(delta, event.timeStamp)) return;
+  advance(delta > 0, target.closest("#map") ? atlas.destinationAt(event) : undefined);
+}, {passive:false});
+
+function gardenSwipe(surface) {
+  let start;
+  surface.addEventListener("pointerdown", e => {
+    start = e.pointerType === "touch" && e.isPrimary ? [e.clientX, e.clientY] : null;
+  });
+  surface.addEventListener("pointercancel", () => { start = null; });
+  surface.addEventListener("pointerup", e => {
+    if (!start || e.pointerType !== "touch") return;
+    const dx = e.clientX - start[0], dy = e.clientY - start[1];
+    start = null;
+    if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+      surface.addEventListener("click", suppressSwipeClick, {capture:true, once:true, signal:AbortSignal.timeout(380)});
+      advance(dy < 0);
+    }
+  });
+}
+function suppressSwipeClick(e) { e.preventDefault(); e.stopImmediatePropagation(); }
+gardenSwipe(el("garden"));
+gardenSwipe(el("arrival"));
+// Keep native scrolling and text/media controls in the writing and reading cards.
+let sheetTouch;
+garden.sheet.addEventListener("touchstart", event => {
+  const touch = event.touches[0];
+  sheetTouch = event.touches.length === 1 && garden.sheet.scrollTop <= 0 &&
+      !event.target.closest("textarea,input,button,audio,video") ? [touch.clientX,touch.clientY] : null;
+}, {passive:true});
+garden.sheet.addEventListener("touchcancel", () => { sheetTouch = null; });
+garden.sheet.addEventListener("touchend", event => {
+  if (!sheetTouch) return;
+  const touch = event.changedTouches[0], dx = touch.clientX-sheetTouch[0], dy = touch.clientY-sheetTouch[1];
+  sheetTouch = null;
+  if (garden.sheet.scrollTop <= 0 && dy > 55 && dy > Math.abs(dx)*1.2) garden.sheet.close();
+}, {passive:true});
+document.addEventListener("keydown", e => {
+  if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || landing.active ||
+      e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
+  if (!["PageDown","PageUp","ArrowDown","ArrowUp"].includes(e.key)) return;
+  e.preventDefault();
+  advance(e.key === "PageDown" || e.key === "ArrowDown", e.target.closest(".pin")?.mark);
 });
 void show(readAtlasRoute(location.hash), {focus : false, opening : !location.hash});
 if (new URLSearchParams(location.search).has("flowers")) void flowerBook.open();

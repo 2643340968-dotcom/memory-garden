@@ -57,7 +57,7 @@ export class AtlasLanding {
       this.target = 1;
       this.follow();
     };
-    this.control.onclick = () => this.enter();
+    this.control.onclick = () => section.querySelector("#landing-cue").click();
     document.addEventListener("keydown", event => {
       if (!this.active || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey ||
           document.querySelector("#guide").open ||
@@ -91,9 +91,10 @@ export class AtlasLanding {
       }
     }, {capture : true, passive : false});
   }
-  open(focus = false) {
+  open(focus = false, reverse = false) {
     this.active = true;
-    this.progress = this.target = this.inputProgress = 0;
+    this.target = this.inputProgress = 0;
+    this.progress = reverse && !this.quiet.matches ? 1 : 0;
     this.carryUntil = 0;
     this.section.hidden = false;
     this.control.hidden = false;
@@ -102,6 +103,7 @@ export class AtlasLanding {
     this.scroll.scrollTop = 0;
     this.flowers.open();
     this.paint();
+    if (this.progress) this.follow();
     if (focus)
       this.scroll.focus({preventScroll : true});
   }
@@ -117,7 +119,7 @@ export class AtlasLanding {
       this.progress += (this.target - this.progress) * gain;
       if (Math.abs(this.target - this.progress) < .0015) this.progress = this.target;
       this.paint();
-      if (this.progress === 1) this.enter(true);
+      if (this.target === 1 && this.progress === 1) this.enter(true);
       else if (this.progress !== this.target) this.frame = requestAnimationFrame(advance);
     };
     this.frame = requestAnimationFrame(advance);
@@ -125,8 +127,6 @@ export class AtlasLanding {
   paint() {
     const pose = openingPose(this.progress, this.quiet.matches);
     const style = this.stage.style;
-    this.stage.parentElement.style.setProperty("--toolbar-shape", pose.wash);
-    this.stage.parentElement.style.setProperty("--toolbar-type", pose.title);
     style.setProperty("--cover-title", pose.title);
     style.setProperty("--cover-wash", pose.wash);
     style.setProperty("--cover-lift", -pose.lift + "vh");

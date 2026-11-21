@@ -91,3 +91,5 @@ const studyCities = {
 export const allForms = {...forms, ...extraForms};
 export const flowerKey = study => studyCities[study] ?? study;
 export const plateURL = key => "./assets/flow-flowers/" + key + ".svg";
+
+export const profileURL = (city, view = "front") => "./assets/flow-flowers/upright/" + city + "-" + view + ".svg";
