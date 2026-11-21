@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {project, under, mercator, latitude, blend, cameraProgress} from "../src/flow/geometry.js";
+import {project, under, mercator, latitude, blend, cameraProgress, coversView, framePlacement} from "../src/flow/geometry.js";
+import {NavigationChart} from "../src/flow/FlowBasemap.js";
 import {AFTERGLOW, envelope, releaseWave, displaceGrain} from "../src/flow/ripples.js";
 import {buildImpression, printScale} from "../src/flow/print.js";
 
@@ -19,6 +20,31 @@ test("flow atlas keeps geographic anchors registered through zoom and its revers
     }
   }
 });
+
+test(
+    "a stalled high-resolution chart never leaves uncovered ground during a flight or a pinch reversal",
+    () => {
+      const overview = Object.create(NavigationChart.prototype);
+      overview.canvas = {style : {}};
+      overview.map = {draw : () => ({dots : new Float32Array([ 2, 4, 1, 0 ]), labels : []})};
+      const city = {x : 118.73, y : mercator(32), span : .78},
+            nation = {x : 104.8, y : mercator(36), span : 90};
+      for (const [w, h] of [[ 1280, 800 ], [ 390, 740 ]]) {
+        const k = w / city.span,
+              detailed = {camera : city, width : w * 1.2, height : h * 1.2, k, dots : [ 2, 4, 1, 0 ]};
+        for (const t of [0, .05, .2, .6, 1, .72, .3, .02, 0]) {
+          const view = blend(city, nation, t), at = framePlacement(detailed, view, w, h);
+          const original = {frame : detailed, scale : at.s, x : at.x, y : at.y};
+          const shot = overview.select(original, view, w, h, "zh-CN");
+          assert.ok(coversView(shot.frame, {s : shot.scale, x : shot.x, y : shot.y}, w, h));
+          assert.ok(shot.frame.dots.length);
+          if (t > .2)
+            assert.notEqual(shot.frame, detailed);
+          if (!t)
+            assert.equal(shot.frame, detailed);
+        }
+      }
+    });
 
 test("each hovered location leaves its own fading water front while the next is active", () => {
   const first = {key : "nanjing", start : 0, left : null};

@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 43 tests, including visitor media, bidirectional zoom, atlas pack integrity and multiscale coverage for 85 sites, bilingual flowers and source records, per-place collections, and the Jiangdongmen bloom. Flow Atlas coverage includes camera registration and velocity, map-driven grain placement, continuous geographic screen subdivision, fading waves and interference.
+- The automated suite has 44 tests, including visitor media, bidirectional zoom, atlas pack integrity and multiscale coverage for 85 sites, bilingual flowers and source records, per-place collections, and the Jiangdongmen bloom. Flow Atlas coverage includes camera registration and velocity, map-driven grain placement, full geographic coverage during fast camera reversals, continuous geographic screen subdivision, fading waves and interference.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 

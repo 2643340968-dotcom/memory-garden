@@ -6,6 +6,7 @@ import {getLanguage, placeText} from "../i18n/LanguageController.js";
 import {blend, cameraProgress, clamp, latitude, mercator, project, under} from "./geometry.js";
 import {RippleField} from "./ripples.js";
 import {InkSurface} from "./InkSurface.js";
+import {FlowBasemap, NavigationChart, paintChart} from "./FlowBasemap.js";
 
 const stops = {
   country : 860,
@@ -39,11 +40,11 @@ export class FlowAtlas {
     this.charts = new AtlasCharts(root, () => this.invalidate(), {
       surfaces : {base : "#base"},
       makeWorker : () => new Worker(new URL("./chart.worker.js", import.meta.url), {type : "module"}),
-      loadPainter : () =>
-          import("./FlowBasemap.js").then(({FlowBasemap,
-                                            paintChart}) => ({VectorBasemap : FlowBasemap, paintChart})),
+      loadPainter : async () => ({VectorBasemap : FlowBasemap, paintChart}),
     });
     this.ink = new InkSurface(root.querySelector("#ink"));
+    this.surround = new NavigationChart(
+        root.querySelector("#surround"), this.charts.assetRoot, () => this.invalidate());
     this.ink.onRestore = () => this.invalidate();
     this.ripples = new RippleField(
         root.querySelector("#waves"), coord => project(this.view, this.w, this.h, coord),
@@ -381,15 +382,23 @@ export class FlowAtlas {
         this.flight = null;
     }
     const f = this.flight;
-    // Request the next nearby scale; presenting a distant landing here would
-    // replace the wide map with a tiny street chart halfway through a flight.
+    // Look ahead to the wider extent on retreat; stay close to the visible
+    // scale on approach so the finer print is ready as it comes into focus.
     const gap = f ? Math.abs(Math.log(f.to.span / this.view.span)) : 0;
-    const landing = gap > .20 ? blend(this.view, f.to, Math.min(.22, .15 / gap)) : this.view;
-    const chart = this.charts.update(
+    let landing = this.view;
+    if (f && f.to.span > this.view.span) {
+      const ahead = cameraProgress((now - f.start + 235) / f.duration, f.slope);
+      landing = blend(f.from, f.to, ahead);
+    } else if (gap > .20) {
+      landing = blend(this.view, f.to, Math.min(.22, .15 / gap));
+    }
+    const detail = this.charts.update(
         "base", this.view, this.w, this.h, this.dpr, getLanguage(), !!f || this.dragging, landing);
+    const chart = this.surround.select(detail, this.view, this.w, this.h, getLanguage());
+    this.root.classList.toggle("provisional", this.surround.needed);
     if (chart) {
       this.root.dataset.vectorLevel = chart.frame.level;
-      this.ink.update(chart.frame, now, this.quiet.matches);
+      this.ink.update(chart.frame, now, this.quiet.matches, !!f || this.dragging);
     }
     const groups = this.groups();
     const reserved = this.drawPins(groups);

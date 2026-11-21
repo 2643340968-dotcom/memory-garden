@@ -1,6 +1,6 @@
 import {VectorBasemap, paintChart} from "../atlas/VectorBasemap.js";
 import index from "../atlas/maps/vector-index.json" with {type : "json"};
-import {clamp, mercator} from "./geometry.js";
+import {clamp, coversView, framePlacement, mercator} from "./geometry.js";
 import {buildImpression} from "./print.js";
 
 const north = mercator(index.bounds[3]);
@@ -45,8 +45,9 @@ function surface(w, h) {
 }
 
 export class FlowBasemap extends VectorBasemap {
-  constructor(redraw, root) {
+  constructor(redraw, root, generalizeNational = false) {
     super(redraw, root);
+    this.generalizeNational = generalizeNational;
     this.mask = surface(1, 1);
     this.pen = this.mask.getContext("2d", {alpha : false, willReadFrequently : true});
   }
@@ -66,6 +67,7 @@ export class FlowBasemap extends VectorBasemap {
     return {...super.draw(ctx, camera, w, h, options), ...grains};
   }
   drawNational(ctx, camera, w, h, k, detailed) {
+    detailed = detailed && !this.generalizeNational;
     const item = this.resource(index.national, detailed);
     const {paths : p} = item && detailed ? this.paths(item, "national") : this.overview;
     const pass = this.pass, unit = k / index.units;
@@ -115,6 +117,49 @@ export class FlowBasemap extends VectorBasemap {
         stroke(ctx, p.building, "#a798b35c", .58 * px);
       stroke(ctx, p.rail, "#968aa46b", .65 * px);
     }
+  }
+}
+
+// A fast gesture can uncover ground that the detailed worker has not sampled.
+// Generate a smaller *geographic* impression across the visible extent; its
+// individual dots travel through exactly the same interactive ink renderer.
+export class NavigationChart {
+  constructor(canvas, assetRoot, redraw) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d", {alpha : false, willReadFrequently : true});
+    this.map = new FlowBasemap(() => {
+      this.dirty = true;
+      if (this.needed)
+        redraw();
+    }, assetRoot, true);
+  }
+  select(detail, view, w, h, language) {
+    const extent = detail && {s : detail.scale, x : detail.x, y : detail.y};
+    const valid = detail && coversView(detail.frame, extent, w, h) &&
+        detail.scale > (this.needed ? .71 : .55) && detail.scale < (this.needed ? 1.43 : 1.72);
+    const wasNeeded = this.needed;
+    this.needed = !valid;
+    let pose = this.frame && framePlacement(this.frame, view, w, h);
+    const density = Math.min(.88, 495 / w, 320 / h);
+    if (this.needed &&
+        (!pose || this.dirty || this.frame.language !== language || !coversView(this.frame, pose, w, h) ||
+         Math.abs(Math.log(pose.s * density)) > .31)) {
+      const width = Math.ceil(w * density * 1.48), height = Math.ceil(h * density * 1.48);
+      const k = w / view.span * density, camera = {x : view.x, y : view.y, span : width / k};
+      // Only the very light vector wash is painted here. The live screen of
+      // ink stays at the display's device resolution while this level is used.
+      if (this.canvas.width !== width)
+        this.canvas.width = width;
+      if (this.canvas.height !== height)
+        this.canvas.height = height;
+      const data = this.map.draw(this.ctx, camera, width, height, {language});
+      this.frame = {camera, width, height, k, language, ...data};
+      this.dirty = false;
+      pose = framePlacement(this.frame, view, w, h);
+    }
+    if (pose && (this.needed || wasNeeded))
+      this.canvas.style.transform = `matrix(${pose.s},0,0,${pose.s},${pose.x},${pose.y})`;
+    return this.needed ? {frame : this.frame, scale : pose.s, x : pose.x, y : pose.y} : detail;
   }
 }
 export {paintChart};

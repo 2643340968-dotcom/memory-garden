@@ -1,6 +1,6 @@
 import {BIN_SIZE, INKS} from "./print.js";
 import {displaceGrain, RIPPLE_LIMIT} from "./ripples.js";
-import {clamp, smooth} from "./geometry.js";
+import {clamp, framePlacement, smooth} from "./geometry.js";
 
 const colours = INKS.map(hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255));
 const FADE = 320;
@@ -70,15 +70,6 @@ function program(gl) {
     throw Error(gl.getProgramInfoLog(id));
   return id;
 }
-function placement(frame, view, w, h) {
-  const k = w / view.span, s = k / frame.k;
-  return {
-    s,
-    x : w / 2 + (frame.camera.x - view.x) * k - frame.width * s / 2,
-    y : h / 2 + (view.y - frame.camera.y) * k - frame.height * s / 2
-  };
-}
-
 function waterBounds(waves, w, h, dpr) {
   let l = w, t = h, r = 0, b = 0;
   for (const f of waves) {
@@ -242,11 +233,12 @@ export class InkSurface {
     if (this.gl && model?.buffer)
       this.gl.deleteBuffer(model.buffer);
   }
-  update(frame, now, quiet) {
+  update(frame, now, quiet, moving) {
     if (!frame?.dots || frame === this.current?.frame)
       return;
     this.full = true;
-    if (!this.previous || now - this.began >= FADE * .56) {
+    this.fade = moving ? 140 : FADE;
+    if (!this.previous || now - this.began >= this.fade * .56) {
       this.release(this.previous);
       this.previous = this.current;
       this.began = now;
@@ -278,7 +270,7 @@ export class InkSurface {
     this.full = false;
     if (!whole && !rect)
       return false;
-    const phase = this.previous && !quiet ? smooth(clamp((now - this.began) / FADE, 0, 1)) : 1;
+    const phase = this.previous && !quiet ? smooth(clamp((now - this.began) / this.fade, 0, 1)) : 1;
     if (phase === 1) {
       this.release(this.previous);
       this.previous = null;
@@ -320,14 +312,15 @@ export class InkSurface {
     const draw = (model, weight) => {
       if (!model || weight < .001)
         return;
-      const pose = placement(model.frame, view, w, h);
+      const pose = framePlacement(model.frame, view, w, h);
       if (gl) {
         gl.bindBuffer(gl.ARRAY_BUFFER, model.buffer);
         gl.vertexAttribPointer(this.attribute, 4, gl.FLOAT, false, 0, 0);
         gl.uniform2f(this.loc.origin, pose.x, pose.y);
         gl.uniform1f(this.loc.scale, pose.s);
         gl.uniform1f(this.loc.weight, weight);
-        ranges(model.frame, pose, rect, (start, count) => gl.drawArrays(gl.POINTS, start, count));
+        const visible = rect ?? (pose.s > 1.5 ? {l : 0, t : 0, r : w, b : h} : null);
+        ranges(model.frame, pose, visible, (start, count) => gl.drawArrays(gl.POINTS, start, count));
       } else
         this.drawSoftware(model, pose, waves, weight, bounds);
     };

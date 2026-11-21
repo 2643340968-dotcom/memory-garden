@@ -251,17 +251,21 @@ a {
   cursor: grabbing;
 }
 
-#base,#ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
+#surround,#base,#ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
   position: absolute;
   left: 0;
   top: 0;
   pointer-events: none;
 }
 
-#base {
+#surround,#base {
   transform-origin: 0 0;
   will-change: transform;
 }
+#base { transition: opacity .14s ease; }
+#surround { visibility: hidden; transition: visibility 0s linear .14s; }
+.map.provisional #surround { visibility: visible; transition-delay: 0s; }
+.map.provisional #base { opacity: 0; }
 
 #ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
   width: 100%;

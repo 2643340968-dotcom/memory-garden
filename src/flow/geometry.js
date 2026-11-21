@@ -16,6 +16,19 @@ export function project(view, w, h, [ lon, lat ]) {
   const k = w / view.span;
   return [ w / 2 + (lon - view.x) * k, h / 2 + (view.y - mercator(lat)) * k ];
 }
+export function framePlacement(frame, view, w, h) {
+  const k = w / view.span, s = k / frame.k;
+  return {
+    s,
+    x : w / 2 + (frame.camera.x - view.x) * k - frame.width * s / 2,
+    y : h / 2 + (view.y - frame.camera.y) * k - frame.height * s / 2
+  };
+}
+
+export function coversView(frame, pose, w, h) {
+  return pose.x <= .5 && pose.y <= .5 && pose.x + frame.width * pose.s >= w - .5 &&
+      pose.y + frame.height * pose.s >= h - .5;
+}
 export function under(view, w, h, x, y) {
   return [ view.x + (x - w / 2) * view.span / w, view.y - (y - h / 2) * view.span / w ];
 }
