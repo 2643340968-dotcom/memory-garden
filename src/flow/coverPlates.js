@@ -33,9 +33,9 @@ async function bake() {
     return c;
   };
   const plates = {};
-  for (const [index, [city, form]] of Object.entries(forms).entries()) {
+  for (const [city, form] of Object.entries(forms)) {
     await new Promise(resolve => setTimeout(resolve, 0));
-    plates[city] = makePlates(form, index, surface);
+    plates[city] = makePlates(form, surface);
   }
   return plates;
 }

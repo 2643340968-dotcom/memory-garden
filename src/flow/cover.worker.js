@@ -3,9 +3,8 @@ import {makePlates} from "./coverPigments.js";
 
 try {
   const plates = {}, transfer = [];
-  for (const [i, [city, form]] of Object.entries(forms).entries()) {
-    const {body, ring, light, outline, reserve} =
-        makePlates(form, i, size => new OffscreenCanvas(size, size));
+  for (const [city, form] of Object.entries(forms)) {
+    const {body, ring, light, outline, reserve} = makePlates(form, size => new OffscreenCanvas(size, size));
     const plate = {
       body: body.transferToImageBitmap(),
       ring: ring.transferToImageBitmap(),

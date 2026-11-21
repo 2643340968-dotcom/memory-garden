@@ -57,7 +57,13 @@ test("all eighteen national marks have their own sourced bilingual flower, disti
   assert.equal(new Set(ids.map(id=>cityFlowers[id].name[0])).size,18);
   assert.equal(new Set(ids.map(id=>JSON.stringify([forms[id].whorls,forms[id].florets]))).size,18);
   assert.equal(cityFlowers.nanjing.name[0],"紫金草");
-  assert.equal(forms.nanjing.whorls[0].petals,4);
+  for (const [city, counts] of Object.entries({
+    nanjing: [4], dunhuang: [8, 8], xining: [3, 3], lhasa: [8],
+    wuhan: [5], haikou: [3], harbin: [4], kunming: [5],
+  })) {
+    assert.deepEqual(forms[city].whorls.map(layer => layer.petals), counts, city);
+  }
+  for (const city of ["quanzhou", "harbin", "kunming"]) assert.ok(forms[city].florets.length > 1, city);
 });
 
 // Synthetic circular plates keep the water solver test independent of Canvas.

@@ -44,7 +44,7 @@ export class FlowerBook {
     if (this.entries) return;
     this.entries = nationalMarks.map(mark => {
       const item = document.createElement("article"), art = document.createElement("canvas");
-      art.width = art.height = 272;
+      art.width = art.height = 1;
       art.setAttribute("aria-hidden", "true");
       const caption = document.createElement("div"), city = document.createElement("p");
       const name = document.createElement("h3"), reason = document.createElement("p"),
@@ -62,8 +62,12 @@ export class FlowerBook {
     });
     this.updateLanguage(this.zh);
     const plates = await loadPlates();
-    for (const {mark, art} of this.entries)
-      art.getContext("2d").drawImage(plates[mark.id].body, 0, 0, art.width, art.height);
+    for (const {mark, art} of this.entries) {
+      const {body} = plates[mark.id];
+      art.width = body.width;
+      art.height = body.height;
+      art.getContext("2d").drawImage(body, 0, 0);
+    }
   }
   updateLanguage(zh) {
     this.zh = zh;
