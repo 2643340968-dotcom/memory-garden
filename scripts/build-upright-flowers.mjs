@@ -1,5 +1,6 @@
 // Front and side elevations. Each drawing meets its stem at (80, 126) in the plate.
 import {mkdir, writeFile} from "node:fs/promises";
+import {svgPaperFilter} from "../src/flow/petalPaper.js";
 import {forms} from "../src/flow/flowerForms.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
 
@@ -138,7 +139,7 @@ function draw(city,side) {
 for(const [city,form] of Object.entries(forms)) {
   for(const view of ["front","side"]) {
     const name=cityFlowers[city].name.join(" / ");
-    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="160" height="144" viewBox="0 0 160 144" role="img"><title>'+name+'</title>\n<defs>'+defsFor(form)+'</defs>\n'+draw(city,view==="side")+'\n</svg>\n';
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="160" height="144" viewBox="0 0 160 144" role="img"><title>'+name+'</title>\n<defs>'+defsFor(form)+svgPaperFilter(.39)+'</defs>\n<g filter="url(#paper)">'+draw(city,view==="side")+'</g>\n</svg>\n';
     await writeFile(new URL(city+"-"+view+".svg",out),svg);
   }
 }

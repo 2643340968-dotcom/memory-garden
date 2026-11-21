@@ -1,17 +1,30 @@
-import {CITIES, PLACES} from "../atlas/places.js";
+import {CITIES, PLACES, atlasHash, readAtlasRoute} from "../atlas/places.js";
+
+export function flowHash(route) {
+  return route.level === "arrival" ? "#arrival/"+route.city+"/"+route.place : atlasHash(route);
+}
+export function readFlowRoute(hash) {
+  if (/^#\/?arrival\//.test(hash)) {
+    const route = readAtlasRoute(hash.replace("arrival/", "garden/"));
+    return route.level === "garden" ? {...route, level:"arrival"} : route;
+  }
+  return readAtlasRoute(hash);
+}
 
 // A blank stretch of paper follows the last browsed branch. On the first visit
 // that branch begins at the project's original collection in Jiangdongmen.
 export function nextMapLevel(route, inward, mark, remembered = {}) {
   const {level, city, place} = route;
   if (!inward) {
-    if (level === "garden") return {level:"place", city, place};
+    if (level === "garden") return {level:"arrival", city, place};
+    if (level === "arrival") return {level:"place", city, place};
     if (level === "place") return {level:"city", city};
     if (level === "city") return {level:"country"};
     if (level === "country") return {level:"opening"};
     return null;
   }
   if (level === "opening") return {level:"country"};
+  if (level === "arrival") return {level:"garden", city, place};
   if (level === "country") {
     const destination = mark ? mark.city : remembered.city ?? "nanjing";
     return Object.hasOwn(CITIES, destination) ? {level:"city", city:destination} : null;
@@ -19,7 +32,7 @@ export function nextMapLevel(route, inward, mark, remembered = {}) {
   if (level === "city" || level === "place") {
     const site = mark?.site ?? (level === "place" ? place : remembered[city] ?? CITIES[city]?.places[0]);
     if (mark?.national || PLACES[site]?.city !== city) return null;
-    return {level:level === "place" ? "garden" : "place", city, place:site};
+    return {level:level === "place" ? "arrival" : "place", city, place:site};
   }
   return null;
 }

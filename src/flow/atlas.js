@@ -9,6 +9,7 @@ import {FlowBasemap, NavigationChart, paintChart} from "./FlowBasemap.js";
 import {nationalMarks, OverviewReveal} from "./overview.js";
 import {cityFlowers} from "./cityFlowers.js";
 import {forms, plateURL} from "./flowerForms.js";
+import {MapGlints, setPetalRhythm} from "./petalLight.js";
 import {MemoryBeds} from "./memoryBeds.js";
 
 export function markFlower(g) {
@@ -54,6 +55,7 @@ export class FlowAtlas {
     this.pointers = new Map();
     this.pins = new Map();
     this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
+    this.glints = new MapGlints(root, this.quiet);
     this.overviewReveal = new OverviewReveal(root, this.markers, this.quiet);
     this.charts = new AtlasCharts(root, () => this.invalidate(), {
       surfaces : {base : "#base"},
@@ -149,6 +151,7 @@ export class FlowAtlas {
     this.root.classList.remove("dragging", "stirring");
     this.flight = null;
     this.ripples.clear(holdFrame);
+    this.glints.show(null);
     this.beds.clear(holdFrame);
     this.root.hidden = !holdFrame;
     cancelAnimationFrame(this.frame);
@@ -522,6 +525,7 @@ export class FlowAtlas {
       this.root.dataset.vectorLevel = chart.frame.level;
     const reserved = this.cover ? [] : this.drawPins(this.groups());
     this.overviewReveal.update(this.route.level === "country" && !this.cover, !f && !!chart && !this.dragging);
+    this.glints.show(this.cover || f ? null : this.route.level);
     this.beds.place(this.cover ? null : this.route.city, this.view, !!this.flight || (this.dragging && !this.root.classList.contains("stirring")));
     this.annotate(chart, reserved);
     this.positionNearby();
@@ -546,6 +550,7 @@ export class FlowAtlas {
           pin.type = "button";
           pin.className = "pin";
           pin.dataset.id = g.id;
+          setPetalRhythm(pin, g.id);
           pin.innerHTML = '<i class="stamp" aria-hidden="true"><canvas width="136" height="136"></canvas><b></b></i><span></span>';
           this.pins.set(g.id, pin);
           this.markers.append(pin);

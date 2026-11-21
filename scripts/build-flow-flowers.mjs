@@ -1,6 +1,7 @@
 // Rebuild the finished transparent plates from the same whorls as the interactive studies.
 import {mkdir, writeFile} from "node:fs/promises";
 import {allForms} from "../src/flow/flowerForms.js";
+import {svgPaperFilter} from "../src/flow/petalPaper.js";
 import {blades} from "../src/flow/drawCorolla.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
 import {flowerNames} from "../src/data/placeFlowers.js";
@@ -48,13 +49,13 @@ function mouth(layer) {
   return path+"Z";
 }
 function plate(key, form) {
-  const defs=[], rows=[];
+  const defs=[svgPaperFilter(27)], rows=[];
   const {root,mid,tip,hem}=form;
   for(const [j,layer] of form.whorls.entries()) {
     const {shape,petals,length,width,rotation}=layer;
     const id="petal"+j;
     // A luminous basin, a saturated shoulder, and a cool turn at the outer lip.
-    defs.push(`<radialGradient id="ink${j}" gradientUnits="userSpaceOnUse" cx=".20" cy="0" r=".88" fx=".36" fy="-.13" gradientTransform="scale(1 1.30)"><stop offset="0" stop-color="${root}"/><stop offset=".24" stop-color="${root}"/><stop offset=".55" stop-color="${mid}"/><stop offset=".86" stop-color="${tip}"/><stop offset="1" stop-color="${hem}"/></radialGradient>`);
+    defs.push(`<radialGradient id="ink${j}" gradientUnits="userSpaceOnUse" cx=".20" cy="0" r="1.02" fx=".28" fy="-.13" gradientTransform="scale(1 1.30)"><stop offset="0" stop-color="${root}"/><stop offset=".24" stop-color="${root}"/><stop offset=".55" stop-color="${mid}"/><stop offset=".86" stop-color="${tip}"/><stop offset="1" stop-color="${hem}"/></radialGradient>`);
     if(shape==="mouth") {
       const path=mouth(layer);
       defs.push(`<radialGradient id="bell" cx="43%" cy="55%" r="60%"><stop offset="0" stop-color="${root}"/><stop offset=".46" stop-color="${mid}"/><stop offset=".85" stop-color="${tip}"/><stop offset="1" stop-color="${hem}"/></radialGradient>`);
@@ -62,7 +63,7 @@ function plate(key, form) {
       continue;
     }
     // All the reflected light is inside a blade, leaving the silhouette printable.
-    defs.push(`<path id="outline${j}" d="${blades[shape]}"/><clipPath id="cut${j}"><use href="#outline${j}"/></clipPath><g id="${id}"><use href="#outline${j}" fill="url(#ink${j})"/><g clip-path="url(#cut${j})"><path d="M.02 .06Q.44 -.07 .85 -.54Q.63 -.14 .32 .022Z" fill="${root}" opacity=".35"/><path d="M.28 .08Q.67 .14 .94 .45Q.65 .23 .28 .08Z" fill="${hem}" opacity=".20"/></g></g>`);
+    defs.push(`<path id="outline${j}" d="${blades[shape]}"/><clipPath id="cut${j}"><use href="#outline${j}"/></clipPath><g id="${id}"><use href="#outline${j}" fill="url(#ink${j})"/><g clip-path="url(#cut${j})"><path d="M.02 .06Q.44 -.07 .85 -.54Q.63 -.14 .32 .022Z" fill="${root}" opacity=".13"/><path d="M.28 .08Q.67 .14 .94 .45Q.65 .23 .28 .08Z" fill="${hem}" opacity=".08"/></g></g>`);
     const transform=i=>`rotate(${f(rotation+i*360/petals)}) scale(${length} ${width})`;
     const petal=i=>`<use href="#${id}" transform="${transform(i)}"/>`;
     let layerArt=Array.from({length:petals},(_,i)=>petal(i)).join("");
@@ -77,6 +78,6 @@ function plate(key, form) {
   for(const [x,y,r,a] of form.florets??[[0,0,1,0]])
     art+=`<use href="#blossom" transform="translate(${x} ${y}) rotate(${a}) scale(${r} ${f(r*(form.centre==="throat"?.87:1))})"/>`;
   const name=(cityFlowers[key]?.name??flowerNames[key]).join(" / ");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.18 -1.18 2.36 2.36" width="512" height="512" role="img"><title>${name}</title>\n<defs>\n${defs.join("\n")}\n</defs>\n${art}\n</svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.18 -1.18 2.36 2.36" width="512" height="512" role="img"><title>${name}</title>\n<defs>\n${defs.join("\n")}\n</defs>\n<g filter="url(#paper)">${art}</g>\n</svg>\n`;
 }
 for(const [key,form] of Object.entries(allForms)) await writeFile(new URL(key+".svg",out),plate(key,form));

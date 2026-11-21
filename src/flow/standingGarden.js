@@ -7,22 +7,25 @@ function svg(tag, props={}) {
   for (const [name,value] of Object.entries(props)) node.setAttribute(name,value);
   return node;
 }
-export function gardenPositions(count, area) {
+export function gardenPositions(count, area, featured = 2) {
   const {x,y,w,h} = area;
-  const pts = [[x+w*.28,y+h*.22],[x+w*.72,y+h*.39]];
-  // Reserve space around the two taller stems and the crowns already placed.
-  for (let i=2;i<count;i++) {
+  const narrow = w<520;
+  const featuredLayout = featured<=2 ? [[.28,.22],[.72,.39]] : narrow ?
+    [[.23,.14],[.77,.22],[.48,.39],[.17,.53],[.80,.59],[.48,.74]] :
+    [[.18,.19],[.49,.13],[.80,.25],[.32,.45],[.66,.49],[.89,.59]];
+  const pts = featuredLayout.slice(0,Math.min(count,featured)).map(([u,v])=>[x+w*u,y+h*v]);
+  for (let i=pts.length;i<count;i++) {
     let best=null, score=-Infinity;
     for (let j=0;j<60;j++) {
       const n=i*41+j, u=.025+.95*((n*.61803398875)%1);
-      const v=.26+.61*((n*.41421356237)%1)+.045*Math.sin(u*8);
+      const v=.24+.65*((n*.41421356237)%1)+.042*Math.sin(u*8);
       const px=x+w*u, py=y+h*v;
-      const gap=Math.min(...pts.map(([a,b],k)=>Math.hypot(px-a,py-b)-(k<2?Math.min(w*.12,74):0)));
+      const gap=Math.min(...pts.map(([a,b],k)=>Math.hypot(px-a,py-b)-(k<featured?Math.min(w*.13,78):0)));
       if (gap>score) {best=[px,py]; score=gap;}
     }
     pts.push(best);
   }
-  return pts.slice(0,count);
+  return pts;
 }
 function blade(length,width,colour,lotus) {
   const group=svg("g",{class:"plant-leaf"});
@@ -55,6 +58,9 @@ export function plantArtwork({x,y,size,phase,featured,city,view,bottom,width,bir
   const socket=y+size*54/160;
   const stem=stemCurve(x,socket,bottom+5,Math.min(width*.23,featured?195:110),phase);
   const plant=svg("g",{class:"plant"+(birth>-2850?" growing":""), "data-view":view});
+  const [rootX,rootY] = stem.at(0);
+  plant.dataset.rootX = rootX;
+  plant.dataset.rootY = rootY;
   plant.style.setProperty("--birth",birth+"ms");
   const thick=featured?clamp(size*.032,3.6,6.5):clamp(size*.043,1.5,3.1);
   const main=line(stem.d,thick);

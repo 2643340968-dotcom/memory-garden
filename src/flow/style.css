@@ -715,7 +715,11 @@ a {
 .pin.cluster {--rest-size:41px;}
 .pin.annotation {--rest-size:27px;}
 .stamp canvas {display:block; width:100%; height:100%; pointer-events:none;
-  filter:drop-shadow(0 0 1px #745268a8) drop-shadow(0 1px 1px #fffff3);}
+  animation:petal-breath var(--petal-period,7s) ease-in-out var(--petal-phase,0s) infinite;}
+@keyframes petal-breath {
+  0%,100% {scale:.96;opacity:.84;}
+  50% {scale:1.055;opacity:1;}
+}
 .pin:is(.hot,:focus-visible,[aria-pressed="true"]) .stamp {width:var(--open-size);}
 .map.stirring,.map.stirring .pin {cursor:grabbing;}
 .pin.national:not(.annotation) {z-index:1;}
@@ -772,7 +776,7 @@ a {
 }
 
 .pin.hot,.pin.national.hot,.pin[aria-pressed="true"] {z-index:4;}
-.pin.hot .stamp canvas {filter:drop-shadow(0 1px 2px #826a744d);}
+#map[inert] .stamp canvas,#stage[inert] .stamp canvas,.pin:is(.hot,:focus-visible) .stamp canvas {animation-play-state:paused;}
 
 .guide-meta {
   border-top: 1px solid var(--hair);
@@ -835,21 +839,26 @@ a {
 #stalks {overflow:visible;}
 .seed {
   position:absolute; width:max(34px,var(--seed-size)); height:max(34px,calc(.9 * var(--seed-size)));
-  display:grid; place-items:center; transform:translate(-50%,-50%); pointer-events:auto;
+  display:grid; place-items:center; transform:translate(-50%,-50%) rotate(var(--bend-angle,0deg)); pointer-events:auto;
   border:0; padding:0; background:none; border-radius:50%;
+}
+.petal-body {
+  position:relative; display:block; width:var(--seed-size); pointer-events:none;
+  transform-origin:50% 87.5%; will-change:transform;
+  animation:petal-breath var(--petal-period,7s) ease-in-out var(--petal-phase,0s) infinite;
 }
 .garden-blossom {
   display:block; width:var(--seed-size); height:auto; pointer-events:none; user-select:none;
   transform-origin:50% 87.5%; transform:rotate(var(--turn));
 }
 .garden-blossom.unfolding {animation:open-calyx 1.10s cubic-bezier(.2,.78,.26,1) calc(var(--birth) + 920ms) backwards;}
-.seed:has(.unfolding) span {animation:petal-label .48s ease calc(var(--birth) + 1480ms) backwards;}
+
 @keyframes open-calyx {
   from {opacity:0; transform:rotate(calc(var(--turn) - 13deg)) scale(.15,.18);}
   40% {opacity:1; transform:rotate(calc(var(--turn) - 4deg)) scale(.57,.84);}
   to {opacity:1; transform:rotate(var(--turn)) scale(1);}
 }
-@keyframes petal-label {from{opacity:0;}}
+
 .plant-stem,.plant-twig {stroke-dasharray:1;stroke-dashoffset:0;}
 .plant.growing .plant-stem {animation:draw-stem 1.28s cubic-bezier(.21,.56,.36,.96) var(--birth) backwards;}
 .plant.growing .plant-twig {animation:draw-stem .74s ease-out calc(var(--birth) + 530ms) backwards;}
@@ -860,8 +869,27 @@ a {
 @keyframes unroll-leaf {from{opacity:0; transform:rotate(20deg) scale(.04,.1);}to{opacity:1;transform:none;}}
 .plant.growing .plant-floret {transform-box:fill-box; transform-origin:50% 87.5%; animation:unroll-leaf .95s ease-out calc(var(--birth) + 1090ms) backwards;}
 .seed[data-kind="featured"] {z-index:1;}
-.seed[data-kind="featured"] .garden-blossom {filter:drop-shadow(0 0 8px color-mix(in srgb,var(--flower-ink) 55%,transparent));}
-.seed span {
+.seed[data-kind="featured"] .petal-body {isolation:isolate;}
+.seed[data-kind="featured"] .garden-blossom {position:relative; filter:drop-shadow(0 0 4px color-mix(in srgb,var(--flower-light) 40%,transparent));}
+.seed[data-kind="featured"] .petal-body::before,.seed[data-kind="featured"] .petal-body::after {
+  content:""; position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:var(--crown) center/contain no-repeat; transform-origin:50% 87.5%;
+  animation:pollen-light var(--petal-period) ease-in-out var(--petal-phase) infinite;
+}
+.seed[data-kind="featured"] .petal-body::before {filter:blur(7px) saturate(1.28);}
+.seed[data-kind="featured"] .petal-body::after {filter:blur(13px) hue-rotate(16deg); animation-direction:reverse;}
+.seed[data-kind="featured"] .petal-body.new-crown::before,.seed[data-kind="featured"] .petal-body.new-crown::after {
+  animation-name:pollen-light,light-arrival; animation-duration:var(--petal-period),1s;
+  animation-delay:var(--petal-phase),calc(var(--birth) + 1200ms);
+  animation-timing-function:ease-in-out,ease-out; animation-iteration-count:infinite,1;
+  animation-fill-mode:none,backwards; animation-direction:normal,normal;
+}
+@keyframes pollen-light {
+  0%,100% {opacity:.26;transform:rotate(var(--turn)) scale(1.01);}
+  53% {opacity:.64;transform:rotate(var(--turn)) scale(1.17);}
+}
+@keyframes light-arrival {from{opacity:0;}to{opacity:.33;}}
+.seed-caption {
   position: absolute;
   top: calc(100% - 1px);
   left: 50%;
@@ -876,7 +904,7 @@ a {
   -webkit-text-stroke: 3px #fcf9f1;
 }
 
-.seed:not([data-kind="featured"]) span {
+.seed-caption {
   opacity: 0;
   transition: opacity .26s ease;
 }
@@ -885,7 +913,7 @@ a {
   z-index: 3;
 }
 
-.seed:is(:hover,:focus-visible) span {
+.seed:is(:hover,:focus-visible) .seed-caption {
   opacity: 1;
 }
 
@@ -1239,6 +1267,9 @@ figcaption button,#memory-reader-back {
   text-overflow: ellipsis;
 }
 
+#record-date {
+  margin:0 0 9px; color:#775e78; font:600 13px/1.5 var(--sans); letter-spacing:.045em;
+}
 #record-source {
   font-size: 12px;
   color: #645684;
@@ -1436,6 +1467,11 @@ figcaption button,#memory-reader-back {
   #edition { --header-height:41px; }
   .masthead { min-height: 41px; }
 
+  #arrival {gap:5px; padding-top:54px;}
+  #arrival-flower {width:clamp(60px,19vh,90px);}
+  #arrival-title,:lang(zh-CN) #arrival-title {font-size:clamp(33px,10vh,52px);}
+  #arrival-note,:lang(zh-CN) #arrival-note {font-size:13px; line-height:1.45;}
+  #arrival #skip {margin-top:6px;}
   .heading {top: 12px;max-width: 82%;}
 
   #title,:lang(zh-CN) #title,.stage:not([data-level="country"]) #title {
@@ -1450,7 +1486,8 @@ figcaption button,#memory-reader-back {
 }
 
 @media(prefers-reduced-motion:reduce) {
-  .landing-cue svg,.garden-blossom.unfolding,.plant.growing *,.seed:has(.unfolding) span {animation:none!important;}
+  .stamp canvas,.petal-body,.petal-body::before,.petal-body::after,.landing-cue svg,.garden-blossom.unfolding,.plant.growing * {animation:none!important;}
+  .seed[data-kind="featured"] .petal-body::before,.seed[data-kind="featured"] .petal-body::after {opacity:.30;}
   *,*::before,*::after {
     scroll-behavior: auto!important;
     animation-duration: .001ms!important;

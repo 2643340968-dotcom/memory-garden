@@ -14,7 +14,10 @@ import {cityFlowers} from "../src/flow/cityFlowers.js";
 import {allForms, forms, plateURL, profileURL} from "../src/flow/flowerForms.js";
 import {meadowFlowers} from "../src/flow/memoryBeds.js";
 import {gardenPositions} from "../src/flow/standingGarden.js";
-import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
+import {eventsForPlace} from "../src/flow/gardenEvents.js";
+import {windImpulse, settleStem, displacedCrown} from "../src/flow/gardenBreeze.js";
+import {petalBreath, rhythmFor} from "../src/flow/petalLight.js";
+import {chartLabelInLanguage, flowHash, readFlowRoute, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
 import {CITIES, PLACES} from "../src/atlas/places.js";
 
 test("cover flower fronts grow continuously, overlap in time and dissolve before restarting", () => {
@@ -151,7 +154,7 @@ test("wet dye builds only where different flowers meet, then diffuses and dries 
   assert.equal(amount(paper), 0);
 });
 
-test("one scroll follows a chosen or remembered branch between the cover, three map stops and garden", () => {
+test("one gesture follows a chosen branch through three map stops, a held prelude and the garden", () => {
   const opening = {level:"opening"}, country = {level:"country"};
   assert.deepEqual(nextMapLevel(opening, true), country);
   assert.deepEqual(nextMapLevel(country, false), opening);
@@ -170,8 +173,12 @@ test("one scroll follows a chosen or remembered branch between the cover, three 
       assert.deepEqual(place, {level:"place", city:mark.city, place:id});
       assert.deepEqual(nextMapLevel(city, true, null, {[mark.city]:id}), place);
       const garden = {level:"garden", city:mark.city, place:id};
-      assert.deepEqual(nextMapLevel(place, true), garden);
-      assert.deepEqual(nextMapLevel(garden, false), place);
+      const prelude = {...place, level:"arrival"};
+      assert.deepEqual(nextMapLevel(place, true), prelude);
+      assert.deepEqual(nextMapLevel(prelude, true), garden);
+      assert.deepEqual(nextMapLevel(garden, false), prelude);
+      assert.deepEqual(nextMapLevel(prelude, false), place);
+      for (const stop of [place,prelude,garden]) assert.deepEqual(readFlowRoute(flowHash(stop)),stop);
       assert.deepEqual(nextMapLevel(place, false), city);
     }
   }
@@ -442,5 +449,55 @@ test("camera landings ease in both directions and carry velocity into a new whee
     assert.ok(1 - cameraProgress(1 - dt, slope) < 1e-8);
     for (let t = 0; t < .99; t += .01)
       assert.ok(cameraProgress(t + .01, slope) >= cameraProgress(t, slope));
+  }
+});
+
+test("every site has distinct dated, cited, bilingual event flowers", () => {
+  const ids = new Set();
+  for (const id of Object.keys(PLACES)) {
+    const events = eventsForPlace(id);
+    assert.ok(events.length>=2,id);
+    for (const e of events) {
+      assert.ok(e.id.startsWith(id+"-event-") && !ids.has(e.id));
+      ids.add(e.id);
+      assert.ok(e.date && e.title.length===2 && e.body.every(p=>p.length>10));
+      assert.ok(e.dateLabel.every(Boolean) && /\p{Script=Han}/u.test(e.title[0]) && !/\p{Script=Han}/u.test(e.title[1]));
+      assert.ok(e.sourceNames.every(Boolean) && new URL(e.sourceUrl).protocol==="https:");
+    }
+  }
+  const jiangdongmen=eventsForPlace("jiangdongmen");
+  assert.ok(jiangdongmen.length>=5);
+  assert.match(jiangdongmen.find(e=>e.date==="2014-12-13").dateLabel[0],/2014年12月13日/);
+  assert.deepEqual(eventsForPlace("unknown"),[]);
+  assert.equal(readFlowRoute("#arrival/beijing/jiangdongmen").level,"country");
+  assert.equal(readFlowRoute("#arrival/nanjing/jiangdongmen/extra").level,"country");
+});
+
+test("a passing stroke bends only nearby stems toward its travel and then settles", () => {
+  const p={x:130,y:100,rootX:110,rootY:460,angle:0,velocity:0,frequency:5};
+  const a={x:103,y:99}, b={x:151,y:101};
+  const right=windImpulse(p,a,b,130,18);
+  assert.ok(right>15 && windImpulse(p,b,a,130,18)===-right);
+  assert.equal(windImpulse({...p,x:620,rootX:600},a,b,130,18),0);
+  assert.equal(windImpulse(p,a,{...a,y:99},130,18),0);
+  const [dx,dy]=displacedCrown(p,3);
+  assert.ok(dx>10 && dy>0);
+  assert.ok(displacedCrown({...p,x:p.rootX,y:p.rootY},3).every(n=>n === 0));
+  p.velocity=right;
+  const angles=[];
+  for(let i=0;i<450;i++){settleStem(p,1/60);angles.push(p.angle);}
+  assert.ok(Math.max(...angles)>.8 && Math.min(...angles)<0);
+  assert.equal(p.angle,0);assert.equal(p.velocity,0);
+});
+
+test("city flowers breathe out of phase and a featured event pulses more frequently", () => {
+  const phases=nationalMarks.map(m=>rhythmFor(m.id).phase);
+  assert.equal(new Set(phases).size,18);
+  for(const m of nationalMarks) {
+    const normal=rhythmFor(m.id), featured=rhythmFor(m.id,true);
+    assert.ok(featured.period<normal.period);
+    const values=Array.from({length:40},(_,i)=>petalBreath(i*.31,normal));
+    assert.ok(Math.max(...values)-Math.min(...values)>.45);
+    assert.ok(values.every(n=>n>=0 && n<=1));
   }
 });

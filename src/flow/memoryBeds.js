@@ -3,6 +3,7 @@ import {clamp, hash, mercator, project, smooth, TAU} from "./geometry.js";
 import {forms} from "./flowerForms.js";
 import {loadPlates} from "./coverPlates.js";
 import {drawInnerFronts, drawOuterFronts, focusedBody, frontsAt, stamp} from "./coverFlowers.js";
+import {petalBreath, rhythmFor} from "./petalLight.js";
 import {PetalCurrent} from "./petalCurrent.js";
 import {WetPaper} from "./wetPaper.js";
 
@@ -28,7 +29,7 @@ export function meadowFlowers(id, city) {
       x:width/2 + x*Math.cos(lean) - y*Math.sin(lean),
       y:height/2 + x*Math.sin(lean) + y*Math.cos(lean),
       radius:9 + rand(i,9)**1.25 * 19, angle:(rand(i,14)-.5)*2.6,
-      delay:-3 - rand(i,42)*7, type:city, tone, ink:palette[tone],
+      delay:-3 - rand(i,42)*7, type:city, tone, ink:palette[tone], rhythm:rhythmFor(id+"-"+i),
     };
   });
 }
@@ -59,6 +60,18 @@ class Meadow {
     this.current = new PetalCurrent(this.blooms);
     this.plates = plates;
   }
+  breathing(time, depth) {
+    this.dry ??= surface(width,height);
+    const ctx=this.dry;
+    ctx.clearRect(0,0,width,height);
+    this.blooms.forEach((b,i) => {
+      const tier=i<6?0:i<20?1:2, light=petalBreath(time,b.rhythm);
+      ctx.globalAlpha=ease((depth-tier*.25)/.32)*(.83+.17*light);
+      if (ctx.globalAlpha) at(ctx,b,()=>stamp(ctx,this.bodies[b.tone],b.radius*(.95+.11*light)));
+    });
+    ctx.globalAlpha=1;
+    return ctx.canvas;
+  }
   wet(dt, time) {
     if (!this.paper) {
       this.paper = new WetPaper(width, height, this.blooms, this.plates);
@@ -80,14 +93,15 @@ class Meadow {
     const wash = this.waves, faces = this.faces;
     wash.clearRect(0,0,width,height);
     faces.clearRect(0,0,width,height);
-    for (const layer of this.layers) faces.drawImage(layer.canvas,0,0);
     this.blooms.forEach((b,i) => {
-      const state = this.current.states[i];
-      at(wash,b,() => drawOuterFronts(wash,this.plate,b.radius,fronts[i],1.9));
+      const state = this.current.states[i], light = petalBreath(time,b.rhythm);
+      const radius = b.radius*(.95+.11*light);
+      at(wash,b,() => drawOuterFronts(wash,this.plate,radius,fronts[i],1.9));
       at(faces,b,() => {
-        if (Math.hypot(state.x,state.y) > .018)
-          stamp(faces,focusedBody(b,state,this.plate,1,time),b.radius);
-        drawInnerFronts(faces,this.plate,b.radius,fronts[i],1.25);
+        faces.globalAlpha = .83+.17*light;
+        const body = Math.hypot(state.x,state.y) > .018 ? focusedBody(b,state,this.plate,1,time) : this.bodies[b.tone];
+        stamp(faces,body,radius);
+        drawInnerFronts(faces,this.plate,radius,fronts[i],1.25);
       });
     });
     wash.drawImage(this.pool.canvas,...bounds);
@@ -228,6 +242,7 @@ export class MemoryBeds {
     const live = this.moving || this.motion.matches ? [] : this.visible.filter(e=>e.depth>.84)
       .sort((a,b)=>Number(b.id===this.attended)-Number(a.id===this.attended) || wetUntil(b)-wetUntil(a) ||
         Math.hypot(a.x-this.w/2,a.y-this.h/2)-Math.hypot(b.x-this.w/2,b.y-this.h/2)).slice(0,4);
+    const breathe = !this.moving && !this.motion.matches && this.visible.some(e=>e.depth>.48);
     let count = 0;
     for (const e of this.visible) {
       const {depth,scale,bed}=e;
@@ -236,6 +251,10 @@ export class MemoryBeds {
         ctx.globalAlpha=.88;
         ctx.drawImage(bed.wet(dt,this.clock),...bounds);
         count+=bed.blooms.length;
+      } else if (breathe && depth>.48) {
+        ctx.globalAlpha=.88;
+        ctx.drawImage(bed.breathing(this.clock,depth),...bounds);
+        count+=depth>.5 ? bed.blooms.length : 20;
       } else {
         for (let i=0;i<3;i++) {
           const alpha=ease((depth-i*.25)/.32);
@@ -248,7 +267,7 @@ export class MemoryBeds {
     }
     ctx.globalAlpha=1;
     this.canvas.dataset.flowers=String(count);
-    if (live.length) {
+    if (breathe) {
       const tick = time => {
         if (time-now<42) this.frame=requestAnimationFrame(tick);
         else this.paint(time);

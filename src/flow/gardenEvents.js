@@ -1,0 +1,575 @@
+// Editorial summaries for the standing garden. Every blossom has its own event and citation.
+// Numeric sources are permanent revisions of the place articles in the atlas catalogue.
+const sources = {
+  burial: {name: ["中共南京市委党史工作办公室","Nanjing Party History Office"], url: "https://dsb.nanjing.gov.cn/yzyj/201412/t20141209_2083944.html"},
+  hall: {name: ["侵华日军南京大屠杀遇难同胞纪念馆","Memorial Hall of the Victims in Nanjing Massacre by Japanese Invaders"], url: "https://www.19371213.org.cn/information/news/202509/t20250905_5643460.html"},
+  unescoMemory: {name:["联合国教科文组织《世界记忆名录》","UNESCO Memory of the World Register"], url:"https://www.unesco.org/en/memory-world/documents-nanjing-massacre"},
+  axis: {name:["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"], url:"https://whc.unesco.org/en/list/1714/"},
+  hill: {name: ["南京市地方志工作办公室","Nanjing Local Chronicles Office"], url: "https://dfz.nanjing.gov.cn/gzdt/202603/t20260317_5806832.html"},
+  pavilion: {name: ["北京市园林绿化局","Beijing Forestry and Parks Bureau"], url: "https://yllhj.beijing.gov.cn/ztxx/lhysh/sh/202205/t20220531_2725223.shtml"},
+  summit: {name: ["北京市公园管理中心","Beijing Municipal Park Administration"], url: "https://gygl.beijing.gov.cn/mlgy/mlgy_gyjg01/201912/t20191211_1048536.html"},
+  mogao: {name: ["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"], url: "https://whc.unesco.org/en/list/440/"},
+  irrigation: {name: ["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"], url: "https://whc.unesco.org/en/list/1001/"},
+  water: {name: ["中国水利百科全书","Encyclopedia of China Water Resources"], url: "https://www.shuizhishi.cn/c/2020-04-09/519980.shtml"},
+  bridge: {name: ["泉州市人民政府","Quanzhou Municipal Government"], url: "https://www.quanzhou.gov.cn/zfb/xxgk/ztxxgk/ggwhty/whssml/202305/t20230516_2880600.htm"},
+  port: {name: ["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"], url: "https://whc.unesco.org/en/list/1561/multipleelements/"},
+  yardang: {name: ["西藏自治区自然资源厅","Department of Natural Resources, Tibet Autonomous Region"], url: "https://zrzyt.xizang.gov.cn/dt/xzzrzygk/201907/t20190731_90672.html"},
+};
+
+function event(date, title, body, source) {
+  return {date, title, body, source};
+}
+
+const sites = {
+  jiangdongmen: [
+    event("1937-12-16", ["江东门的遇难者","The killings at Jiangdongmen"],
+      ["侵华日军将已被解除武装的中国士兵和平民押至江东门杀害。今天的纪念馆建在当年的集体屠杀和遇难者丛葬遗址上。","Japanese troops brought disarmed Chinese soldiers and civilians to Jiangdongmen and killed them. The memorial hall now stands on the site of the killings and a mass grave."], "burial"),
+    event("1985-08-15", ["纪念馆第一次开门","The memorial hall opens"],
+      ["南京在江东门遗址上建成纪念馆，向公众开放。人们从这一天起可以来到遗址悼念遇难者。","The memorial hall opened to the public on the Jiangdongmen site, giving visitors a place to mourn those who had been killed here."], "hall"),
+    event("1995", ["把遇难者的名字刻上墙","Names on the memorial wall"],
+      ["纪念馆二期工程完成。遇难者名单墙把一个个具体的名字带进了公共纪念空间。","The hall completed its second phase. A wall bearing victims’ names gave individual people a visible place in the memorial."], "hall"),
+    event("2007", ["新馆与和平之舟","A new hall for remembrance"],
+      ["新馆建成。以船为意象的建筑，将观众的参观路线从灾难的历史引向对和平的思考。","A new exhibition hall opened. Its boat-shaped architecture carries the visit from the history of the massacre toward the theme of peace."], "hall"),
+    event("2014-12-13", ["第一次国家公祭仪式","The first national memorial ceremony"],
+      ["首个南京大屠杀死难者国家公祭仪式在江东门纪念馆举行。幸存者和遇难者遗属代表参与了现场纪念。","Jiangdongmen hosted the first national memorial ceremony for the victims of the Nanjing Massacre. Survivors and representatives of victims’ families took part."], "hall"),
+    event("2015", ["胜利展厅建成","The Victory Exhibition Hall"],
+      ["纪念馆扩建工程完成，胜利广场、胜利之路与胜利展厅连成一条新的参观路线。","An extension to the memorial brought Victory Square, Victory Road and the Victory Exhibition Hall together as a new route through the grounds."], "hall"),
+    event("2015", ["南京大屠杀档案入选名录","A place for the documents on the register"],
+      ["南京大屠杀档案列入联合国教科文组织《世界记忆名录》。这组文献保存了屠杀时期的记录，以及战后调查和审判的材料。","UNESCO inscribed the Documents of Nanjing Massacre on its Memory of the World Register. They include records from the time of the massacre and material from postwar investigations and trials."], "unescoMemory"),
+  ],
+  wanchunting: [
+    event("1750", ["景山中峰建亭","A pavilion on the central peak"],
+      ["万春亭建在景山中峰。从这里向南望，紫禁城的屋顶沿着北京中轴线展开。","Wanchun Pavilion was built on the central peak of Jingshan. From its summit, the roofs of the Forbidden City stretch south along Beijing’s central axis."], "pavilion"),
+    event("1998", ["亭中的佛像重塑归安","A statue returns to the pavilion"],
+      ["万春亭原供的毗卢遮那佛像曾被毁。这一年，重塑的佛像在景山中峰的亭内安置。","The original Vairocana figure had been destroyed. A newly made statue was installed in the pavilion on Jingshan’s central peak."], "summit"),
+    event("2024", ["景山随中轴线列入遗产名录","Jingshan joins the World Heritage List"],
+      ["景山作为北京中轴线的一部分列入《世界遗产名录》。万春亭所在的中峰，是从高处辨认这条轴线的地方。","Jingshan was inscribed as part of the Beijing Central Axis. The summit where Wanchun Pavilion stands offers a view along the axis."], "axis"),
+  ],
+  mogao: [
+    event("366", ["崖壁上开始开窟","Work begins on the cliff"],
+      ["敦煌的工匠开始在崖壁上开凿洞窟。此后数百年，不同时期的画师和塑匠在洞窟里留下了壁画与彩塑。","Cave cutting began at Mogao. Over the following centuries, painters and sculptors worked inside the chambers, leaving murals and painted figures in the rock."], "mogao"),
+    event("1900", ["藏经洞重新被发现","The Library Cave is rediscovered"],
+      ["一座封闭的洞室重见天日，其中保存着大量写本和其他遗物。这些材料给研究丝绸之路上的语言和日常生活留下线索。","A sealed chamber was rediscovered with a large collection of manuscripts and other objects. Its contents preserve traces of the languages and everyday life of the Silk Road."], "mogao"),
+    event("1987", ["莫高窟列入世界遗产","Inscription of the caves"],
+      ["莫高窟列入《世界遗产名录》。保护的对象包括洞窟建筑、壁画和彩塑，也包括它们所在的崖壁环境。","Mogao entered the World Heritage List. The property brings the rock-cut architecture, murals and sculptures together with their cliff setting."], "mogao"),
+  ],
+  yuzui: [
+    event("公元前3世纪~3rd century BCE", ["岷江在这里分流","Dividing the Min River"],
+      ["都江堰灌溉工程开始建设。鱼嘴所在的分水工程让岷江分入内外两条水道，把水引向成都平原。","Work began on the Dujiangyan irrigation system. At the Fish Mouth, a dividing levee splits the Min into two channels and feeds water toward the Chengdu Plain."], "irrigation"),
+    event("1974", ["鱼嘴旁兴建外江闸","A gate beside the dividing levee"],
+      ["鱼嘴右侧的岷江干流上兴建外江闸。这一工程为渠首调节内外江的水量增添了手段。","A control gate was built in the main channel to the right of the Fish Mouth. It added a way to regulate the division of water at the headworks."], "water"),
+    event("2000", ["仍在使用的水利遗产","A working irrigation system is listed"],
+      ["都江堰灌溉系统与青城山一同列入《世界遗产名录》。在被列入名录时，这套工程仍在向成都平原供水。","UNESCO listed Dujiangyan together with Mount Qingcheng. The historic irrigation works were still supplying the Chengdu Plain when they were inscribed."], "irrigation"),
+  ],
+  luoyangqiao: [
+    event("1059", ["从渡口走上石桥","A stone crossing replaces the ferry"],
+      ["北宋修建的洛阳桥完工。蔡襄撰写桥记，记下了这座跨过潮汐河口的石桥怎样从开工走到竣工。","The stone bridge across the tidal estuary was completed in the Northern Song. Cai Xiang recorded the construction in an inscription that survives at the crossing."], "bridge"),
+    event("1993–1997", ["用本地花岗岩修桥","Repairing the granite span"],
+      ["保护修缮中，工匠用本地花岗岩修补受损的桥墩、石梁和栏杆，并尽量沿用古桥的工艺和形制。","Conservators used local granite to repair piers, deck slabs and railings, following the form and workmanship of the old bridge."], "bridge"),
+    event("2021", ["古桥进入海港遗产名录","The crossing joins a port-city listing"],
+      ["洛阳桥作为宋元泉州海洋商贸遗产的组成部分列入世界遗产。陆上道路、桥梁与港口在这项名录中联系起来。","Luoyang Bridge entered the World Heritage List as part of Song–Yuan Quanzhou. The listing connects this overland crossing to the roads and ports of the trading city."], "port"),
+  ],
+  p205048: [
+    event("920", ["冶山道宫更名","A new name for the hilltop sanctuary"],
+      ["杨吴武义二年，唐代的太清宫改名紫极宫，并建钟阜轩。这是今天朝天宫所在冶山的一段早期历史。","Under the Wu kingdom, the Tang-era Taiqing Palace was renamed Ziji Palace. A pavilion called Zhongfu was also built on the hill."], "hill"),
+    event("明洪武年间~Hongwu reign, Ming dynasty", ["在习仪亭演礼","Rehearsals before court ceremonies"],
+      ["明初重建宫观，赐名朝天宫，设习仪亭。朝廷举行盛典以前，官员来到这里练习礼仪。","The rebuilt precinct received the name Chaotian Palace. Officials rehearsed court ceremonies here in a pavilion set aside for that purpose."], "hill"),
+    event("1866–1870", ["文庙与府学迁入","A Confucian temple and school"],
+      ["清同治年间，冶山旧址被重建为文庙与江宁府学。今天仍可从殿宇的布局辨认出祭祀与讲学的空间。","The hilltop complex was rebuilt as a Confucian temple and the Jiangning prefectural school. Its halls gave worship and teaching separate places in the precinct."], "hill"),
+  ],
+  p31332: [
+    event("446", ["湖有了玄武之名","The lake takes its name"],
+      ["南朝宋元嘉年间，这片原称桑泊的水域开始有了玄武湖的名字。","During the Liu Song dynasty, the waters once known as Sangbo began to be called Xuanwu Lake."], 95167828),
+    event("1928-08-19", ["湖岸向市民开放","The park opens to the public"],
+      ["玄武湖正式作为公园开放。城墙旁的湖岸和洲岛由此成为市民游览的地方。","Xuanwu Lake formally opened as a public park. Residents could visit the lakeshore and the islands beside the city wall."], 95167828),
+  ],
+  p46423: [
+    event("1926", ["紫金山上动工","Work begins on the mausoleum"],
+      ["孙中山陵墓在紫金山动工，祭堂和登山长阶逐渐在山麓成形。","Construction began on Sun Yat-sen’s mausoleum on Purple Mountain, laying out a ceremonial ascent to the memorial hall."], 95541065),
+    event("1931", ["陵园工程完成","The mausoleum complex is completed"],
+      ["祭堂等主体建筑已在此前建成，这一年陵墓整体工程宣告完成。","The main memorial hall was already standing when work on the wider mausoleum complex was declared complete."], 95541065),
+  ],
+  p46425: [
+    event("1382", ["马皇后入葬","Empress Ma is buried here"],
+      ["洪武十五年，马皇后葬入紫金山麓的陵寝。陵墓也在这一年得名孝陵。","Empress Ma was buried in the imperial tomb at the foot of Purple Mountain. It received the name Xiaoling that year."], 93634070),
+    event("2003", ["孝陵进入世界遗产名录","Xiaoling joins the World Heritage List"],
+      ["明孝陵列入世界遗产，其周围数座明初功臣墓也被纳入保护范围。","Xiaoling was inscribed as World Heritage. The protected area also includes tombs of several early Ming officials nearby."], 93634070),
+  ],
+  p56278: [
+    event("1366", ["在旧南门重筑城门","Rebuilding the southern gateway"],
+      ["南京城垣工程开始，聚宝门在南唐都城南门故址上重建。它就是今天中华门的前身。","Work began on Nanjing’s walls. Jubao Gate, the predecessor of today’s Zhonghua Gate, was rebuilt on the site of the Southern Tang capital’s southern entrance."], 94662683),
+    event("1931", ["聚宝门改名","Jubao Gate is renamed"],
+      ["沿用多年的聚宝门改称中华门，新的门名也被题写在城门上。","Jubao Gate received the name Zhonghua Gate. A new inscription recorded that name on the gateway."], 94662683),
+  ],
+  p56279: [
+    event("1534", ["贡院建起明远楼","Mingyuan Tower rises"],
+      ["应天府贡院整修时建起明远楼。考场里增添了一座可以俯看四周号舍的高楼。","Mingyuan Tower was built during repairs to the examination compound. It overlooked the rows of cells where candidates sat their exams."], 95277240),
+    event("1989", ["考场成为陈列馆","An exhibition in the examination hall"],
+      ["依托贡院遗存，江南贡院历史陈列馆建成，让公众可以在科举旧址了解考试制度。","An exhibition hall opened in the surviving compound, presenting the examination system at the site where candidates once sat their papers."], 95277240),
+  ],
+  p56395: [
+    event("1907", ["江南图书馆创办","The library’s predecessor is founded"],
+      ["两江总督端方在龙蟠里惜阴书院旧址创办江南图书馆。这是今天南京图书馆的前身之一。","Duanfang founded the Jiangnan Library at the former Xiyin Academy on Longpanli. It was a predecessor of today’s Nanjing Library."], 93702692),
+    event("1952", ["两馆合并藏书","Two collections come together"],
+      ["江苏省立国学图书馆并入国立南京图书馆，两支馆藏在同一机构中汇合。","The Jiangsu Provincial Library of Chinese Studies merged with the National Nanjing Library, bringing their collections together."], 93702692),
+  ],
+  p57177: [
+    event("1034", ["秦淮岸边建庙","A temple on the Qinhuai"],
+      ["北宋扩建学宫旧址，建起当时称作文宣王庙的孔庙。祭祀与讲学在秦淮河畔相邻而设。","A Confucian temple was established on an older academy site beside the Qinhuai. It was then known as the Temple of King Wenxuan."], 94279144),
+    event("1984", ["夫子庙启动复建","Reconstruction of the temple begins"],
+      ["南京市与秦淮区决定复建夫子庙，让战火中严重损毁的庙宇重新出现在河岸。","City and district authorities decided to reconstruct the Confucian Temple after the severe damage it had suffered during the war."], 94279144),
+  ],
+  p57543: [
+    event("1934-09-01", ["天文研究所上山","Astronomers move up the mountain"],
+      ["中央研究院天文研究所从南京鼓楼迁入紫金山天文台，山上的观测设施开始承担研究工作。","The Institute of Astronomy moved from the Drum Tower to the new observatory on Purple Mountain."], 93842767),
+    event("1996", ["保护天文台旧址","Protection for the old observatory"],
+      ["山上的旧台址列入全国重点文物保护单位，天文研究的建筑也成为被保护的历史遗存。","The former observatory was designated a nationally protected heritage site, preserving the buildings of early astronomical research."], 93842767),
+  ],
+  p57550: [
+    event("1387", ["寺院得名鸡鸣","The temple receives its present name"],
+      ["明洪武二十年，朱元璋命人重建寺院，并将它定名为鸡鸣寺。","The Hongwu emperor ordered the temple rebuilt and gave it the name Jiming Temple."], 95453800),
+    event("1991", ["药师佛塔建成","A new pagoda on the hill"],
+      ["鸡鸣寺新建七层八面的药师佛塔，塔身成为鸡笼山坡上一处醒目的轮廓。","A seven-storey, eight-sided Medicine Buddha pagoda was built at Jiming Temple, changing the outline of the hillside."], 95453800),
+  ],
+  p57785: [
+    event("1936", ["人文馆动工","The humanities hall breaks ground"],
+      ["筹建中的国立中央博物院开工建设人文馆。这座馆舍成为后来南京博物院早期建筑的一部分。","Construction began on the humanities hall of the planned National Central Museum, part of the architectural history of today’s Nanjing Museum."], 94276692),
+    event("1939–1941", ["战时转移馆藏","Moving collections during the war"],
+      ["博物院筹备处将文物分运至四川乐山、云南昆明等地，尽力保全战时的藏品。","The museum’s preparatory office moved objects to places including Leshan and Kunming to protect the collection during the war."], 94276692),
+  ],
+  p58874: [
+    event("明嘉靖年间~Jiajing reign, Ming dynasty", ["一座私家花园成形","A private garden takes shape"],
+      ["瞻园始建于明代嘉靖年间。池石院落原是私家园林中的游赏空间。","Zhan Garden was founded as a private garden under the Jiajing emperor, with water and rock arranged around its courtyards."], 94390418),
+    event("1958", ["博物馆迁入瞻园","A museum moves into the garden"],
+      ["太平天国历史博物馆迁入瞻园，在园林建筑中展出这一时期的历史。","The Taiping Heavenly Kingdom History Museum moved into Zhan Garden, adapting its buildings to display the history of the period."], 94390418),
+  ],
+  p146220: [
+    event("1968", ["双层桥跨过长江","Two decks span the Yangtze"],
+      ["南京长江大桥建成。火车走下层、公路车辆走上层，两岸的过江方式随之改变。","The Nanjing Yangtze River Bridge was completed. Trains crossed on the lower deck and road traffic on the upper deck."], 95714002),
+    event("2023", ["大桥列入市级文保","The bridge receives city heritage status"],
+      ["南京将大桥列入第五批市级文物保护单位，这座交通工程也有了市级文物保护身份。","Nanjing included the bridge in its fifth group of municipally protected cultural heritage sites."], 95714002),
+  ],
+  p158010: [
+    event("489", ["山麓设栖霞精舍","A Buddhist retreat on Mount Qixia"],
+      ["南齐时，栖霞山西麓的旧宅成为栖霞精舍，后来发展为栖霞寺。","A former residence on the west slope of Mount Qixia became a Buddhist retreat in the Southern Qi period. It later developed into Qixia Temple."], 90895481),
+    event("1392", ["明代重建栖霞寺","The Ming rebuilding"],
+      ["明洪武二十五年，朝廷重建栖霞寺，并为寺院划拨田山。","The Hongwu court rebuilt Qixia Temple and endowed it with land."], 90895481),
+  ],
+  p545032: [
+    event("1381", ["寺院迁往紫金山东麓","A monastery moves east"],
+      ["为营建明孝陵，原寺迁到新的山址，改名灵谷禅寺。","The monastery was moved to make room for the imperial mausoleum. At its new site it received the name Linggu."], 91292031),
+    event("1931–1933", ["纪念塔建成","Building the memorial tower"],
+      ["阵亡将士纪念塔在灵谷一带兴建。今天人们所说的灵谷塔，即源于这项纪念工程。","A memorial tower for fallen soldiers was built in the Linggu grounds. It is now known as Linggu Pagoda."], 91292031),
+  ],
+  p546851: [
+    event("1961", ["清凉山辟作公园","The hill becomes a public park"],
+      ["城西的清凉山被辟为公园，山中的寺院和楼阁也进入市民游园的路线。","Qingliang Hill became a public park, bringing the hillside paths and buildings into the city’s park landscape."], 92509043),
+    event("1998", ["确认石头城遗址","Identifying the Stone City remains"],
+      ["在清凉山地区发现的古城遗址被确认为石头城遗存，为这段城防历史留下考古线索。","Remains found around Qingliang Hill were identified as part of Stone City, providing archaeological evidence of the old fortifications."], 92509043),
+  ],
+  p547384: [
+    event("1931–1934", ["山麓官邸建成","A residence below Purple Mountain"],
+      ["一座覆有绿色琉璃瓦的官邸在山麓建起，后来以美龄宫的名字为人熟知。","A residence with a green glazed roof was built below Purple Mountain. It later became widely known as Meiling Palace."], 91677051),
+    event("1984", ["官邸向公众开放","The residence opens to visitors"],
+      ["三月，美龄宫开始对外开放参观，访客得以走进过去的官邸内部。","The residence opened to visitors in March, allowing the public to enter its furnished rooms."], 91677051),
+  ],
+  p813876: [
+    event("1950", ["雨花台辟为陵园","A memorial park at Yuhuatai"],
+      ["雨花台被辟为烈士陵园，纪念空间的建设从修路、植树开始。","Yuhuatai became a memorial park. Roads were laid and trees planted as the grounds took shape."], 93905849),
+    event("1979", ["北殉难处立起群雕","A group sculpture at the northern site"],
+      ["烈士群雕在北殉难处落成，人们可以在雕像前停步悼念。","A group sculpture commemorating those who died was completed at the northern execution site."], 93905849),
+  ],
+  p919080: [
+    event("1912", ["临时大总统就职","The provisional president takes office"],
+      ["孙中山在这处院落宣誓就任中华民国临时大总统。长江路的建筑由此见证了政体更替。","Sun Yat-sen took the oath as provisional president of the Republic of China in this compound on Changjiang Road."], 93992920),
+    event("2003", ["办公院落改作博物馆","A government compound becomes a museum"],
+      ["院落改设为南京中国近代史遗址博物馆，近代政务空间转入公开展示。","The compound became the Nanjing China Modern History Museum, opening former government spaces to interpretation as historical sites."], 93992920),
+  ],
+  p1044564: [
+    event("1382", ["鼓楼岗上建楼","A drum tower for the city"],
+      ["明代在鼓楼岗上建起鼓楼，以鼓声向城中报时。","A drum tower was built on the hill during the Ming dynasty to sound the hours across the city."], 94389383),
+    event("1684", ["明代台座上重建楼阁","A new tower on the Ming platform"],
+      ["清代在明朝台座上重建上层木构，楼名畅观楼。今天还能见到台座和楼阁分属两个时期的格局。","A timber tower called Changguan Lou was built on the older Ming platform. Its two levels of construction belong to different dynasties."], 94389383),
+  ],
+  p4970: [
+    event("1420", ["天地合祭的祭坛","An altar for earth and heaven"],
+      ["明朝在北京南郊建天地坛，祭天和祭地曾在同一处举行。","The Ming court built a combined altar south of Beijing for offerings to heaven and earth."], 95730626),
+    event("1530", ["天地分祀","The rites divide"],
+      ["北郊另设地坛，此处专用于祭天，并改称天坛。","A separate earth altar was established in the north. The southern site took the name Temple of Heaven."], 95730626),
+  ],
+  p5808: [
+    event("1442", ["城墙上的观象台","An observatory on the wall"],
+      ["明朝在元大都东南角楼旧址建起高台，用来观测天象。","A Ming observing platform rose on the site of a former corner tower of the Yuan capital."], 95668517),
+    event("1983", ["观象台重新迎客","The observatory reopens"],
+      ["古观象台恢复博物馆用途，公众再次可以近看台上的天文仪器。","The observatory reopened as a museum, bringing visitors back to its historic instruments."], 95668517),
+  ],
+  p20660: [
+    event("1958", ["筹建广场东侧的新馆","Planning the two museums"],
+      ["中国革命博物馆和中国历史博物馆成立联合筹建小组，为共用的新馆作准备。","A joint team began preparations for a building that would house the museums of Chinese history and revolution."], 95666307),
+    event("2003", ["两馆合为国博","Two museums become one"],
+      ["广场东侧的中国历史博物馆和中国革命博物馆合并，组建中国国家博物馆。","The two museums on the east side of the square merged to form the National Museum of China."], 95666307),
+  ],
+  p49609: [
+    event("1764", ["清漪园建成","The Garden of Clear Ripples"],
+      ["乾隆年间持续多年的营建告一段落，清漪园在昆明湖畔成形。","Construction of Qingyiyuan, the Summer Palace’s predecessor on Kunming Lake, was completed under the Qianlong emperor."], 95730640),
+    event("1860", ["清漪园遭焚","Fire at Qingyiyuan"],
+      ["英法联军焚毁清漪园。如今的颐和园是在受损的园址上重建的。","British and French troops burned Qingyiyuan. The Summer Palace was later rebuilt on the damaged grounds."], 95730640),
+  ],
+  p55477: [
+    event("1935", ["从一座塔辨认年代","Dating a brick tower"],
+      ["梁思成、林徽因发表建筑考察文章，依据塔的形制判断现存塔身建于辽代。","Liang Sicheng and Lin Huiyin published their architectural study identifying the surviving tower as Liao rather than Sui."], 95668264),
+    event("1992", ["塔顶的建塔碑","An inscription inside the finial"],
+      ["修缮者在塔顶发现辽代石碑，将现存塔的建造年代确定为1119年。","Repairs uncovered a Liao inscription in the finial that dated construction to 1119."], 95668264),
+  ],
+  p58679: [
+    event("1860", ["园林遭劫焚毁","The burning of Yuanmingyuan"],
+      ["英法联军劫掠并焚毁圆明园，园中的殿宇和收藏遭受严重损失。","British and French forces looted and burned Yuanmingyuan, devastating its buildings and collections."], 95730672),
+    event("2008", ["九州景区开放","The Jiuzhou grounds open"],
+      ["遗址公园开放九州景区，曾属于皇家园林的这一片区域向公众开放。","The ruins park opened its Jiuzhou grounds, allowing visitors into another part of the former imperial gardens."], 95730672),
+  ],
+  p59588: [
+    event("1306", ["孔庙落成","The temple is completed"],
+      ["元代营建的大都孔庙完工，成为京城举行祭孔典礼的场所。","Construction of the Confucian temple in the Yuan capital was completed, providing a venue for official rites."], 95668056),
+    event("1928", ["庙门向市民打开","The gates open to the city"],
+      ["北京孔庙向社会各界开放，市民得以进入原来的国家礼仪空间。","Beijing’s Confucian Temple opened to the public, giving residents access to a former site of state ritual."], 95668056),
+  ],
+  p59697: [
+    event("1783", ["监内建起琉璃牌坊","A glazed gateway"],
+      ["国子监集贤门内建起琉璃牌坊，成为进入辟雍前的一道标志。","A glazed ceremonial archway was built inside Jixian Gate on the approach to the imperial college’s main hall."], 95668513),
+    event("1912", ["国学旧址筹办博物馆","A museum office moves in"],
+      ["教育部在国子监设立国立历史博物馆筹备处，旧学府承担了新的公共用途。","The Ministry of Education set up the preparatory office for a national history museum in the former college."], 95668513),
+  ],
+  p74795: [
+    event("1651", ["琼华岛上立白塔","The white stupa rises"],
+      ["清廷在琼华岛广寒殿的旧址建白塔，湖上的天际线由此改变。","A white stupa was built on Qionghua Island at the former site of Guanghan Hall."], 95654111),
+    event("1741", ["北海扩建开工","Work begins around the lake"],
+      ["乾隆朝开始扩建北海。此后数十年，亭台与院落陆续出现在岛上和湖岸。","A long enlargement of Beihai began under Qianlong, adding pavilions and courtyards around the island and shores."], 95654111),
+  ],
+  p77049: [
+    event("1695", ["亭有了名字","Naming Taoran Pavilion"],
+      ["江藻在慈悲庵内建亭，取白居易诗意，题名「陶然」。","Jiang Zao built a pavilion at Cibei Temple and named it Taoran after a line by Bai Juyi."], 95674250),
+    event("1952", ["挖湖开园","Making a lake and a park"],
+      ["春至秋间，陶然亭一带挖湖堆山，形成后来的城市公园。","Landscaping crews dug a lake and shaped hills around Taoran Pavilion to create a city park."], 95674250),
+  ],
+  p77159: [
+    event("1924", ["城市报时停下","The time signal falls silent"],
+      ["钟鼓楼结束统一报时的日常，两座楼随后陆续改作其他用途。","The towers ceased their regular time signals and were subsequently adapted to new uses."], 95653867),
+    event("2001", ["钟鼓重新报时","The bells and drums return"],
+      ["钟楼与鼓楼恢复暮鼓晨钟的传统，让报时声重新成为这里的一部分。","The towers revived the tradition of sounding the morning bell and evening drum."], 95653867),
+  ],
+  p77202: [
+    event("1439", ["丽正门改名","A new name for the southern gate"],
+      ["明代北京的南城门丽正门改称正阳门，名称沿用至今。","The Ming capital’s Lizheng Gate took the name Zhengyangmen by which it is known today."], 95653795),
+    event("1914", ["箭楼与城楼分开","The towers stand apart"],
+      ["正阳门瓮城被拆除，原本相连的箭楼成为独立建筑。","Demolition of the gate enclosure left the archery tower standing separately from the main gatehouse."], 95653795),
+  ],
+  p80179: [
+    event("1744", ["王府改作寺院","A residence becomes a monastery"],
+      ["乾隆帝将雍和宫改为藏传佛教格鲁派寺院，旧王府有了新的用途。","The Qianlong emperor converted the former princely residence into a Gelug Buddhist monastery."], 95667854),
+    event("1981", ["雍和宫重新开放","The temple reopens"],
+      ["二月，雍和宫作为宗教活动场所重新向社会开放。","In February, Yonghe Temple reopened to the public as a place of worship."], 95667854),
+  ],
+  p82297: [
+    event("1850", ["府邸赐予恭亲王","A palace for Prince Gong"],
+      ["清廷将这所府邸赐给恭亲王奕訢，后来的府名由此而来。","The Qing court granted the residence to Yixin, Prince Gong, whose title gave the mansion its familiar name."], 95730675),
+    event("2008", ["府邸主体对外开放","Visitors enter the residence"],
+      ["花园先行开放多年后，修整完毕的王府主体建筑也开始接待公众。","After years in which visitors could see the garden, the restored residential buildings also opened to the public."], 95730675),
+  ],
+  p114951: [
+    event("1192", ["永定河上石桥竣工","The stone bridge is completed"],
+      ["金代的石桥完工，初名广利桥，连接起卢沟河两岸。","The Jin dynasty completed a stone crossing then named Guangli Bridge over the river at Lugou."], 95658345),
+    event("1937-07-07", ["卢沟桥事变","The Marco Polo Bridge Incident"],
+      ["卢沟桥和宛平城一带爆发中日军队冲突，成为中国全面抗战的标志性事件。","Fighting between Japanese and Chinese forces around the bridge and Wanping marked the start of full-scale war."], 95658345),
+  ],
+  p162439: [
+    event("1420", ["紫禁城落成","The palace is completed"],
+      ["北京紫禁城的主要营建工程完工。次年，明廷正式迁都北京。","The main work on the Forbidden City was completed. The Ming court formally transferred the capital to Beijing the following year."], 95701195),
+    event("1925", ["故宫博物院开门","The Palace Museum opens"],
+      ["故宫博物院成立并对公众开放，宫殿与宫廷藏品有了新的观看者。","The Palace Museum opened, giving the public access to the former imperial complex and its collections."], 95701195),
+  ],
+  p175574: [
+    event("1530", ["北郊设地坛","An altar in the northern suburbs"],
+      ["嘉靖朝将祭天与祭地分开，在北京北郊另建祭地之坛。","The Jiajing court separated the rites of heaven and earth and built an earth altar north of the capital."], 95668625),
+    event("1925", ["祭地场所辟为公园","A public park on the altar grounds"],
+      ["昔日祭坛被辟为京兆公园，进入城市的公共生活。","The former imperial grounds became Jingzhao Park, a new public use for the ceremonial site."], 95668625),
+  ],
+  p188937: [
+    event("1420", ["社稷坛建成","An altar of soil and grain"],
+      ["明朝在营建北京宫城的同时建成社稷坛，供皇帝祭祀土地与谷物。","Built alongside the palace, the altar provided a place for imperial offerings to the deities of soil and grain."], 95653892),
+    event("1914", ["中央公园开园","Central Park opens"],
+      ["社稷坛被辟为中央公园，曾经的皇家坛域向普通市民开放。","The former imperial altar opened to residents as Central Park."], 95653892),
+  ],
+  p302638: [
+    event("1531", ["阜成门内开始建庙","Building the imperial temple"],
+      ["北京历代帝王庙在阜成门内动工，作为集中祭祀历代帝王的场所。","Work began inside Fucheng Gate on a temple for collective rites honouring rulers of earlier dynasties."], 95668164),
+    event("2004", ["修缮后开放","The restored temple opens"],
+      ["历代帝王庙修缮后向公众开放，使原来的祭祀殿宇可以参观。","The restored temple opened to visitors, allowing its former ceremonial halls to be explored."], 95668164),
+  ],
+  p558068: [
+    event("1229", ["处顺堂安葬丘处机","A hall for Qiu Chuji"],
+      ["白云观处顺堂建成，丘处机安葬于堂中。","Chushun Hall was completed at Baiyun Temple and became the burial place of the Daoist master Qiu Chuji."], 95668263),
+    event("1227年后~After 1227", ["弟子营建白云观","The disciples establish Baiyun Temple"],
+      ["丘处机逝世后，弟子们在长春宫东侧下院兴建道观，名为白云观。","After Qiu Chuji’s death, his disciples established Baiyun Temple in a subsidiary compound east of Changchun Palace."], 95668263),
+  ],
+  p1049120: [
+    event("1924", ["太庙改为和平公园","The ancestral temple becomes a park"],
+      ["明清两代的皇家太庙以和平公园的名字向公众开放。","The imperial ancestral temple of the Ming and Qing opened to the public as Peace Park."], 95653884),
+    event("1950-05-01", ["劳动人民文化宫开放","A cultural palace for workers"],
+      ["原太庙正式作为北京市劳动人民文化宫开放，成为市民文化活动的场所。","The former temple formally reopened as Beijing’s Working People’s Cultural Palace."], 95653884),
+  ],
+  p21989: [
+    event("2000", ["山与堰同入名录","Mountain and waterworks are inscribed"],
+      ["青城山和都江堰作为同一项遗产列入世界遗产名录。","Mount Qingcheng and the Dujiangyan irrigation system were inscribed together on the World Heritage List."], "irrigation"),
+    event("2008", ["汶川地震波及青城山","Earthquake on the mountain"],
+      ["汶川地震波及青城山，山上的古建筑也在震灾中受损。","The Wenchuan earthquake reached Mount Qingcheng and damaged historic buildings on the mountain."], 95097610),
+  ],
+  p37908: [
+    event("765", ["杜甫辞别草堂","Du Fu leaves his cottage"],
+      ["严武去世后，杜甫携家人离开浣花溪畔的居所，乘舟东下。","After the death of his friend Yan Wu, Du Fu and his family left their home beside Huanhua Stream and travelled east by boat."], 93618760),
+    event("1811", ["再修草堂","Rebuilding the cottage grounds"],
+      ["嘉庆年间的一次大修，进一步奠定了今日草堂的布局。","A major rebuilding under the Jiaqing emperor helped shape the arrangement of the grounds seen today."], 93618760),
+  ],
+  p81778: [
+    event("223", ["惠陵始建","Building Liu Bei’s tomb"],
+      ["刘备去世后，成都开始营建惠陵，日后的祠庙围绕陵墓展开。","After Liu Bei’s death his burial mound was built in Chengdu, anchoring what later became the shrine complex."], 95604271),
+    event("1672", ["祠庙重建","The shrine is rebuilt"],
+      ["清初重建武侯祠，今天所见的主要祠庙建筑出自这次工程。","The shrine was rebuilt early in the Qing dynasty. Much of its present main complex dates to this work."], 95604271),
+  ],
+  p156085: [
+    event("881", ["唐僖宗避居蜀中","An emperor takes refuge"],
+      ["唐僖宗避乱入蜀，曾在青羊宫一带驻留并举行道教祭仪。","While taking refuge in Sichuan, Emperor Xizong used the site as a temporary residence and held Daoist rites there."], 91818121),
+    event("1667–1671", ["重建宫观","The halls rise again"],
+      ["康熙年间，青羊宫的殿宇分期重建，留下现存建筑的一部分。","The temple halls were rebuilt in stages under the Kangxi emperor, leaving structures that survive today."], 91818121),
+  ],
+  p247048: [
+    event("1413", ["经文刻上石头","A Buddhist text in stone"],
+      ["明代工匠将《尊胜陀罗尼咒》刻在石上，碑刻保存在寺内。","A Buddhist dharani was carved in stone. The Ming inscription is preserved at the temple."], 85491400),
+    event("1991", ["卧佛从缅甸来到寺中","A reclining Buddha arrives"],
+      ["缅甸佛教徒捐赠的汉白玉卧佛来到宝光寺，供奉于寺内。","Buddhists in Myanmar donated a reclining white marble Buddha to Baoguang Temple."], 85491400),
+  ],
+  p339545: [
+    event("877", ["建元寺改名昭觉","The temple takes the name Zhaojue"],
+      ["休梦了觉禅师出任建元寺住持，将寺院改名昭觉。","When the monk Xiumeng Liaojue became abbot of Jianyuan Temple, it took the name Zhaojue."], 91868327),
+    event("1991-05-21", ["重建的大殿开光","The rebuilt main hall is consecrated"],
+      ["昭觉寺为重建的大雄宝殿举行开光仪式，殿内供奉三尊佛像。","A consecration ceremony was held in the rebuilt main hall, which houses three Buddha figures."], 91868327),
+  ],
+  p357930: [
+    event("2001", ["工地发现金沙遗址","A building site reveals Jinsha"],
+      ["二月，摸底河畔的施工现场发现古蜀遗存，金沙遗址由此进入考古视野。","In February, construction beside the Modi River uncovered remains of ancient Shu at Jinsha."], 95407031),
+    event("2007", ["遗址上建起博物馆","A museum opens on the excavation"],
+      ["金沙遗址博物馆在原址建成，将祭祀区发掘现场和出土文物向公众展示。","Jinsha Site Museum was completed at the site, displaying the excavated ritual area alongside objects found there."], 95407031),
+  ],
+  p455195: [
+    event("1697", ["文殊院重建","Rebuilding Wenshu Monastery"],
+      ["地方官民在旧信相寺的基址上筹建寺院，取名文殊院。","Local officials and residents established Wenshu Monastery on the grounds of the former Xinxiang Temple."], 87451682),
+    event("1702", ["「空林」匾额","A tablet named Konglin"],
+      ["康熙帝赐题「空林」匾额，文殊院由此也有空林堂之称。","The Kangxi emperor bestowed a tablet reading Konglin, giving the monastery another name."], 87451682),
+  ],
+  p1008572: [
+    event("1941", ["战时创馆","A museum founded in wartime"],
+      ["四川博物院的前身成立，开始系统收藏与展出四川的文物。","The institution that became Sichuan Museum was founded to collect and exhibit material from the province."], 93618762),
+    event("2012", ["进入国家一级博物馆名录","A national museum designation"],
+      ["国家文物局将四川博物院核定为第二批国家一级博物馆。","China’s museum authority included Sichuan Museum in the second group of national first-grade museums."], 93618762),
+  ],
+  p1229144: [
+    event("1987", ["研究基地奠基","Laying the foundation"],
+      ["三月，成都举行大熊猫繁育研究研讨会及基地奠基仪式，当年基地投入使用。","A research meeting and groundbreaking took place in March. The panda base began operating later that year."], 95602658),
+    event("2022-01-01", ["新园区试开放","The expanded grounds open"],
+      ["扩建园区开始试运营，公众活动的范围随之扩大。","Trial operation began in the expanded grounds, extending the area open to visitors."], 95602658),
+  ],
+  p1275599: [
+    event("2004", ["锦里开街","Jinli opens"],
+      ["十月，武侯祠旁的锦里商业街正式开放。","In October, Jinli shopping street opened beside Wuhou Shrine."], 85369555),
+    event("2009", ["水岸锦里开门","The waterfront extension opens"],
+      ["一月，名为水岸锦里的二期街区开始营业。","The second phase, known as Waterfront Jinli, began receiving visitors in January."], 85369555),
+  ],
+  p1679797: [
+    event("1998", ["酒厂地下发现旧酒坊","An older distillery emerges"],
+      ["八月，成都全兴酒厂改建厂房时，施工人员发现地下的古代酿酒作坊。","Renovation at the Quanxing distillery in August exposed the remains of an earlier workshop beneath the factory."], 88431927),
+    event("1999", ["发掘酿酒现场","Excavating the workshop"],
+      ["三月至四月，考古人员对水井街酒坊遗址展开系统发掘。","Archaeologists conducted a systematic excavation of the Shuijing Street workshop in March and April."], 88431927),
+  ],
+  p2893768: [
+    event("2007", ["街巷院落整修","Restoring the courtyards"],
+      ["成都开始成片修复和改造宽窄巷子一带的院落，原有居民陆续搬迁。","Restoration and redevelopment began across the lanes and courtyards, and residents were relocated."], 95386414),
+    event("2008-06-14", ["整修后的街区开放","The restored lanes open"],
+      ["经过整修的宽窄巷子街区正式向公众开放。","The restored Kuanzhai Alley district formally opened to the public."], 95386414),
+  ],
+  p4974508: [
+    event("1747", ["为两座墓设保护","Protecting the two burial mounds"],
+      ["知县李馨立石标示道路，并禁止在墓地采樵，保护望、丛二帝墓。","The county magistrate marked the approach with stone and prohibited cutting wood around the two burial mounds."], 92487768),
+    event("1907", ["听鹃楼落成","A tower for listening to cuckoos"],
+      ["祠东侧增建听鹃楼，楼名呼应本地关于望帝与杜鹃的传说。","Tingjuan Tower was added on the east side of the shrine. Its name recalls the local legend of Emperor Wang and the cuckoo."], 92487768),
+  ],
+  p5021310: [
+    event("1911", ["少城初设公园","A park in Shaocheng"],
+      ["成都把少城驻防区域的一部分改成公园，时称少城公园。","Part of the Shaocheng garrison district was turned into a public space named Shaocheng Park."], 93960095),
+    event("1914", ["保路纪念碑树立","A monument to the railway movement"],
+      ["公园首次扩建时建起纪念碑，纪念辛亥年四川保路运动中的死者。","The park’s first expansion brought a monument to those who died in Sichuan’s Railway Protection Movement."], 93960095),
+  ],
+  p6176660: [
+    event("2009", ["新馆奠基","Groundbreaking for a new museum"],
+      ["成都博物馆新馆动工，城市博物馆开始从大慈寺旧址走向新的展馆。","Construction began on new premises for the city museum, which had previously welcomed visitors at Daci Temple."], 95601687),
+    event("2016-06-11", ["新馆首次开门","The new museum opens"],
+      ["成都博物馆新馆正式开放，市民走进天府广场旁的新展厅。","The new Chengdu Museum opened its galleries beside Tianfu Square to the public."], 95601687),
+  ],
+  p6833683: [
+    event("20世纪80年代~1980s", ["洪水冲毁旧桥","Floodwaters take the old bridge"],
+      ["锦江洪水毁坏了旧安顺桥，河上的这一处通道随之消失。","Flooding on the Jin River destroyed the old Anshun Bridge and swept away the crossing."], 93942848),
+    event("2003", ["廊桥再跨锦江","The covered crossing returns"],
+      ["新的安顺廊桥建成，在老桥被冲毁的位置重新跨过锦江。","A new covered Anshun Bridge was built to replace the crossing lost to the floods."], 93942848),
+  ],
+  p109170: [
+    event("西汉~Western Han dynasty", ["西行北道设关","A checkpoint on the northern route"],
+      ["汉武帝时期设置玉门关，通往西域北道上的人员与物资由此出入。","The Han court established Yumen Pass as a checkpoint on the northern route into the Western Regions."], 93097594),
+    event("1988", ["关城遗址获保护","The remains receive national protection"],
+      ["玉门关遗址被列为全国重点文物保护单位，关城遗存纳入国家保护范围。","The remains of Yumen Pass were placed under national heritage protection."], 93097594),
+  ],
+  p114537: [
+    event("西汉~Western Han dynasty", ["设立阳关","A gate on the southern route"],
+      ["汉武帝时期设立阳关，戍守从敦煌向西通行的南道。","The Han court established Yang Pass to guard the southern route west from Dunhuang."], 92634210),
+    event("唐代~Tang dynasty", ["送别诗里的阳关","The pass enters a farewell poem"],
+      ["王维作《送元二使安西》，阳关成为这首送别诗中行人将越过的边关。","In his farewell poem for Yuan Er, Wang Wei named Yang Pass as the frontier his friend would cross."], 92634210),
+  ],
+  p159521: [
+    event("1997", ["追查泉水的来路","Tracing the spring’s water"],
+      ["地质人员开始多年实地调查，追查月牙泉的地形与地下水补给条件。","Geologists began a multi-year field investigation of the basin and groundwater that feed Crescent Spring."], 94945311),
+    event("2008", ["应急补水工程启用","Emergency works begin operating"],
+      ["三月，月牙泉应急治理工程部分投入使用，以应对水位下降。","Part of the emergency conservation system began operating in March in response to falling water levels."], 94945311),
+  ],
+  p972879: [
+    event("1941–1943", ["西千佛洞第一次编号","A first survey of the caves"],
+      ["张大千在敦煌临摹壁画期间，调查西千佛洞并为洞窟编号。","While copying murals in Dunhuang, Zhang Daqian surveyed and numbered the Western Thousand Buddha Caves."], 90792901),
+    event("2003", ["统一洞窟编号","The cave numbers are standardised"],
+      ["敦煌研究院与当地管理人员调整洞窟编号，以减少不同编号给研究带来的困扰。","The Dunhuang Academy and the site’s custodians adopted a common numbering scheme to help researchers identify individual caves."], 90792901),
+  ],
+  p1686324: [
+    event("1994", ["沙山与泉列为名胜区","Dunes and spring gain protected status"],
+      ["鸣沙山与月牙泉被一同列为国家级风景名胜区。","Mingsha Mountain and Crescent Spring were designated together as a national scenic area."], 94945314),
+    event("2015-07-13", ["景区获评五A级","A new visitor designation"],
+      ["鸣沙山月牙泉景区获评国家五A级旅游景区。","The Mingsha Mountain and Crescent Spring site received China’s national 5A visitor-attraction rating."], 94945314),
+  ],
+  p1686445: [
+    event("2001", ["雅丹获批地质公园","Approval for a geopark"],
+      ["十二月，敦煌雅丹获批国家地质公园，当地随后修通前往景区的公路。","National geopark status was approved in December. The city then built a road out to the landforms."], "yardang"),
+    event("2003", ["地质公园开园","The geopark welcomes visitors"],
+      ["八月举行揭碑仪式，敦煌雅丹国家地质公园正式向游客开放。","A dedication in August marked the formal opening of the Dunhuang Yardang National Geopark to visitors."], "yardang"),
+  ],
+  p3143238: [
+    event("公元前111年~111 BCE", ["悬泉置启用","A Han relay station begins work"],
+      ["悬泉置开始接待过境的使者和公务人员，成为河西驿路上的一站。","Xuanquan began receiving envoys and officials as a relay station on the Hexi route."], 86857847),
+    event("1990–1992", ["驿站重见天日","Excavating the relay station"],
+      ["甘肃考古人员发掘悬泉置，出土数量众多的汉简，记录了驿站的接待与往来。","Excavations at Xuanquan uncovered Han wooden slips documenting the station’s visitors and official traffic."], 86857847),
+  ],
+  p260116: [
+    event("1138", ["募资建桥","Funding a crossing"],
+      ["安海居民和僧人共同募资，开始修筑连接两岸的安平桥。","Residents and Buddhist monks raised funds to begin building Anping Bridge across the estuary."], 95155837),
+    event("1982–1985", ["长桥大修","Restoring the long bridge"],
+      ["安平桥展开全面整修，从1982年初开工，到1985年春完成。","A major restoration of the long stone bridge began early in 1982 and finished in the spring of 1985."], 95155837),
+  ],
+  p341293: [
+    event("1387", ["沿海筑城","Building a walled coastal town"],
+      ["周德兴主持经略海防期间，崇武开始修筑守卫海岸的城池。","Construction of the walled town began as part of coastal defences overseen by Zhou Dexing."], 92173783),
+    event("1987", ["城墙修缮与六百年纪念","Six centuries of the walled town"],
+      ["分期整修城墙的工程告一段落，当地举行建城六百周年纪念活动。","A phased restoration of the walls concluded and the town marked six hundred years since its founding."], 92173783),
+  ],
+  p432996: [
+    event("1009", ["清净寺始建","Founding the mosque"],
+      ["北宋时期，泉州穆斯林在这座港城建起清净寺。","The Qingjing Mosque was founded in the port city of Quanzhou during the Northern Song dynasty."], 94249170),
+    event("1310", ["铭文记下一次修缮","A restoration recorded in stone"],
+      ["寺内铭文记载，一位商人主持翻修了清真寺。","An inscription at the mosque records its restoration by a merchant in this year."], 94249170),
+  ],
+  p647151: [
+    event("1196", ["顺济庙初建","A temple for seafarers"],
+      ["泉州建立祭祀妈祖的顺济庙，它是今日天后宫的前身。","Shunji Temple, dedicated to Mazu, was established in Quanzhou. It became the present Tianhou Temple."], 94246962),
+    event("1415", ["顺济庙更名天妃宫","The temple takes a new name"],
+      ["顺济庙再次整修，改称天妃宫，名称记下了妈祖封号的变化。","After another restoration, Shunji Temple took the name Tianfei Palace, reflecting the title used for Mazu."], 94246962),
+  ],
+  p739186: [
+    event("965", ["西峰刻石佛","A Buddha carved on the western summit"],
+      ["陈洪进倡议在九日山西峰镌刻石佛，当年的造像因缘也以石刻记录。","At Chen Hongjin’s initiative a Buddha was carved on the western summit, with an inscription recording its commission."], 91422837),
+    event("1991", ["考察团留下题刻","A visiting expedition leaves an inscription"],
+      ["联合国教科文组织海上丝绸之路考察团登山，专家在山上留下联署题刻。","Members of UNESCO’s maritime Silk Roads expedition visited Jiuri Mountain and left a jointly signed inscription."], 91422837),
+  ],
+  p742784: [
+    event("686", ["莲花寺始建","The founding of Lianhua Temple"],
+      ["后来称为开元寺的寺院在唐代建成，最初的名字是莲花寺。","The monastery later called Kaiyuan was founded during the Tang dynasty under the name Lianhua Temple."], 94715837),
+    event("738", ["寺名改为开元","The name Kaiyuan"],
+      ["唐玄宗令各州以开元年号命名寺院，泉州这座寺院由此改名。","An edict to name temples after the Kaiyuan reign period gave the Quanzhou monastery its present name."], 94715837),
+  ],
+  p813672: [
+    event("1339", ["摩尼光佛造像","Carving the Mani figure"],
+      ["信众出资，在草庵雕凿摩尼光佛石像。","Patrons commissioned the carved stone figure of Mani at Cao’an."], 91240287),
+    event("1979", ["瓷碗残片出土","Pottery identifies a religious community"],
+      ["草庵出土带有「明教会」字样的宋代瓷碗残片，为考察草庵早期历史提供实物。","Song ceramic fragments bearing the name of a Manichaean congregation were excavated, shedding light on the site’s early use."], 91240287),
+  ],
+  p942100: [
+    event("1137", ["泉州府文庙重建","Rebuilding the prefectural temple"],
+      ["绍兴年间，泉州重建府文庙，延续地方祭孔与兴学的传统。","The prefectural Confucian temple was rebuilt under the Southern Song, continuing its role in local worship and education."], 89171818),
+    event("1761", ["大修大成殿","Repairs to Dacheng Hall"],
+      ["泉州府文庙大成殿在乾隆年间大修，建筑仍保留宋代结构特点。","Dacheng Hall underwent extensive Qing repairs while retaining features of Song construction."], 89171818),
+  ],
+  p964596: [
+    event("1699", ["郑成功墓营建","Building Zheng Chenggong’s tomb"],
+      ["康熙年间，南安建起郑成功墓。","Zheng Chenggong’s tomb in Nan’an was built during the Kangxi reign."], 91053501),
+    event("1982", ["重新修整墓园","Restoring the tomb"],
+      ["继1962年的修缮后，当地再次修整墓园。","The tomb complex underwent a further restoration, following earlier work in 1962."], 91053501),
+  ],
+  p1075791: [
+    event("1364", ["弥陀岩建石室","A stone shelter on the mountain"],
+      ["元代工匠在弥陀岩建造石室，为山壁上的佛像遮蔽风雨。","A Yuan stone chamber was built at Amitabha Rock to shelter the figure carved into the mountain."], 95649210),
+    event("2001", ["山中石刻列入保护","Protecting the mountain inscriptions"],
+      ["清源山摩崖石刻被列入福建省文物保护单位。","The cliff inscriptions on Mount Qingyuan received provincial heritage protection."], 95649210),
+  ],
+  p1128518: [
+    event("1087", ["瑞像岩凿像","A standing Buddha in the cliff"],
+      ["工匠直接在天柱峰北侧的崖壁上雕凿释迦牟尼立像。","Sculptors cut a standing Shakyamuni directly into the cliff on the north side of Tianzhu Peak."], 86558516),
+    event("1483", ["为立像营建石室","A stone house for the figure"],
+      ["瑞像岩立像外建起仿木石室，替代早年遮护佛像的木构殿堂。","A carved stone pavilion imitating timberwork replaced the earlier wooden shelter over the figure at Ruixiang Rock."], 86558516),
+  ],
+  p1473940: [
+    event("1111", ["港湾南岸建塔","A tower on the bay"],
+      ["六胜塔始建于泉州湾南岸，塔身后来成为入港船只辨认岸线的标志。","Construction began on Liusheng Pagoda on the southern shore of Quanzhou Bay. Its silhouette later guided vessels approaching the port."], 91321589),
+    event("1336", ["元代修塔","Restoring the coastal pagoda"],
+      ["元代再次修整六胜塔，延续石湖岸边的这一地标。","The pagoda at Shihu underwent another restoration during the Yuan dynasty."], 91321589),
+  ],
+  p2750426: [
+    event("1230", ["港口城门初建","A gate for the port city"],
+      ["南宋建镇南门，进出港口的货物经由这道城门出入泉州。","The Southern Song built Zhennan Gate, a passage into and out of Quanzhou for goods moving through the port."], 86565857),
+    event("2000", ["城门基址出土","The foundations reappear"],
+      ["发掘揭露德济门的城墙基址，建筑构件与石刻也一同出土。","Excavation exposed the gate’s wall foundations along with architectural fragments and carved stones."], 86565857),
+  ],
+  p2762251: [
+    event("1007", ["承天寺获赐寺名","The monastery receives its name"],
+      ["北宋朝廷赐名承天寺，此前寺院称南禅寺。","The Northern Song court granted the name Chengtian to the monastery formerly called Nanchan."], 92115164),
+    event("2002", ["寺院里发现钱范","Coin moulds beneath the temple"],
+      ["夏季发掘出土大量陶制钱范和炉壁残片，为五代泉州铸钱留下实物证据。","Summer excavations uncovered clay coin moulds and furnace fragments, material evidence of minting in Five Dynasties Quanzhou."], 92115164),
+  ],
+  p4006565: [
+    event("1959", ["海交馆创办","A museum of maritime connections"],
+      ["泉州创办海外交通史博物馆，开始集中收藏和展示港口海上往来的历史。","Quanzhou founded a museum devoted to collecting and exhibiting the history of the port’s overseas connections."], 94739449),
+    event("1991", ["新馆落成","The museum gains a new home"],
+      ["二月，泉州海外交通史博物馆的新馆建成。","The Maritime Museum’s new building was completed in February."], 94739449),
+  ],
+};
+
+export function eventsForPlace(site) {
+  return (sites[site] ?? []).map(({date, title, body, source}) => {
+    const id = site + "-event-" + title[1].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, "");
+    const citation = sources[source] ?? {
+      name: ["维基百科 · 地点条目", "Wikipedia · site history"],
+      url: "https://zh.wikipedia.org/w/index.php?oldid=" + source,
+    };
+    return {id, title, body, date, dateLabel:[displayEventDate(date,"zh-CN"),displayEventDate(date,"en")],
+      sourceNames:citation.name, sourceUrl:citation.url};
+  });
+}
+
+export function displayEventDate(date, language) {
+  if (date.includes("~")) return date.split("~")[language === "zh-CN" ? 0 : 1];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return new Intl.DateTimeFormat(language, {year:"numeric", month:"long", day:"numeric", timeZone:"UTC"})
+      .format(new Date(date+"T12:00:00Z"));
+  }
+  return language === "zh-CN" ? date + "年" : date;
+}

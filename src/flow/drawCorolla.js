@@ -1,3 +1,4 @@
+import {frostPetals} from "./petalPaper.js";
 import {TAU} from "./geometry.js";
 
 // Each blade points along +x. Rounded shoulders, paired lobes and pointed
@@ -52,10 +53,10 @@ function makeLayer(layer) {
 // The outside circle is fixed on the plate. Only the small circle of the
 // two-circle radial gradient moves, carrying the light through the pigment.
 function petalInk(ctx, form, length, cx, cy, fx, fy) {
-  const ink = ctx.createRadialGradient(fx, fy, .018 * length, cx, cy, .80 * length);
+  const ink = ctx.createRadialGradient(fx, fy, .07 * length, cx, cy, 1.02 * length);
   ink.addColorStop(0, form.root);
-  ink.addColorStop(.23, form.root);
-  ink.addColorStop(.55, form.mid);
+  ink.addColorStop(.15, form.root);
+  ink.addColorStop(.48, form.mid);
   ink.addColorStop(.88, form.tip);
   ink.addColorStop(1, form.tip);
   return ink;
@@ -86,10 +87,10 @@ function paintWhorl(ctx, form, layer, focusX, focusY) {
   // Daylight is shared by the whole whorl. The upper lips catch apricot
   // light while the lower scallops hold a cooler, more saturated ink.
   const hem = ctx.createLinearGradient(-.10 * l, -l, .16 * l, l);
-  hem.addColorStop(0, "#fff2da75");
+  hem.addColorStop(0, "#fff2da28");
   hem.addColorStop(.36, "#fff2da00");
   hem.addColorStop(.54, form.hem + "00");
-  hem.addColorStop(1, form.hem + "b8");
+  hem.addColorStop(1, form.hem + "3d");
   ctx.fillStyle = hem;
   ctx.fill(all);
 }
@@ -225,4 +226,5 @@ export function drawCorolla(ctx, size, form, focusX = 0, focusY = 0) {
     ctx.restore();
   }
   ctx.restore();
+  frostPetals(ctx, size);
 }
