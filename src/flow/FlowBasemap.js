@@ -1,26 +1,23 @@
 import {VectorBasemap, paintChart} from "../atlas/VectorBasemap.js";
 import index from "../atlas/maps/vector-index.json" with {type : "json"};
 import {clamp, coversView, framePlacement, mercator} from "./geometry.js";
-import {buildImpression} from "./print.js";
 
 const north = mercator(index.bounds[3]);
-// First column is a material sample for the live print. Second column is the
-// very light wash beneath the individual grains. Both come from the same path.
-const material = {
-  sea : [ "#050807", "#f3f5f2" ],
-  outside : [ "#10150a", "#faf9f3" ],
-  land : [ "#e5dfd8", "#faf8f0" ],
-  built : [ "#c2aac5", "#f8f5ef" ],
-  sand : [ "#a18be2", "#fbf3e7" ],
-  farm : [ "#95df85", "#f7f7e7" ],
-  park : [ "#82f85c", "#f1f5e6" ],
-  wood : [ "#6af33c", "#ecf3e1" ],
-  water : [ "#f35135", "#e2f0ef" ],
-  building : [ "#c68ff0", "#f2eef2" ],
-  bank : [ "#ff8a66", "#7eaeae" ],
-  lane : [ "#786e73", "#fbf9f1" ],
-  road : [ "#3b3639", "#fcfaf3" ],
-  artery : [ "#29212c", "#fcfaf2" ],
+export const paper = {
+  sea : "#f3f5f2",
+  outside : "#faf9f3",
+  land : "#faf8f0",
+  built : "#f8f5ef",
+  sand : "#fbf3e7",
+  farm : "#f7f7e7",
+  park : "#f1f5e6",
+  wood : "#ecf3e1",
+  water : "#e2f0ef",
+  building : "#f2eef2",
+  bank : "#7eaeae",
+  lane : "#fbf9f1",
+  road : "#fcfaf3",
+  artery : "#fcfaf2",
 };
 function area(ctx, path, ink) {
   if (path) {
@@ -35,94 +32,59 @@ function stroke(ctx, path, ink, width) {
     ctx.stroke(path);
   }
 }
-function surface(w, h) {
-  if (typeof OffscreenCanvas === "function")
-    return new OffscreenCanvas(w, h);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  return canvas;
-}
-
 export class FlowBasemap extends VectorBasemap {
   constructor(redraw, root, generalizeNational = false) {
     super(redraw, root);
     this.generalizeNational = generalizeNational;
-    this.mask = surface(1, 1);
-    this.pen = this.mask.getContext("2d", {alpha : false, willReadFrequently : true});
-  }
-  draw(ctx, camera, w, h, options) {
-    const sw = Math.max(1, Math.ceil(w * .51)), sh = Math.max(1, Math.ceil(h * .51));
-    if (this.mask.width !== sw)
-      this.mask.width = sw;
-    if (this.mask.height !== sh)
-      this.mask.height = sh;
-    this.pen.setTransform(sw / w, 0, 0, sh / h, 0, 0);
-    this.pass = 0;
-    this.tilePaper = material.land[0];
-    super.draw(this.pen, camera, w, h, options);
-    const grains = buildImpression(camera, w, h, this.pen.getImageData(0, 0, sw, sh));
-    this.pass = 1;
-    this.tilePaper = material.land[1];
-    return {...super.draw(ctx, camera, w, h, options), ...grains};
+    this.tilePaper = paper.land;
   }
   drawNational(ctx, camera, w, h, k, detailed) {
     detailed = detailed && !this.generalizeNational;
     const item = this.resource(index.national, detailed);
     const {paths : p} = item && detailed ? this.paths(item, "national") : this.overview;
-    const pass = this.pass, unit = k / index.units;
-    ctx.fillStyle = material.sea[pass];
+    const unit = k / index.units;
+    ctx.fillStyle = paper.sea;
     ctx.fillRect(0, 0, w, h);
     ctx.save();
     ctx.translate(w / 2 + (index.bounds[0] - camera.x) * k, h / 2 + (camera.y - north) * k);
     ctx.scale(unit, unit);
-    area(ctx, p.land, material.outside[pass]);
-    area(ctx, p.focus, material.land[pass]);
-    if (pass) {
-      stroke(ctx, p.land, "#abb4bb8a", .6 / unit);
-      stroke(ctx, p.ridgeLight, "#899eab39", .7 / unit);
-      stroke(ctx, p.ridge, "#789c9d40", .65 / unit);
-      stroke(ctx, p.ridgeDark, "#9997ba65", .76 / unit);
-      stroke(ctx, p.focus, "#617e909c", .9 / unit);
-      stroke(ctx, p.province, "#787c9b80", .7 / unit);
-      stroke(ctx, p.tributary, "#82b0bb94", .65 / unit);
-      stroke(ctx, p.river, "#6fabb7", 1.15 / unit);
-    } else {
-      stroke(ctx, p.province, "#838383", 1.35 / unit);
-      stroke(ctx, p.river, material.water[0], 2.8 / unit);
-    }
+    area(ctx, p.land, paper.outside);
+    area(ctx, p.focus, paper.land);
+    stroke(ctx, p.land, "#abb4bb8a", .6 / unit);
+    stroke(ctx, p.ridgeLight, "#899eab39", .7 / unit);
+    stroke(ctx, p.ridge, "#789c9d40", .65 / unit);
+    stroke(ctx, p.ridgeDark, "#9997ba65", .76 / unit);
+    stroke(ctx, p.focus, "#617e909c", .9 / unit);
+    stroke(ctx, p.province, "#787c9b80", .7 / unit);
+    stroke(ctx, p.tributary, "#82b0bb94", .65 / unit);
+    stroke(ctx, p.river, "#85a9b0", 1.15 / unit);
     ctx.restore();
   }
   drawTile(ctx, p, unit, size, level) {
-    const pass = this.pass, px = 1 / unit;
-    ctx.fillStyle = material.land[pass];
+    const px = 1 / unit;
+    ctx.fillStyle = paper.land;
     ctx.fillRect(0, 0, 4096, 4096);
     ctx.lineJoin = ctx.lineCap = "round";
     for (const key of ["built", "sand", "farm", "park", "wood", "water", "building"]) {
-      area(ctx, p[key], material[key][pass]);
+      area(ctx, p[key], paper[key]);
     }
-    stroke(ctx, p.water, material.bank[pass], (pass ? .7 : 2.1) * px);
-    stroke(ctx, p.stream, material.water[pass], clamp(4 * unit, 1.7, 11) * px);
+    stroke(ctx, p.water, paper.bank, .7 * px);
+    stroke(ctx, p.stream, paper.water, clamp(4 * unit, 1.7, 11) * px);
     const width = clamp(size / 220, 1.5, 8);
-    // The network opens channels in the ink. Thin registration marks retain
-    // street and block geometry where a lane is smaller than one screen dot.
-    stroke(ctx, p.path, material.lane[pass], .9 * px);
-    stroke(ctx, p.lane, material.lane[pass], Math.max(1.3, width * .74) * px);
-    stroke(ctx, p.road, material.road[pass], (width + 1.25) * px);
-    stroke(ctx, p.artery, material.artery[pass], (width * 1.45 + 2) * px);
-    if (pass) {
-      stroke(ctx, p.artery, "#bb806854", .8 * px);
-      stroke(ctx, p.road, "#89869238", .65 * px);
-      if (level >= 13)
-        stroke(ctx, p.building, "#a798b35c", .58 * px);
-      stroke(ctx, p.rail, "#968aa46b", .65 * px);
-    }
+    stroke(ctx, p.path, paper.lane, .9 * px);
+    stroke(ctx, p.lane, paper.lane, Math.max(1.3, width * .74) * px);
+    stroke(ctx, p.road, paper.road, (width + 1.25) * px);
+    stroke(ctx, p.artery, paper.artery, (width * 1.45 + 2) * px);
+    stroke(ctx, p.artery, "#9d91855c", .8 * px);
+    stroke(ctx, p.road, "#89869238", .65 * px);
+    if (level >= 13)
+      stroke(ctx, p.building, "#a798b35c", .58 * px);
+    stroke(ctx, p.rail, "#968aa46b", .65 * px);
   }
 }
 
-// A fast gesture can uncover ground that the detailed worker has not sampled.
-// Generate a smaller *geographic* impression across the visible extent; its
-// individual dots travel through exactly the same interactive ink renderer.
+// Keep the entire viewport covered with the same paper map while a fast
+// gesture is waiting for the more detailed vector chart.
 export class NavigationChart {
   constructor(canvas, assetRoot, redraw) {
     this.canvas = canvas;
@@ -133,7 +95,7 @@ export class NavigationChart {
         redraw();
     }, assetRoot, true);
   }
-  select(detail, view, w, h, language) {
+  select(detail, view, w, h, language, dpr = 1) {
     const extent = detail && {s : detail.scale, x : detail.x, y : detail.y};
     const valid = detail && coversView(detail.frame, extent, w, h) &&
         detail.scale > (this.needed ? .71 : .55) && detail.scale < (this.needed ? 1.43 : 1.72);
@@ -142,18 +104,23 @@ export class NavigationChart {
     let pose = this.frame && framePlacement(this.frame, view, w, h);
     const density = Math.min(.88, 495 / w, 320 / h);
     if (this.needed &&
-        (!pose || this.dirty || this.frame.language !== language || !coversView(this.frame, pose, w, h) ||
-         Math.abs(Math.log(pose.s * density)) > .31)) {
+        (!pose || this.dirty || this.frame.language !== language || this.frame.dpr !== dpr ||
+         !coversView(this.frame, pose, w, h) || Math.abs(Math.log(pose.s * density)) > .31)) {
       const width = Math.ceil(w * density * 1.48), height = Math.ceil(h * density * 1.48);
       const k = w / view.span * density, camera = {x : view.x, y : view.y, span : width / k};
-      // Only the very light vector wash is painted here. The live screen of
-      // ink stays at the display's device resolution while this level is used.
-      if (this.canvas.width !== width)
-        this.canvas.width = width;
-      if (this.canvas.height !== height)
-        this.canvas.height = height;
+      // Use coarser vector features for navigation, but rasterize their edges
+      // at the display scale. The overscan remains in geographic coordinates.
+      const ratio = Math.min(dpr / density, Math.sqrt(4000000 / (width * height)));
+      const pixelsWide = Math.round(width * ratio), pixelsHigh = Math.round(height * ratio);
+      if (this.canvas.width !== pixelsWide)
+        this.canvas.width = pixelsWide;
+      if (this.canvas.height !== pixelsHigh)
+        this.canvas.height = pixelsHigh;
+      this.canvas.style.width = width + "px";
+      this.canvas.style.height = height + "px";
+      this.ctx.setTransform(pixelsWide / width, 0, 0, pixelsHigh / height, 0, 0);
       const data = this.map.draw(this.ctx, camera, width, height, {language});
-      this.frame = {camera, width, height, k, language, ...data};
+      this.frame = {camera, width, height, k, language, dpr, ...data};
       this.dirty = false;
       pose = framePlacement(this.frame, view, w, h);
     }

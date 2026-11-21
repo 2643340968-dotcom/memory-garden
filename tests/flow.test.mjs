@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {project, under, mercator, latitude, blend, cameraProgress, coversView, framePlacement} from "../src/flow/geometry.js";
-import {NavigationChart} from "../src/flow/FlowBasemap.js";
-import {AFTERGLOW, envelope, releaseWave, displaceGrain} from "../src/flow/ripples.js";
-import {buildImpression, printScale} from "../src/flow/print.js";
+import {FlowBasemap, NavigationChart} from "../src/flow/FlowBasemap.js";
+import {AFTERGLOW, envelope, releaseWave, RippleField} from "../src/flow/ripples.js";
 import {openingPose} from "../src/flow/landing.js";
 
 test(
@@ -48,18 +47,19 @@ test(
     () => {
       const overview = Object.create(NavigationChart.prototype);
       overview.canvas = {style : {}};
-      overview.map = {draw : () => ({dots : new Float32Array([ 2, 4, 1, 0 ]), labels : []})};
+      overview.ctx = {setTransform() {}};
+      overview.map = {draw : () => ({level : 6, labels : []})};
       const city = {x : 118.73, y : mercator(32), span : .78},
             nation = {x : 104.8, y : mercator(36), span : 90};
       for (const [w, h] of [[ 1280, 800 ], [ 390, 740 ]]) {
         const k = w / city.span,
-              detailed = {camera : city, width : w * 1.2, height : h * 1.2, k, dots : [ 2, 4, 1, 0 ]};
+              detailed = {camera : city, width : w * 1.2, height : h * 1.2, k, level : 11, labels : []};
         for (const t of [0, .05, .2, .6, 1, .72, .3, .02, 0]) {
           const view = blend(city, nation, t), at = framePlacement(detailed, view, w, h);
           const original = {frame : detailed, scale : at.s, x : at.x, y : at.y};
           const shot = overview.select(original, view, w, h, "zh-CN");
           assert.ok(coversView(shot.frame, {s : shot.scale, x : shot.x, y : shot.y}, w, h));
-          assert.ok(shot.frame.dots.length);
+          assert.ok(Array.isArray(shot.frame.labels));
           if (t > .2)
             assert.notEqual(shot.frame, detailed);
           if (!t)
@@ -84,64 +84,124 @@ test("each hovered location leaves its own fading water front while the next is 
   assert.equal(envelope(next, 520, true), 1);
 });
 
-test("the same geographic stencil governs live print grains from country to building scale", () => {
-  const width = 240, height = 160;
-  const data = new Uint8ClampedArray(width * height * 4);
-  for (let y = 0; y < height; y++)
-    for (let x = 0; x < width / 2; x++) {
-      data.set([ 245, 36, 20, 255 ], (y * width + x) * 4);
+function recordingPaper() {
+  return {
+    fills : new Map(),
+    lines : new Map(),
+    saves : 0,
+    save() {
+      this.saves++;
+    },
+    restore() {
+      this.saves--;
+    },
+    translate() {},
+    scale() {},
+    fillRect() {
+      this.fills.set("background", this.fillStyle);
+    },
+    fill(feature) {
+      this.fills.set(feature, this.fillStyle);
+    },
+    stroke(feature) {
+      this.lines.set(feature, this.strokeStyle);
     }
-  for (const k of [14, 96, 2200, 29000, 235000]) {
-    const {dots, offsets} = buildImpression(
-        {x : 118.733, y : mercator(32.03), span : width / k}, width, height, {data, width, height});
-    assert.equal(offsets.at(-1), dots.length / 4);
-    assert.ok(dots.length > 500);
-    let water = 0;
-    for (let i = 0; i < dots.length; i += 4) {
-      assert.ok(dots[i] < width / 2 && dots[i + 2] > .25);
-      if (dots[i + 3] === 0)
-        water++;
-    }
-    assert.ok(water > dots.length / 12);
+  };
+}
+function assertPale(fills) {
+  for (const hex of fills.values()) {
+    const rgb = [ 1, 3, 5 ].map(at => parseInt(hex.slice(at, at + 2), 16));
+    assert.ok(Math.min(...rgb) >= 220 && Math.max(...rgb) - Math.min(...rgb) <= 24, hex);
+  }
+}
+
+test("both the national overview and its detailed contours draw on the original light paper", () => {
+  const paths = Object.fromEntries([ "land", "focus", "province", "river" ].map(name => [name, name]));
+  const map = Object.create(FlowBasemap.prototype);
+  map.overview = {paths : {land : "land", focus : "focus"}};
+  map.resource = () => ({});
+  map.paths = () => ({paths});
+  for (const generalize of [false, true]) {
+    map.generalizeNational = generalize;
+    const ctx = recordingPaper();
+    map.drawNational(ctx, {x : 105, y : 38}, 900, 600, 11, true);
+    assertPale(ctx.fills);
+    assert.equal(ctx.fills.get("focus"), "#faf8f0");
+    assert.equal(ctx.fills.get("background"), "#f3f5f2");
+    assert.ok(ctx.lines.has("focus"));
+    assert.equal(ctx.lines.has("river"), !generalize);
+    assert.equal(ctx.saves, 0);
   }
 });
 
-test("print screens subdivide continuously and remain registered when the viewport pans", () => {
-  const k = 2 ** 16 * 5.6 / 360, before = printScale(k * (1 - 1e-8)), after = printScale(k * (1 + 1e-8));
-  assert.ok(
-      Math.abs(before.step / 2 - after.step) < 1e-12 && before.split > .9999 && after.split < .0001);
-  const width = 240, height = 150,
-        mask = {width, height, data : new Uint8ClampedArray(width * height * 4).fill(255)};
-  const camera = {x : 118.732, y : mercator(32.031), span : width / k};
-  const {dots : a} = buildImpression(camera, width, height, mask);
-  const {dots : b} = buildImpression({...camera, x : camera.x + 8 / k}, width, height, mask);
-  const key = (x, y, ink) => [x.toFixed(2), y.toFixed(2), ink].join("/");
-  const moved = new Map();
-  for (let i = 0; i < b.length; i += 4)
-    moved.set(key(b[i], b[i + 1], b[i + 3]), b[i + 2]);
-  let shared = 0;
-  for (let i = 0; i < a.length; i += 4) {
-    if (a[i] < 18 || a[i] > width - 18)
-      continue;
-    const r = moved.get(key(a[i] - 8, a[i + 1], a[i + 3]));
-    if (r != null) {
-      shared++;
-      assert.ok(Math.abs(r - a[i + 2]) < .002);
-    }
+test("city, street and building tiles share the same feature fills in both zoom directions", () => {
+  const names = [
+    "built", "sand", "farm", "park", "wood", "water", "building", "path", "lane", "road", "artery", "rail"
+  ];
+  const paths = Object.fromEntries(names.map(name => [name, name]));
+  let prior;
+  for (const level of [6, 10, 13, 14, 13, 10, 6]) {
+    const ctx = recordingPaper();
+    FlowBasemap.prototype.drawTile(ctx, paths, .16, 655, level);
+    assertPale(ctx.fills);
+    for (const [feature, color] of Object.entries(
+             {water : "#e2f0ef", park : "#f1f5e6", building : "#f2eef2", background : "#faf8f0"}))
+      assert.equal(ctx.fills.get(feature), color);
+    if (prior)
+      assert.deepEqual(ctx.fills, prior);
+    prior = ctx.fills;
+    assert.ok(ctx.lines.has("road") && ctx.lines.has("artery"));
+    assert.equal(ctx.lines.has("building"), level >= 13);
   }
-  assert.ok(shared > a.length * .17);
 });
 
-test("water moves existing grains continuously and combines velocities where fronts meet", () => {
-  const a = {x : 40, y : 42, r : 70, ux : .6, uy : .8, alpha : 1, phase : 1.3, seed : .5};
-  const b = {...a, x : 78, ux : -.6, phase : 3.2};
-  const single = displaceGrain(58, 50, [ a ]), next = displaceGrain(58, 50, [ b ]);
-  const both = displaceGrain(58, 50, [ a, b ]);
-  assert.ok(Math.hypot(...single) > 1);
-  for (const i of [0, 1])
-    assert.ok(Math.abs(both[i] - single[i] - next[i]) < 1e-9);
-  assert.deepEqual(displaceGrain(160, 150, [ a, b ]), [ 0, 0 ]);
-  assert.deepEqual(displaceGrain(58, 50, [ {...a, alpha : 0} ]), [ 0, 0 ]);
+test("overlapping map ripples add only fine neutral outlines and clear after release", () => {
+  const field = Object.create(RippleField.prototype), strokes = [], centres = [];
+  field.ctx = {
+    setTransform() {},
+    clearRect() {},
+    save() {},
+    restore() {},
+    rotate() {},
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    closePath() {},
+    translate(x, y) {
+      centres.push([ x, y ]);
+    },
+    stroke() {
+      strokes.push([ this.strokeStyle, this.globalAlpha, this.lineWidth ]);
+    }
+  };
+  Object.assign(field, {
+    width : 600,
+    height : 400,
+    dpr : 1,
+    canvas : {dataset : {}},
+    motion : {matches : false},
+    project : p => p
+  });
+  field.waves = [ [ 200, 200 ], [ 235, 205 ] ].map((center, i) => ({
+                                                     key : String(i),
+                                                     center,
+                                                     depth : "city",
+                                                     start : 0,
+                                                     left : 600,
+                                                     seed : i + .3,
+                                                     ux : 1,
+                                                     uy : 0,
+                                                     tx : 1,
+                                                     ty : 0
+                                                   }));
+  field.draw(1400, true);
+  assert.deepEqual(centres, [ [ 200, 200 ], [ 235, 205 ] ]);
+  assert.equal(strokes.length, 6);
+  assert.ok(strokes.every(
+      ([ color, alpha, width ]) => color === "#899d9e" && alpha > 0 && alpha < .5 && width <= 1));
+  field.draw(600 + AFTERGLOW, true);
+  assert.equal(strokes.length, 6);
+  assert.equal(field.canvas.dataset.waves, "0");
 });
 
 test("camera landings ease in both directions and carry velocity into a new wheel target", () => {

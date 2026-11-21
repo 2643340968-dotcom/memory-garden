@@ -333,7 +333,7 @@ a {
   .scroll-stroke {height:12px;margin-top:4px;}
 }
 
-#surround,#base,#ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
+#surround,#base,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
   position: absolute;
   left: 0;
   top: 0;
@@ -349,12 +349,12 @@ a {
 .map.provisional #surround { visibility: visible; transition-delay: 0s; }
 .map.provisional #base { opacity: 0; }
 
-#ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
+#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
   width: 100%;
   height: 100%;
 }
 
-#ink,#garden-water {
+#garden-water {
   mix-blend-mode: multiply;
 }
 #notations { transition: opacity .35s ease; }
@@ -595,12 +595,10 @@ a {
   --dot: #6f8dc6;
 }
 
-.collective {
-  --dot: #ca86ad;
-}
-
-.public {
-  --dot: #df9b56;
+.legend :is(.water,.park,.building)::before {
+  border: 1px solid #b4bcbb;
+  border-radius: 3px;
+  box-shadow: none;
 }
 
 .featured {

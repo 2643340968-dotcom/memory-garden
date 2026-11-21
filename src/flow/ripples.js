@@ -1,7 +1,7 @@
 import {clamp, hash, smooth, TAU} from "./geometry.js";
 
 export const AFTERGLOW = 3600;
-export const RIPPLE_LIMIT = 12;
+const RIPPLE_LIMIT = 12;
 const rgba = (rgb, a) => "rgba(" + rgb + "," + a + ")";
 const dyes = [ "65,142,206", "197,105,180", "247,146,80" ];
 const rims = [ "68,118,188", "174,113,174", "224,152,110" ];
@@ -22,27 +22,6 @@ export function placePhase(id) {
   for (const ch of id)
     n = Math.imul(n ^ ch.charCodeAt(0), 16777619);
   return (n >>> 0) / 4294967296 * TAU;
-}
-
-// Sum signed radial and tangential velocities. Independent fronts can carry
-// grains together or cancel each other at the same point. The GPU uses this
-// same field; button locations and the underlying geography stay registered.
-export function displaceGrain(x, y, fronts, out = [ 0, 0 ]) {
-  let dx = 0, dy = 0;
-  for (const f of fronts) {
-    const u = (x - f.x) / f.r, v = (y - f.y) / f.r, t = u * u + v * v;
-    if (t >= 1)
-      continue;
-    const d = Math.sqrt(t), inv = 1 / Math.max(d, .025), rx = u * inv, ry = v * inv;
-    const power = (1 - t) ** 2 * f.alpha * Math.min(f.r * .073, 14);
-    const wave = Math.sin(11 * d - f.phase * 2.2 + 1.6 * (u * f.ux + v * f.uy)) * (.42 + .58 * d);
-    const turn = Math.cos(7 * d + f.phase * .78 + f.seed);
-    dx += power * (rx * wave - ry * turn * .72 + f.ux * (.36 + .30 * turn));
-    dy += power * (ry * wave + rx * turn * .72 + f.uy * (.36 + .30 * turn));
-  }
-  out[0] = dx;
-  out[1] = dy;
-  return out;
 }
 
 function wash(ctx, x, y, rx, ry, angle, rgb, opacity) {
@@ -170,44 +149,43 @@ export function waterprint(ctx, x, y, r, phase, seed, intensity = 1, ux = 0, uy 
   ctx.restore();
 }
 
-// Where two fronts meet, the shared lens of water develops a moving seam.
-// It depends on both waves and disappears as either one dissipates.
-function confluence(ctx, a, b) {
-  const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-  if (d < 3 || d >= a.r + b.r)
+// Leave the paper visible through each wave, including where several places overlap.
+function mapRipple(ctx, x, y, radius, phase, mark, strength) {
+  if (strength < .004)
     return;
-  const amount = smooth(clamp((a.r + b.r - d) / Math.min(a.r, b.r), 0, 1)) * Math.sqrt(a.alpha * b.alpha);
-  if (amount < .025)
-    return;
-  const nX = -dy / d, nY = dx / d, along = a.r / (a.r + b.r), phase = (a.phase + b.phase) * .46;
-  const reach = Math.min(d * .44, Math.min(a.r, b.r) * .64);
-  const cx = a.x + along * dx, cy = a.y + along * dy;
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(Math.atan2(nY, nX));
-  const wave = Math.sin(phase + .5 * a.seed), width = reach * (.20 + .06 * wave);
-  wash(ctx, 0, width * .35, reach * .88, width, 0, "172,132,209", .51 * amount);
-  for (let j = 0; j < 8; j++) {
-    const side = (j / 7 - .5) * width;
+  ctx.translate(x, y);
+  ctx.rotate(.14 * Math.sin(mark.seed) + .12 * mark.uy);
+  ctx.strokeStyle = "#899d9e";
+  ctx.lineWidth = 1;
+  for (let band = 0; band < 3; band++) {
+    const front = (phase * .16 + band / 3) % 1;
+    const reach = radius * (.18 + .79 * front), drift = reach * .045;
+    ctx.globalAlpha = strength * .46 * Math.sin(Math.PI * front);
     ctx.beginPath();
-    ctx.moveTo(-reach, side * .28);
-    ctx.bezierCurveTo(
-        -reach * .49, side - width * (.7 + .45 * wave), -reach * .11, side + width * .84, reach * .09,
-        side + width * .35);
-    ctx.quadraticCurveTo(reach * .58, side - width * (.22 + .4 * wave), reach, side * .16);
-    ctx.lineWidth = .72;
-    ctx.strokeStyle = rgba(j % 2 ? rims[0] : rims[1], amount * .40);
+    for (let segment = 0; segment < 48; segment++) {
+      const angle = segment * TAU / 48;
+      const edge = reach *
+          (1 + .045 * Math.sin(3 * angle + phase * .38 + mark.seed) +
+           .025 * Math.cos(2 * angle - phase * .31));
+      const px = Math.cos(angle) * edge + mark.ux * drift,
+            py = Math.sin(angle) * edge * .84 + mark.uy * drift;
+      if (segment)
+        ctx.lineTo(px, py);
+      else
+        ctx.moveTo(px, py);
+    }
+    ctx.closePath();
     ctx.stroke();
   }
   ctx.restore();
 }
 
 export class RippleField {
-  constructor(canvas, project, onFrame) {
+  constructor(canvas, project) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.project = project;
-    this.onFrame = onFrame;
     this.waves = [];
     this.motion = matchMedia("(prefers-reduced-motion: reduce)");
     this.motion.addEventListener("change", () => this.schedule());
@@ -222,26 +200,14 @@ export class RippleField {
     this.schedule();
   }
   steer(x, y) {
-    const now = performance.now(), prev = this.pointer;
-    this.pointer = {x, y, time : now};
+    const prev = this.pointer;
+    this.pointer = {x, y};
     if (!prev)
       return;
     const dx = x - prev.x, dy = y - prev.y, d = Math.hypot(dx, dy);
     if (d < .6)
       return;
     this.direction = [ dx / d, dy / d ];
-    // The immediate shear moves existing ink under the pointer. Only real
-    // places emit water or keep a history after the pointer has passed.
-    if (!this.motion.matches) {
-      const speed = d / Math.max(8, now - prev.time);
-      const fresh = !this.shear || now - this.shear.time > 520 || d > 145;
-      if (fresh)
-        this.shear = {x, y, ux : dx / d, uy : dy / d, strength : 0};
-      Object.assign(
-          this.shear,
-          {tx : x, ty : y, dx : dx / d, dy : dy / d, gain : clamp(speed * .66, .18, 1), time : now});
-      this.schedule();
-    }
     const held = this.waves.findLast(w => w.left == null);
     if (held) {
       held.tx = dx / d;
@@ -286,22 +252,14 @@ export class RippleField {
     this.schedule();
   }
   clear(holdLastFrame = false) {
-    this.opening = null;
     this.waves.length = 0;
     this.pointer = null;
-    this.shear = null;
     this.direction = null;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     if (!holdLastFrame && this.ctx && this.width)
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.canvas.dataset.waves = "0";
-  }
-  turnOpening(progress) {
-    if (this.opening === progress)
-      return;
-    this.opening = progress;
-    this.schedule();
   }
   schedule() {
     if (this.frame || !this.width || document.hidden)
@@ -324,7 +282,6 @@ export class RippleField {
     this.lastTime = now;
     const relax = 1 - Math.exp(-dt * 4.4);
     this.waves = this.waves.filter(v => v.left == null || now - v.left < AFTERGLOW);
-    const fronts = [];
     for (const mark of this.waves) {
       const [x, y] = this.project(mark.center);
       mark.ux += (mark.tx - mark.ux) * relax;
@@ -338,59 +295,11 @@ export class RippleField {
           extent * (quiet ? .85 : .14 + .78 * (1 - Math.exp(-age * 2.05)) + .30 * smooth(tail) + swell);
       if (x + r < 0 || y + r < 0 || x - r > w || y - r > h)
         continue;
-      fronts.push({
-        x,
-        y,
-        r,
-        ux : mark.ux,
-        uy : mark.uy,
-        alpha : envelope(mark, now, quiet),
-        phase : quiet ? 1.15 : age + mark.seed * .31,
-        seed : mark.seed
-      });
+      const phase = quiet ? 1.15 : age + mark.seed * .31;
+      mapRipple(ctx, x, y, r, phase, mark, envelope(mark, now, quiet));
     }
-    if (this.opening != null && !quiet && fronts.length < RIPPLE_LIMIT) {
-      const t = smooth(this.opening);
-      const [x, y] = this.project([ 104.07 + 14.66 * t, 30.66 + 1.39 * t ]);
-      fronts.push({
-        x,
-        y,
-        r : Math.min(w * .25, h * .40, 215),
-        ux : .94,
-        uy : -.28,
-        seed : 2.17,
-        phase : 1.1 + t * 2.7,
-        alpha : .54 * (1 - t)
-      });
-    }
-    for (const f of fronts)
-      waterprint(ctx, f.x, f.y, f.r, f.phase, f.seed, f.alpha, f.ux, f.uy);
-    for (let i = 0; i < fronts.length; i++)
-      for (let j = 0; j < i; j++)
-        confluence(ctx, fronts[i], fronts[j]);
     this.canvas.dataset.waves = String(this.waves.length);
-    const s = this.shear, t = s ? clamp((now - s.time) / 920, 0, 1) : 1;
-    if (s && !quiet && t < 1 && fronts.length < RIPPLE_LIMIT) {
-      const follow = 1 - Math.exp(-dt * 18);
-      s.x += (s.tx - s.x) * follow;
-      s.y += (s.ty - s.y) * follow;
-      s.ux += (s.dx - s.ux) * follow;
-      s.uy += (s.dy - s.uy) * follow;
-      s.strength += (s.gain - s.strength) * follow;
-      fronts.push({
-        x : s.x,
-        y : s.y,
-        r : Math.min(w * .19, 110),
-        ux : s.ux,
-        uy : s.uy,
-        phase : 1.25 + t * .7,
-        seed : .34,
-        alpha : s.strength * (1 - smooth(t))
-      });
-    } else if (t === 1 || quiet)
-      this.shear = null;
-    const settling = this.onFrame?.(fronts, now, quiet);
-    if (!cameraMoving && (settling || this.shear || this.waves.some(v => !quiet || v.left != null)))
+    if (!cameraMoving && this.waves.some(v => !quiet || v.left != null))
       this.schedule();
   }
 }

@@ -5,7 +5,6 @@ import {adjacentStop, routeAtZoom} from "../atlas/zoomRoute.js";
 import {getLanguage, placeText} from "../i18n/LanguageController.js";
 import {blend, cameraProgress, clamp, latitude, mercator, project, under} from "./geometry.js";
 import {RippleField} from "./ripples.js";
-import {InkSurface} from "./InkSurface.js";
 import {FlowBasemap, NavigationChart, paintChart} from "./FlowBasemap.js";
 
 const stops = {
@@ -42,13 +41,10 @@ export class FlowAtlas {
       makeWorker : () => new Worker(new URL("./chart.worker.js", import.meta.url), {type : "module"}),
       loadPainter : async () => ({VectorBasemap : FlowBasemap, paintChart}),
     });
-    this.ink = new InkSurface(root.querySelector("#ink"));
     this.surround = new NavigationChart(
         root.querySelector("#surround"), this.charts.assetRoot, () => this.invalidate());
-    this.ink.onRestore = () => this.invalidate();
-    this.ripples = new RippleField(
-        root.querySelector("#waves"), coord => project(this.view, this.w, this.h, coord),
-        (fronts, now, quiet) => this.active && this.ink.render(this.view, fronts, now, quiet));
+    this.ripples =
+        new RippleField(root.querySelector("#waves"), coord => project(this.view, this.w, this.h, coord));
     this.route = {level : "country"};
     this.active = true;
     this.observer = new ResizeObserver(() => this.resize());
@@ -72,7 +68,6 @@ export class FlowAtlas {
     this.flight = null;
     this.notes.width = Math.round(w * dpr);
     this.notes.height = Math.round(h * dpr);
-    this.ink.resize(w, h, dpr);
     this.ripples.resize(w, h, Math.min(1.65, dpr));
     this.invalidate();
   }
@@ -383,7 +378,7 @@ export class FlowAtlas {
     }
     const f = this.flight;
     // Look ahead to the wider extent on retreat; stay close to the visible
-    // scale on approach so the finer print is ready as it comes into focus.
+    // scale on approach so the finer streets arrive as they come into focus.
     const gap = f ? Math.abs(Math.log(f.to.span / this.view.span)) : 0;
     let landing = this.view;
     if (f && f.to.span > this.view.span) {
@@ -394,12 +389,10 @@ export class FlowAtlas {
     }
     const detail = this.charts.update(
         "base", this.view, this.w, this.h, this.dpr, getLanguage(), !!f || this.dragging, landing);
-    const chart = this.surround.select(detail, this.view, this.w, this.h, getLanguage());
+    const chart = this.surround.select(detail, this.view, this.w, this.h, getLanguage(), this.dpr);
     this.root.classList.toggle("provisional", this.surround.needed);
-    if (chart) {
+    if (chart)
       this.root.dataset.vectorLevel = chart.frame.level;
-      this.ink.update(chart.frame, now, this.quiet.matches, !!f || this.dragging);
-    }
     const groups = this.groups();
     const reserved = this.drawPins(groups);
     this.annotate(chart, reserved);

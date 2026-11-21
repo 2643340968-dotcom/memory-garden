@@ -100,7 +100,6 @@ export class AtlasLanding {
     style.setProperty("--cover-lift", -lift + "vh");
     style.setProperty("--cover-drift", drift + "%");
     style.setProperty("--cover-scale", scale);
-    this.atlas.ripples.turnOpening(this.quiet.matches ? null : this.progress);
   }
   close() {
     if (!this.active)
@@ -109,7 +108,6 @@ export class AtlasLanding {
     this.stage.classList.remove("show-opening");
     this.section.hidden = this.control.hidden = true;
     this.atlas.root.inert = false;
-    this.atlas.ripples.turnOpening(null);
   }
   enter(fromScroll = false) {
     if (!this.active)

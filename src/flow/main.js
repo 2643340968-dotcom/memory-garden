@@ -2,6 +2,7 @@ import "./style.css";
 import {CITIES, PLACES, atlasHash, readAtlasRoute} from "../atlas/places.js";
 import {getLanguage, placeText, setLanguage, LANGUAGE_STORAGE_KEY} from "../i18n/LanguageController.js";
 import {FlowAtlas} from "./atlas.js";
+import {paper} from "./FlowBasemap.js";
 import {FlowGarden} from "./garden.js";
 import {AtlasLanding} from "./landing.js";
 import {placePhase, waterprint} from "./ripples.js";
@@ -163,13 +164,15 @@ function legend(isGarden) {
         ...(route.place === "jiangdongmen" ? [ [ "archive", local("档案片段", "Archives") ] ] : []),
       ] :
       [
-        [ "personal", local("个人记忆", "Personal memory") ],
-        [ "collective", local("集体记忆", "Collective memory") ],
-        [ "public", local("公共记忆", "Public memory") ],
+        [ "water", local("水系", "Water") ],
+        [ "park", local("绿地", "Green space") ],
+        [ "building", local("建筑", "Buildings") ],
       ];
   el("legend").replaceChildren(...values.map(([ kind, label ]) => {
     const span = document.createElement("span");
     span.className = kind;
+    if (!isGarden)
+      span.style.setProperty("--dot", paper[kind]);
     span.textContent = label;
     return span;
   }));
