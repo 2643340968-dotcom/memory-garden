@@ -30,6 +30,31 @@ export function paperGrain(ctx) {
   return ctx.createPattern(grain,"repeat");
 }
 
+// One physical grain pitch for both the narrow blades and the broad leaves.
+const foliageSwatches = new Map();
+export function foliageSwatch(colours) {
+  const key=colours.join("/");
+  if (!foliageSwatches.has(key)) {
+    const n=128, tile=document.createElement("canvas");
+    tile.width=tile.height=n;
+    const ctx=tile.getContext("2d");
+    const values=colours.map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)));
+    const pixels=ctx.createImageData(n,n), tau=Math.PI*2;
+    for (let y=0;y<n;y++) for (let x=0;x<n;x++) {
+      const u=x*tau/n, v=y*tau/n;
+      const t=.5+.23*Math.sin(u+.8*Math.cos(v))+.17*Math.cos(v-u)+.10*Math.sin(v*2+u);
+      const p=(y*n+x)*4;
+      for (let k=0;k<3;k++) pixels.data[p+k]=values[0][k]+t*(values[1][k]-values[0][k]);
+      pixels.data[p+3]=255;
+    }
+    ctx.putImageData(pixels,0,0);
+    ctx.fillStyle=paperGrain(ctx);
+    ctx.fillRect(0,0,n,n);
+    foliageSwatches.set(key,{tile,url:tile.toDataURL("image/png")});
+  }
+  return foliageSwatches.get(key);
+}
+
 export function printPetals(target, {ink,wash}, size, displaySize) {
   wash.clearRect(0,0,size,size);
   wash.save();

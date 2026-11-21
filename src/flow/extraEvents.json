@@ -1,0 +1,1256 @@
+{
+  "id-kah": [
+    {
+      "date": "1442",
+      "title": [
+        "广场边建寺",
+        "A mosque by the square"
+      ],
+      "body": [
+        "沙克色孜·米尔扎在这里建起清真寺。",
+        "Saqsiz Mirza founded a mosque on this site in Kashgar."
+      ]
+    },
+    {
+      "date": "1873",
+      "title": [
+        "院落扩建",
+        "Enlarging the courtyard"
+      ],
+      "body": [
+        "十九世纪的改扩建奠定了今天寺院的规模。",
+        "A major rebuilding gave the mosque much of its present extent."
+      ]
+    }
+  ],
+  "akhoja": [
+    {
+      "date": "1640",
+      "title": [
+        "家族墓园开建",
+        "A family burial ground"
+      ],
+      "body": [
+        "玛木特·玉素布安葬于此，家族墓园由此形成。",
+        "The burial of Muhammad Yusuf established the family burial ground."
+      ]
+    },
+    {
+      "date": "1874",
+      "title": [
+        "陵园修复完工",
+        "Rebuilding the mausoleum"
+      ],
+      "body": [
+        "历时四年的工程完工，形成陵园今天的大体格局。",
+        "A four-year rebuilding campaign established much of the complex seen today."
+      ]
+    }
+  ],
+  "mor-pagoda": [
+    {
+      "date": "2至3世纪~2nd–3rd centuries",
+      "title": [
+        "古寺兴建",
+        "Building on the plain"
+      ],
+      "body": [
+        "莫尔寺早期建筑可追溯至公元二至三世纪。",
+        "The earliest buildings at Mor date to the second or third century CE."
+      ]
+    },
+    {
+      "date": "2019",
+      "title": [
+        "从地表走向探方",
+        "Opening the trenches"
+      ],
+      "body": [
+        "中央民族大学和新疆文物考古研究所开始对寺址进行主动发掘。",
+        "Minzu University of China and the Xinjiang archaeological institute began a joint excavation here."
+      ]
+    }
+  ],
+  "kashgar-station": [
+    {
+      "date": "1999",
+      "title": [
+        "喀什建站",
+        "A station for Kashgar"
+      ],
+      "body": [
+        "喀什火车站在城东建成。",
+        "A railway station was built on the eastern side of Kashgar."
+      ]
+    },
+    {
+      "date": "2011-06-28",
+      "title": [
+        "喀和铁路开行客车",
+        "Passenger trains to Hotan"
+      ],
+      "body": [
+        "旅客列车从南疆铁路喀什站驶上通往和田的线路。",
+        "Passenger service began on the line branching from Kashgar toward Hotan."
+      ],
+      "source": "kashgar-rail"
+    }
+  ],
+  "xinjiang-museum": [
+    {
+      "date": "1962",
+      "title": [
+        "迁入西北路",
+        "Moving to Xibei Road"
+      ],
+      "body": [
+        "博物馆在这一年从西大桥一带迁到现在的馆址。",
+        "The museum moved from the Xidaqiao area to its present site."
+      ]
+    },
+    {
+      "date": "2005",
+      "title": [
+        "新馆迎客",
+        "Opening the new building"
+      ],
+      "body": [
+        "新馆建成并向公众开放，藏品有了新的陈列空间。",
+        "The new building opened, bringing the collections into purpose-built galleries."
+      ]
+    }
+  ],
+  "red-hill": [
+    {
+      "date": "1788",
+      "title": [
+        "山顶立塔",
+        "A pagoda on the summit"
+      ],
+      "body": [
+        "乌鲁木齐河连年泛滥后，红山与对岸山顶各建起一座塔。",
+        "After repeated floods, pagodas were erected on Red Hill and the hill across the river."
+      ]
+    },
+    {
+      "date": "1985",
+      "title": [
+        "绿化后的山园开放",
+        "A planted hillside opens"
+      ],
+      "body": [
+        "经过多年的蓄水、植树和修路，红山公园主园区开放。",
+        "Years of irrigation, tree planting and path building preceded the opening of the main park."
+      ]
+    }
+  ],
+  "grand-bazaar": [
+    {
+      "date": "2003-08-28",
+      "title": [
+        "大巴扎开市",
+        "The bazaar opens"
+      ],
+      "body": [
+        "国际大巴扎正式营业，为二道桥商区增添了一处集中交易空间。",
+        "The International Grand Bazaar opened for trade in the Erdaoqiao district."
+      ]
+    },
+    {
+      "date": "2018",
+      "title": [
+        "集市延伸到街上",
+        "The market reaches the street"
+      ],
+      "body": [
+        "步行街扩建启动，周边街道的建筑立面也开始修整。",
+        "Work began on the pedestrian shopping streets and on the façades around them."
+      ]
+    }
+  ],
+  "urumqi-station": [
+    {
+      "date": "1962",
+      "title": [
+        "二宫建站",
+        "The Ergong station"
+      ],
+      "body": [
+        "铁路在这里设立二宫站，成为后来新客站的前身。",
+        "Ergong station was established here, long before the new passenger terminal."
+      ]
+    },
+    {
+      "date": "2016-07-01",
+      "title": [
+        "新客站试运营",
+        "The new terminal takes passengers"
+      ],
+      "body": [
+        "新乌鲁木齐站开始试运营，首批动车往返哈密。",
+        "Trial services began at the new station with trains running to and from Hami."
+      ]
+    }
+  ],
+  "potala": [
+    {
+      "date": "1645",
+      "title": [
+        "重建红山上的宫殿",
+        "Rebuilding on Red Hill"
+      ],
+      "body": [
+        "五世达赖喇嘛开始在红山重建宫殿，先期工程包括白宫。",
+        "The Fifth Dalai Lama began rebuilding the palace on Marpori, starting with the White Palace."
+      ]
+    },
+    {
+      "date": "1994",
+      "title": [
+        "宫殿列入世界遗产",
+        "Inscription on the World Heritage List"
+      ],
+      "body": [
+        "布达拉宫成为拉萨历史建筑群最先列入世界遗产的部分。",
+        "The Potala was the first part of Lhasa’s historic ensemble to enter the World Heritage List."
+      ],
+      "source": "lhasa-ensemble"
+    }
+  ],
+  "jokhang": [
+    {
+      "date": "1409",
+      "title": [
+        "寺内举行祈愿法会",
+        "A prayer festival at the Jokhang"
+      ],
+      "body": [
+        "宗喀巴召集僧众在寺内举行祈愿大法会。",
+        "Tsongkhapa gathered monks at the temple for the Great Prayer Festival."
+      ]
+    },
+    {
+      "date": "2000",
+      "title": [
+        "建筑群扩大",
+        "Joining the Lhasa ensemble"
+      ],
+      "body": [
+        "大昭寺作为布达拉宫历史建筑群的扩展项目列入世界遗产。",
+        "The Jokhang joined the Potala Palace ensemble as an extension of the World Heritage property."
+      ],
+      "source": "lhasa-ensemble"
+    }
+  ],
+  "norbulingka": [
+    {
+      "date": "1751",
+      "title": [
+        "格桑颇章兴建",
+        "Building Kelsang Palace"
+      ],
+      "body": [
+        "七世达赖喇嘛在园内兴建格桑颇章，后来在此办理夏季政务。",
+        "The Seventh Dalai Lama built Kelsang Palace, later used for summer audiences."
+      ]
+    },
+    {
+      "date": "2001",
+      "title": [
+        "园林列入世界遗产",
+        "The gardens join the ensemble"
+      ],
+      "body": [
+        "罗布林卡作为拉萨布达拉宫历史建筑群的一部分列入世界遗产。",
+        "Norbulingka became part of Lhasa’s Potala Palace World Heritage ensemble."
+      ],
+      "source": "lhasa-ensemble"
+    }
+  ],
+  "drepung": [
+    {
+      "date": "1416",
+      "title": [
+        "山麓建寺",
+        "Founding the monastery"
+      ],
+      "body": [
+        "绛央却杰主持在拉萨西郊修建哲蚌寺。",
+        "Jamyang Chöjé founded Drepung on the slopes west of Lhasa."
+      ]
+    },
+    {
+      "date": "1969",
+      "title": [
+        "远方的分院",
+        "A monastery in exile"
+      ],
+      "body": [
+        "流亡僧众在印度南部蒙德戈德重建哲蚌寺，延续了这座寺院的传承。",
+        "Monks in exile re-established Drepung at Mundgod in southern India."
+      ]
+    }
+  ],
+  "dongguan": [
+    {
+      "date": "1986",
+      "title": [
+        "省级保护",
+        "Protection in Qinghai"
+      ],
+      "body": [
+        "东关清真大寺列入青海省文物保护单位。",
+        "Qinghai listed Dongguan Mosque for provincial heritage protection."
+      ]
+    },
+    {
+      "date": "2013",
+      "title": [
+        "列入全国名录",
+        "National listing"
+      ],
+      "body": [
+        "寺院列入第七批全国重点文物保护单位。",
+        "The mosque entered China’s seventh national register of protected heritage sites."
+      ]
+    }
+  ],
+  "kumbum": [
+    {
+      "date": "1379",
+      "title": [
+        "先有纪念塔",
+        "A stupa comes first"
+      ],
+      "body": [
+        "宗喀巴的母亲在其出生地建起纪念塔。",
+        "Tsongkhapa’s mother erected a commemorative stupa at his birthplace."
+      ]
+    },
+    {
+      "date": "1560",
+      "title": [
+        "塔旁建寺",
+        "A temple beside the stupa"
+      ],
+      "body": [
+        "僧人在塔南修建寺院与僧舍，这里逐渐发展为塔尔寺。",
+        "A temple and monks’ quarters rose south of the stupa and developed into Kumbum Monastery."
+      ]
+    }
+  ],
+  "qinghai-museum": [
+    {
+      "date": "1986-09-26",
+      "title": [
+        "博物馆开放",
+        "Opening the museum"
+      ],
+      "body": [
+        "经历两次筹备后，青海省博物馆正式向公众开放。",
+        "Following two periods of preparation, Qinghai Provincial Museum opened its doors."
+      ]
+    },
+    {
+      "date": "2001-05-01",
+      "title": [
+        "新展馆启用",
+        "New galleries open"
+      ],
+      "body": [
+        "新馆在五月开放，为省内文物提供了新的展陈空间。",
+        "The new museum building opened in May with galleries for the provincial collections."
+      ]
+    }
+  ],
+  "xining-station": [
+    {
+      "date": "1959-10-01",
+      "title": [
+        "西宁开站",
+        "The first station opens"
+      ],
+      "body": [
+        "西宁站开始办理铁路运输业务。",
+        "The newly completed Xining station entered railway service."
+      ]
+    },
+    {
+      "date": "2014-12-25",
+      "title": [
+        "扩建站房启用",
+        "Back on the original site"
+      ],
+      "body": [
+        "原址改扩建完成，车站重新迎来乘客。",
+        "The rebuilt passenger station reopened on its original site."
+      ]
+    }
+  ],
+  "dazhao": [
+    {
+      "date": "1579",
+      "title": [
+        "大召动工",
+        "Work begins on Dazhao"
+      ],
+      "body": [
+        "阿勒坦汗在归化城营建寺院，并请工匠铸造银佛。",
+        "Altan Khan commissioned a temple at Guihua and a silver figure of the Buddha."
+      ]
+    },
+    {
+      "date": "1586",
+      "title": [
+        "银佛开光",
+        "Consecrating the silver Buddha"
+      ],
+      "body": [
+        "三世达赖喇嘛来到大召，主持银佛的开光法会。",
+        "The Third Dalai Lama visited Dazhao to consecrate its silver Buddha."
+      ]
+    }
+  ],
+  "xilituzhao": [
+    {
+      "date": "1696",
+      "title": [
+        "归化城的一次法会",
+        "Chanting at Guihua"
+      ],
+      "body": [
+        "康熙帝巡行归化城期间，在席力图召参加诵经法会。",
+        "On a visit to Guihua, the Kangxi emperor attended a chanting ceremony at the temple."
+      ]
+    },
+    {
+      "date": "1703",
+      "title": [
+        "四种文字刻在一碑",
+        "Four scripts on one stele"
+      ],
+      "body": [
+        "延寿寺碑及碑亭建成，碑文分别以满、汉、蒙、藏文字刻写。",
+        "A pavilion and stele were completed with inscriptions in Manchu, Chinese, Mongolian and Tibetan."
+      ]
+    }
+  ],
+  "five-pagodas": [
+    {
+      "date": "1727",
+      "title": [
+        "金刚座塔开建",
+        "Beginning the stone platform"
+      ],
+      "body": [
+        "寺院获准兴建，金刚座舍利宝塔也在这一年动工。",
+        "Construction began on the temple and its diamond-throne pagoda."
+      ]
+    },
+    {
+      "date": "1732",
+      "title": [
+        "五塔落成",
+        "Five towers completed"
+      ],
+      "body": [
+        "宝塔落成，新建寺院获赐名慈灯寺。",
+        "The pagoda was completed and the new temple received the name Cideng."
+      ]
+    }
+  ],
+  "inner-mongolia-museum": [
+    {
+      "date": "2007-08-08",
+      "title": [
+        "新华东街馆开门",
+        "The galleries on Xinhua East Street"
+      ],
+      "body": [
+        "内蒙古博物院在乌兰恰特大剧院旁开放这座馆舍。",
+        "The museum opened this building beside the Ulanqat Theatre."
+      ]
+    },
+    {
+      "date": "2025-04-30",
+      "title": [
+        "旧馆闭馆",
+        "The old building closes"
+      ],
+      "body": [
+        "新华东街馆闭馆，博物院随后转往新馆试运行。",
+        "The Xinhua East Street building closed ahead of trial operations at a new site."
+      ]
+    }
+  ],
+  "st-sophia": [
+    {
+      "date": "1907-03-17",
+      "title": [
+        "木教堂奠基",
+        "Founding a wooden church"
+      ],
+      "body": [
+        "圣索菲亚最初按随军教堂修建。",
+        "Saint Sophia began as a garrison church."
+      ]
+    },
+    {
+      "date": "1932-11-25",
+      "title": [
+        "九年重建落成",
+        "Nine years of rebuilding"
+      ],
+      "body": [
+        "始于1923年的重建完工，形成今天熟悉的教堂外形。",
+        "The rebuilding begun in 1923 ended, giving the cathedral its familiar profile."
+      ]
+    }
+  ],
+  "flood-monument": [
+    {
+      "date": "1957",
+      "title": [
+        "松花江水上涨",
+        "The Songhua rises"
+      ],
+      "body": [
+        "面对洪水，哈尔滨居民合力加筑江堤。",
+        "Harbin residents worked together to reinforce the embankments as the river flooded."
+      ]
+    },
+    {
+      "date": "1958",
+      "title": [
+        "在江边立碑",
+        "A monument on the embankment"
+      ],
+      "body": [
+        "纪念塔竣工，记录前一年全城抗洪的经历。",
+        "The monument was completed to commemorate the city’s flood defence the previous year."
+      ]
+    }
+  ],
+  "confucian-temple": [
+    {
+      "date": "1926",
+      "title": [
+        "各界集资建庙",
+        "Building by subscription"
+      ],
+      "body": [
+        "地方人士集资，开始兴建哈尔滨文庙。",
+        "Local subscriptions helped launch construction of the temple."
+      ]
+    },
+    {
+      "date": "1946年后~After 1946",
+      "title": [
+        "殿院里的图书馆",
+        "Libraries in the halls"
+      ],
+      "body": [
+        "文庙先后用作医科和工程院校的图书馆。",
+        "Medical and engineering colleges used the temple buildings as libraries."
+      ]
+    }
+  ],
+  "harbin-station": [
+    {
+      "date": "1899",
+      "title": [
+        "松花江站启用",
+        "Songhua River station opens"
+      ],
+      "body": [
+        "铁路在这里开设松花江站，后来发展为哈尔滨站。",
+        "The station opened under the name Songhua River, the predecessor of Harbin station."
+      ]
+    },
+    {
+      "date": "2017-08-31",
+      "title": [
+        "北站房迎客",
+        "The northern terminal opens"
+      ],
+      "body": [
+        "改造中的哈尔滨站启用北站房，乘客多了一侧进站入口。",
+        "During reconstruction, the north terminal opened as a new entrance for passengers."
+      ]
+    }
+  ],
+  "mukden-palace": [
+    {
+      "date": "1625",
+      "title": [
+        "迁都后建宫",
+        "Building at the new capital"
+      ],
+      "body": [
+        "努尔哈赤迁都沈阳后，在城内开始兴建宫殿。",
+        "Nurhaci began building a palace in Shenyang after moving his capital there."
+      ]
+    },
+    {
+      "date": "2004",
+      "title": [
+        "宫殿列入世界遗产",
+        "The palace joins the World Heritage List"
+      ],
+      "body": [
+        "沈阳故宫与北京故宫一同列入明清皇家宫殿项目。",
+        "The Shenyang palace joined the World Heritage property of the Ming and Qing imperial palaces."
+      ]
+    }
+  ],
+  "zhaoling": [
+    {
+      "date": "1643",
+      "title": [
+        "昭陵始建",
+        "Beginning Zhaoling"
+      ],
+      "body": [
+        "皇太极去世后，营建昭陵的工程开始。",
+        "Work on Zhaoling began after the death of Hong Taiji."
+      ]
+    },
+    {
+      "date": "1927",
+      "title": [
+        "陵地辟为公园",
+        "Opening Beiling Park"
+      ],
+      "body": [
+        "昭陵及周边官地被划作北陵公园。",
+        "The tomb grounds and surrounding public land became Beiling Park."
+      ]
+    }
+  ],
+  "zhang-mansion": [
+    {
+      "date": "1914",
+      "title": [
+        "旧宅改建四合院",
+        "Rebuilding the courtyard house"
+      ],
+      "body": [
+        "张作霖在旧公馆的土地上营建三进院落。",
+        "Zhang Zuolin replaced the earlier residence with a house arranged around three courtyards."
+      ]
+    },
+    {
+      "date": "1922",
+      "title": [
+        "院东建起大青楼",
+        "A blue-brick mansion"
+      ],
+      "body": [
+        "四合院东侧兴建三层青砖楼，成为帅府中的大青楼。",
+        "A three-storey mansion of blue brick rose beside the eastern courtyard."
+      ]
+    }
+  ],
+  "fuling": [
+    {
+      "date": "1629",
+      "title": [
+        "为陵寝选址",
+        "Choosing the burial site"
+      ],
+      "body": [
+        "努尔哈赤的陵寝选址在盛京东北郊。",
+        "A site northeast of Shengjing was chosen for Nurhaci’s mausoleum."
+      ]
+    },
+    {
+      "date": "2004",
+      "title": [
+        "盛京三陵入列",
+        "Three tombs join the list"
+      ],
+      "body": [
+        "福陵随盛京其他两座陵寝一同列入明清皇家陵寝世界遗产项目。",
+        "Fuling and two other Shengjing tombs joined the World Heritage property of the Ming and Qing imperial tombs."
+      ]
+    }
+  ],
+  "giant-goose": [
+    {
+      "date": "652",
+      "title": [
+        "为梵本建塔",
+        "A tower for manuscripts"
+      ],
+      "body": [
+        "玄奘主持修建佛塔，以收藏从印度带回的经卷与佛像。",
+        "Xuanzang had a pagoda built for manuscripts and images brought back from India."
+      ]
+    },
+    {
+      "date": "2014",
+      "title": [
+        "从长安通往天山",
+        "Chang’an and the Tianshan routes"
+      ],
+      "body": [
+        "大雁塔作为长安至天山廊道的丝绸之路遗产点列入世界遗产。",
+        "The pagoda joined the Silk Roads World Heritage property along the Chang’an–Tianshan Corridor."
+      ],
+      "source": "silk-roads"
+    }
+  ],
+  "bell-tower": [
+    {
+      "date": "1384",
+      "title": [
+        "西大街建起钟楼",
+        "A bell tower on West Street"
+      ],
+      "body": [
+        "最早的明代钟楼建在今天西大街广济街口附近。",
+        "The Ming tower was first built near the present junction of West Street and Guangji Street."
+      ]
+    },
+    {
+      "date": "1582",
+      "title": [
+        "钟楼东迁",
+        "Moving the tower east"
+      ],
+      "body": [
+        "为顺应城中心的变化，钟楼迁到四条大街交会的现址。",
+        "The tower was moved to the meeting point of four main streets as the city centre shifted."
+      ]
+    }
+  ],
+  "city-wall": [
+    {
+      "date": "明洪武年间~Hongwu reign, Ming dynasty",
+      "title": [
+        "扩筑府城",
+        "Enlarging the walled city"
+      ],
+      "body": [
+        "明初在旧有城防基础上修筑新墙，形成西安府城的轮廓。",
+        "Early Ming builders expanded the older defences to enclose the prefectural city."
+      ]
+    },
+    {
+      "date": "1961",
+      "title": [
+        "城墙列入保护",
+        "Protecting the walls"
+      ],
+      "body": [
+        "西安城墙进入首批全国重点文物保护单位名录。",
+        "The city walls entered China’s first national register of protected heritage sites."
+      ]
+    }
+  ],
+  "small-goose": [
+    {
+      "date": "707至709年~707–709",
+      "title": [
+        "荐福寺建塔",
+        "A pagoda at Jianfu Temple"
+      ],
+      "body": [
+        "唐景龙年间，寺内修建十五层砖塔，与寺院译经活动相伴。",
+        "A fifteen-storey brick pagoda was built during the Jinglong reign, when the temple housed translation work."
+      ]
+    },
+    {
+      "date": "2014",
+      "title": [
+        "列入丝路遗产",
+        "Inscription on the Silk Roads list"
+      ],
+      "body": [
+        "小雁塔列入长安至天山廊道的丝绸之路世界遗产项目。",
+        "The pagoda was inscribed as part of the Chang’an–Tianshan Corridor of the Silk Roads."
+      ],
+      "source": "silk-roads"
+    }
+  ],
+  "yellow-crane": [
+    {
+      "date": "223",
+      "title": [
+        "江岸初建",
+        "The first riverside tower"
+      ],
+      "body": [
+        "东吴时期，黄鹤矶一带开始建楼。",
+        "A tower was built near the Yellow Crane promontory under Eastern Wu."
+      ]
+    },
+    {
+      "date": "1985",
+      "title": [
+        "蛇山上的新楼",
+        "A new tower on Snake Hill"
+      ],
+      "body": [
+        "重建的黄鹤楼落成，楼址离原来的江边矶头约一千米。",
+        "The reconstructed tower opened about a kilometre from the old riverside site."
+      ]
+    }
+  ],
+  "yangtze-bridge": [
+    {
+      "date": "1955",
+      "title": [
+        "从勘测到施工",
+        "From surveys to construction"
+      ],
+      "body": [
+        "经过多年勘测和方案论证，大桥在九月开始建设。",
+        "Construction began in September after years of surveys and design work."
+      ]
+    },
+    {
+      "date": "1957",
+      "title": [
+        "两岸通车",
+        "Rail and road cross the river"
+      ],
+      "body": [
+        "武汉长江大桥十月通车，列车和汽车都能从桥上过江。",
+        "The October opening gave both trains and road vehicles a bridge across the Yangtze here."
+      ]
+    }
+  ],
+  "hubei-museum": [
+    {
+      "date": "1959",
+      "title": [
+        "迁往东湖",
+        "A move to East Lake"
+      ],
+      "body": [
+        "省博物馆筹备处迁到武昌东湖，新的展览大楼开始筹建。",
+        "The museum’s preparatory office moved to East Lake as work began on a new exhibition building."
+      ]
+    },
+    {
+      "date": "1963",
+      "title": [
+        "省博物馆定名",
+        "A name for the museum"
+      ],
+      "body": [
+        "筹备处与省文物管理处合并，正式使用湖北省博物馆之名。",
+        "The preparatory office and the provincial heritage office merged under the name Hubei Provincial Museum."
+      ]
+    }
+  ],
+  "guiyuan": [
+    {
+      "date": "1658",
+      "title": [
+        "汉阳建寺",
+        "A monastery in Hanyang"
+      ],
+      "body": [
+        "来自浙江的白光、主峰二僧创建归元寺。",
+        "Two monks from Zhejiang, Baiguang and Zhufeng, founded the monastery."
+      ]
+    },
+    {
+      "date": "1908",
+      "title": [
+        "重修大殿",
+        "Rebuilding the main hall"
+      ],
+      "body": [
+        "中院的大雄宝殿在清末重修，留下今天所见的建筑。",
+        "A late-Qing rebuilding gave the central courtyard its surviving main hall."
+      ]
+    }
+  ],
+  "zhanqiao": [
+    {
+      "date": "19世纪90年代~1890s",
+      "title": [
+        "海湾里的铁码头",
+        "An iron pier in the bay"
+      ],
+      "body": [
+        "清末在青岛湾兴建靠岸码头，早期文献称它为铁码头。",
+        "A landing pier was built in Qingdao Bay and recorded in contemporary documents as the iron wharf."
+      ]
+    },
+    {
+      "date": "20世纪30年代初~Early 1930s",
+      "title": [
+        "桥头添阁",
+        "A pavilion at the seaward end"
+      ],
+      "body": [
+        "栈桥改建时在桥头增建两层的回澜阁。",
+        "Reconstruction added the two-storey Huilan Pavilion at the end of the pier."
+      ]
+    }
+  ],
+  "st-michaels": [
+    {
+      "date": "1931-05-05",
+      "title": [
+        "教堂开工",
+        "Breaking ground"
+      ],
+      "body": [
+        "圣弥厄尔教堂在原有教会建筑区开工建设。",
+        "Work began on Saint Michael’s Cathedral in the existing mission district."
+      ]
+    },
+    {
+      "date": "1934-10-28",
+      "title": [
+        "双塔教堂祝圣",
+        "Consecration of the cathedral"
+      ],
+      "body": [
+        "工程完成后，教堂举行祝圣仪式。",
+        "The completed cathedral was consecrated in October."
+      ]
+    }
+  ],
+  "qingdao-station": [
+    {
+      "date": "1901",
+      "title": [
+        "早期站房落成",
+        "The first station building"
+      ],
+      "body": [
+        "按锡乐巴设计建造的青岛站房在春季完工。",
+        "The original station building, designed by Heinrich Hildebrand, was completed in spring."
+      ]
+    },
+    {
+      "date": "2008-07-27",
+      "title": [
+        "列车回到青岛站",
+        "Trains return"
+      ],
+      "body": [
+        "改扩建工程后车站试运行，施工期间改在他站到发的列车迁回。",
+        "The rebuilt station began trial operations and trains diverted during construction returned."
+      ]
+    }
+  ],
+  "governors-residence": [
+    {
+      "date": "1903",
+      "title": [
+        "山麓建官邸",
+        "A residence on the hillside"
+      ],
+      "body": [
+        "建筑师拉查洛维奇设计的官邸开始兴建。",
+        "Construction began on the official residence designed by Werner Lazarowicz."
+      ]
+    },
+    {
+      "date": "1934",
+      "title": [
+        "改作迎宾馆",
+        "From residence to guesthouse"
+      ],
+      "body": [
+        "提督楼正式改作迎宾馆，建筑获得了新的公共用途。",
+        "The former residence was formally converted into a government guesthouse."
+      ]
+    }
+  ],
+  "green-lake": [
+    {
+      "date": "1918",
+      "title": [
+        "湖边的自来水厂",
+        "Waterworks by the lake"
+      ],
+      "body": [
+        "昆明的第一座自来水厂设在翠湖。",
+        "Kunming established its first municipal waterworks at Green Lake."
+      ]
+    },
+    {
+      "date": "1987",
+      "title": [
+        "引水回湖",
+        "Returning water to the lake"
+      ],
+      "body": [
+        "为恢复一度干涸的湖面，开始从盘龙江抽水补给翠湖。",
+        "Water was pumped from the Panlong River to replenish a lake that had partly dried out."
+      ]
+    }
+  ],
+  "military-academy": [
+    {
+      "date": "1909",
+      "title": [
+        "讲武堂开班",
+        "The academy begins teaching"
+      ],
+      "body": [
+        "经过筹办，云南陆军讲武堂在翠湖边开班培养军官。",
+        "The academy opened its training classes beside Green Lake."
+      ]
+    },
+    {
+      "date": "1912",
+      "title": [
+        "更名讲武学校",
+        "A new name for the school"
+      ],
+      "body": [
+        "讲武堂改称云南陆军讲武学校。",
+        "The institution adopted the name Yunnan Army Training School."
+      ]
+    }
+  ],
+  "lianda": [
+    {
+      "date": "1946",
+      "title": [
+        "临别立碑",
+        "A monument before departure"
+      ],
+      "body": [
+        "三校即将北返，联大师生在昆明校址立碑纪念这段共同生活。",
+        "As the three universities prepared to return north, students and staff erected the monument on their Kunming campus."
+      ]
+    },
+    {
+      "date": "1988",
+      "title": [
+        "同材石料北运",
+        "Stone from Yunnan goes north"
+      ],
+      "body": [
+        "北京大学决定复制纪念碑，派人到云南寻找与原碑相同材质的石料。",
+        "Peking University sent staff to Yunnan for matching stone to make a copy of the Kunming monument."
+      ]
+    }
+  ],
+  "yuantong": [
+    {
+      "date": "1319",
+      "title": [
+        "重建并定名",
+        "Rebuilding as Yuantong Temple"
+      ],
+      "body": [
+        "元代重修的寺院完工，采用圆通寺之名。",
+        "The Yuan-period reconstruction was completed and the monastery took the name Yuantong."
+      ]
+    },
+    {
+      "date": "1668",
+      "title": [
+        "山门移向街道",
+        "Moving the gate toward the street"
+      ],
+      "body": [
+        "清代扩建把山门南移，并增建牌坊与殿堂。",
+        "A Qing expansion moved the entrance south and added an archway and halls."
+      ]
+    }
+  ],
+  "chen-academy": [
+    {
+      "date": "1888",
+      "title": [
+        "宗族合资建祠",
+        "Families fund an academy"
+      ],
+      "body": [
+        "广东各地陈姓宗亲合资兴建陈氏书院。",
+        "Chen families across Guangdong pooled funds to build the clan academy."
+      ]
+    },
+    {
+      "date": "1959",
+      "title": [
+        "祠堂成为工艺博物馆",
+        "A home for folk arts"
+      ],
+      "body": [
+        "陈氏书院改作广东民间工艺博物馆，原有建筑成为展览空间。",
+        "The academy became the Guangdong Folk Arts Museum, with exhibits housed in its old halls."
+      ]
+    }
+  ],
+  "zhenhai": [
+    {
+      "date": "1380",
+      "title": [
+        "城墙上起高楼",
+        "A tower on the city wall"
+      ],
+      "body": [
+        "广州扩城，越秀山城墙上建起五层的镇海楼。",
+        "When Guangzhou expanded its defences, a five-storey tower rose on the wall at Yuexiu Hill."
+      ]
+    },
+    {
+      "date": "1929",
+      "title": [
+        "市立博物院设馆",
+        "A home for the city museum"
+      ],
+      "body": [
+        "修缮后的镇海楼成为广州市立博物院馆址。",
+        "The restored tower became the home of Guangzhou’s municipal museum."
+      ]
+    }
+  ],
+  "sun-yat-sen-hall": [
+    {
+      "date": "1925",
+      "title": [
+        "市民筹建纪念堂",
+        "Raising funds for a memorial"
+      ],
+      "body": [
+        "孙中山逝世后，广州各界发起捐建纪念堂，选定旧总统府为堂址。",
+        "After Sun Yat-sen’s death, Guangzhou residents raised funds for a memorial on the former presidential site."
+      ]
+    },
+    {
+      "date": "1931",
+      "title": [
+        "纪念堂建成",
+        "Completing the hall"
+      ],
+      "body": [
+        "由吕彦直设计、1929年动工的纪念堂建成。",
+        "The memorial designed by Lü Yanzhi was completed two years after construction began."
+      ]
+    }
+  ],
+  "guangxiao": [
+    {
+      "date": "963至967年~963–967",
+      "title": [
+        "院中铸铁塔",
+        "Casting the iron pagodas"
+      ],
+      "body": [
+        "南汉时期，寺院先后建造两座铁塔。",
+        "Two iron pagodas were erected at the temple during the Southern Han period."
+      ]
+    },
+    {
+      "date": "1482",
+      "title": [
+        "获赐光孝寺匾",
+        "An imperial name plaque"
+      ],
+      "body": [
+        "明代朝廷赐下光孝寺匾额，寺名沿用。",
+        "The Ming court bestowed a name plaque bearing the title Guangxiao Temple."
+      ]
+    }
+  ],
+  "five-lords": [
+    {
+      "date": "1097",
+      "title": [
+        "苏轼渡琼",
+        "Su Shi arrives in Hainan"
+      ],
+      "body": [
+        "地方纪念传统把这里的双泉与苏轼贬居海南途中的经历相连。",
+        "Local commemorative tradition connects the twin springs with Su Shi’s passage into exile in Hainan."
+      ]
+    },
+    {
+      "date": "1889",
+      "title": [
+        "海南第一楼落成",
+        "A hall for the Five Lords"
+      ],
+      "body": [
+        "珠采在此修建海南第一楼纪念五公，周边建筑群后来沿用五公祠之名。",
+        "Zhucai built a hall to commemorate the Five Lords. Its name later came to denote the surrounding complex."
+      ]
+    }
+  ],
+  "hai-rui": [
+    {
+      "date": "1589",
+      "title": [
+        "归葬故里",
+        "Burial in his home region"
+      ],
+      "body": [
+        "海瑞去世两年后，墓园在海南建成。",
+        "Hai Rui’s tomb was completed in Hainan two years after his death."
+      ]
+    },
+    {
+      "date": "1982",
+      "title": [
+        "墓园重新开放",
+        "The grounds reopen"
+      ],
+      "body": [
+        "墓园经过重修向公众开放，西侧增建海瑞文物陈列室。",
+        "The restored grounds opened to visitors with an exhibition room on the western side."
+      ]
+    }
+  ],
+  "haikou-station": [
+    {
+      "date": "2002",
+      "title": [
+        "海口站建成",
+        "Completing Haikou station"
+      ],
+      "body": [
+        "车站在十二月建成，随后陆续开办运输业务。",
+        "The station building was completed in December, ahead of passenger operations."
+      ]
+    },
+    {
+      "date": "2010-12-30",
+      "title": [
+        "东环动车开行",
+        "East-coast trains to Sanya"
+      ],
+      "body": [
+        "海南东环高速铁路开通，海口站开始开行到三亚的动车。",
+        "With the east-coast high-speed line open, trains began running from this station to Sanya."
+      ]
+    }
+  ],
+  "xiuying": [
+    {
+      "date": "1985",
+      "title": [
+        "海口登记保护",
+        "City heritage protection"
+      ],
+      "body": [
+        "海口市将秀英炮台公布为市级重点文物保护单位。",
+        "Haikou listed Xiuying Fort as a municipal heritage site."
+      ]
+    },
+    {
+      "date": "2006",
+      "title": [
+        "炮台列入全国名录",
+        "The fort gains national listing"
+      ],
+      "body": [
+        "秀英炮台列入第六批全国重点文物保护单位。",
+        "The fort entered China’s sixth national register of protected heritage sites."
+      ]
+    }
+  ]
+}

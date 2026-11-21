@@ -102,12 +102,12 @@ export const CITIES = Object.fromEntries(Object.entries(cityEntries).map(([id, c
     span: Math.max(0.12, (east - west) * 1.28), latitudeSpan: Math.max(0.09, (north - south) * 1.36) }];
 }));
 
-export function readAtlasRoute(hash) {
+export function readAtlasRoute(hash, cities = CITIES, places = PLACES) {
   const parts = hash.replace(/^#\/?/, "").split("/");
   const [layer, city, place] = parts;
-  if (parts.length <= 3 && Object.hasOwn(CITIES, city)) {
+  if (parts.length <= 3 && Object.hasOwn(cities, city)) {
     if (layer === "atlas" && !place) return { level: "city", city };
-    if (Object.hasOwn(PLACES, place) && PLACES[place].city === city) {
+    if (Object.hasOwn(places, place) && places[place].city === city) {
       if (layer === "atlas" || layer === "garden") {
         return { level: layer === "garden" ? "garden" : "place", city, place };
       }

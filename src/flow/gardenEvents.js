@@ -1,6 +1,13 @@
+import extraEvents from "./extraEvents.json" with {type:"json"};
+import extraPlaces from "./extraPlaces.json" with {type:"json"};
+
 // Editorial summaries for the standing garden. Every blossom has its own event and citation.
 // Numeric sources are permanent revisions of the place articles in the atlas catalogue.
 const sources = {
+  "kashgar-rail":{name:["中国中铁","China Railway Group"],url:"https://www.crecg.com/web/xwzx61/zfgsdt39/2025021110090629756/index.html"},
+  "lhasa-ensemble":{name:["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"],url:"https://whc.unesco.org/en/list/707/"},
+  "silk-roads":{name:["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"],url:"https://whc.unesco.org/en/list/1442/"},
+
   burial: {name: ["中共南京市委党史工作办公室","Nanjing Party History Office"], url: "https://dsb.nanjing.gov.cn/yzyj/201412/t20141209_2083944.html"},
   hall: {name: ["侵华日军南京大屠杀遇难同胞纪念馆","Memorial Hall of the Victims in Nanjing Massacre by Japanese Invaders"], url: "https://www.19371213.org.cn/information/news/202509/t20250905_5643460.html"},
   unescoMemory: {name:["联合国教科文组织《世界记忆名录》","UNESCO Memory of the World Register"], url:"https://www.unesco.org/en/memory-world/documents-nanjing-massacre"},
@@ -554,11 +561,11 @@ const sites = {
 };
 
 export function eventsForPlace(site) {
-  return (sites[site] ?? []).map(({date, title, body, source}) => {
+  return (sites[site] ?? extraEvents[site] ?? []).map(({date, title, body, source}) => {
     const id = site + "-event-" + title[1].toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-$/, "");
     const citation = sources[source] ?? {
       name: ["维基百科 · 地点条目", "Wikipedia · site history"],
-      url: "https://zh.wikipedia.org/w/index.php?oldid=" + source,
+      url: "https://zh.wikipedia.org/w/index.php?oldid=" + (source ?? extraPlaces[site]?.revision),
     };
     return {id, title, body, date, dateLabel:[displayEventDate(date,"zh-CN"),displayEventDate(date,"en")],
       sourceNames:citation.name, sourceUrl:citation.url};

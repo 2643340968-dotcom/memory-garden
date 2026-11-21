@@ -1,4 +1,4 @@
-import {CITIES, PLACES} from "../atlas/places.js";
+import {CITIES, PLACES} from "./places.js";
 import {clamp, hash, mercator, project, smooth, TAU} from "./geometry.js";
 import {forms} from "./flowerForms.js";
 import {loadPlates} from "./coverPlates.js";

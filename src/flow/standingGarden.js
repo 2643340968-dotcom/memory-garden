@@ -1,5 +1,5 @@
 import {clamp, hash} from "./geometry.js";
-import {paperGrain} from "./petalPaper.js";
+import {paperGrain, foliageSwatch} from "./petalPaper.js";
 import {profileURL} from "./flowerForms.js";
 
 const ns = "http://www.w3.org/2000/svg";
@@ -28,14 +28,25 @@ export function gardenPositions(count, area, featured = 2) {
   }
   return pts;
 }
+const foliage = {
+  "stem-ink":["#749380","#a6c3a0"],
+  "leaf-light":["#9fbc9b","#d2dcaf"],
+  "leaf-dark":["#739d88","#bad1a8"],
+  "field-mint":["#81a492","#bdd4af"]
+};
+function sizedPath(d,w,h) {
+  return d.replace(/(-?[\d.]+) (-?[\d.]+)/g,(_,x,y)=>(Number(x)*w).toFixed(2)+" "+(Number(y)*h).toFixed(2));
+}
+function inkedLeaf(d,ink) {
+  return svg("path",{d,fill:ink,stroke:ink,"stroke-width":2.4,"stroke-opacity":.22,"stroke-linejoin":"round","paint-order":"stroke"});
+}
 function blade(length,width,colour,lotus) {
   const group=svg("g",{class:"plant-leaf"});
-  const leaf=svg("g",{transform:"scale("+length+" "+width+")"});
-  leaf.append(svg("path",{d:lotus ?
+  const shape = lotus ?
     "M0 0C.13 -.74 .38 -1.11 .64 -.87C.97 -.91 1.14 -.42 .95 -.05Q.76 .60 .27 .30Z" :
-    "M0 0C.19 -.38 .36 -.83 .58 -.77Q.80 -.73 1 -.54Q.89 -.08 .67 .10C.43 .40 .18 .29 0 0Z",fill:colour}));
-  leaf.append(svg("path",{d:"M.02 0Q.41 -.19 .91 -.49",fill:"none",stroke:"#ebedcf","stroke-width":".035"}));
-  group.append(leaf);
+    "M0 0C.19 -.38 .36 -.83 .58 -.77Q.80 -.73 1 -.54Q.89 -.08 .67 .10C.43 .40 .18 .29 0 0Z";
+  group.append(inkedLeaf(sizedPath(shape,length,width),colour),
+    svg("path",{d:sizedPath("M.02 0Q.41 -.19 .91 -.49",length,width),fill:"none",stroke:"url(#stem-ink)","stroke-opacity":.43,"stroke-width":.85}));
   return group;
 }
 function stemCurve(x,y,bottom,reach,phase) {
@@ -52,8 +63,11 @@ function stemCurve(x,y,bottom,reach,phase) {
   };
 }
 function line(d,width,twig=false) {
-  return svg("path",{d,fill:"none",stroke:"url(#stem-ink)","stroke-width":width,
-    "stroke-linecap":"round",pathLength:1,class:twig?"plant-twig":"plant-stem"});
+  const group=svg("g"), props={d,fill:"none",stroke:"url(#stem-ink)","stroke-linecap":"round",
+    pathLength:1,class:twig?"plant-twig":"plant-stem"};
+  group.append(svg("path",{...props,"stroke-width":width+2.1,opacity:.24}),
+    svg("path",{...props,"stroke-width":width}));
+  return group;
 }
 export function plantArtwork({x,y,size,phase,featured,city,view,bottom,width,birth}) {
   const socket=y+size*54/160;
@@ -91,10 +105,11 @@ export function plantArtwork({x,y,size,phase,featured,city,view,bottom,width,bir
         width:mini,height:mini*.9,class:"plant-floret"}));
       plant.append(off);
     } else {
-      const bud=svg("g",{transform:"translate("+tipX+" "+tipY+") rotate("+(dir*28)+") scale("+size*.12+")"});
+      const bud=svg("g",{transform:"translate("+tipX+" "+tipY+") rotate("+(dir*28)+")"});
       const folded=svg("g",{class:"plant-bud"});
-      folded.append(svg("path",{d:"M0 0C-.55 -.21 -.55 -1.05 -.07 -1.48Q.59 -1.16 .48 -.60Q.38 -.19 0 0Z",fill:"url(#bud-colour)"}),
-        svg("path",{d:"M0 .08Q-.48 -.10 -.49 -.65Q-.21 -.49 0 -.37L.42 -.72Q.41 -.18 0 .08Z",fill:"url(#leaf-dark)"}));
+      const unit=size*.12;
+      folded.append(inkedLeaf(sizedPath("M0 0C-.55 -.21 -.55 -1.05 -.07 -1.48Q.59 -1.16 .48 -.60Q.38 -.19 0 0Z",unit,unit),"url(#bud-colour)"),
+        inkedLeaf(sizedPath("M0 .08Q-.48 -.10 -.49 -.65Q-.21 -.49 0 -.37L.42 -.72Q.41 -.18 0 .08Z",unit,unit),"url(#leaf-dark)"));
       bud.append(folded); plant.append(bud);
     }
   }
@@ -140,7 +155,7 @@ export function plantStand(stand, bottom, age) {
     spray.style.transformOrigin=rootX+"px "+bottom+"px";
     spray.style.setProperty("--birth",Math.round(birth)+"ms");
   }
-  const stemInk=["#a5bfa5","#92b297","#79a188"][tier];
+  const stemInk=["url(#leaf-light)","url(#field-mint)","url(#stem-ink)"][tier];
   const stems=[], leaves=[];
   spray.setAttribute("opacity",[.57,.73,.93][tier]);
   heads.forEach(({x:cx,y:cy,size,tilt,view},i)=>{
@@ -154,8 +169,8 @@ export function plantStand(stand, bottom, age) {
       transform:"translate("+cx+" "+cy+") rotate("+tilt+") scale("+size/100+")"});
     spray.append(flower);
   });
-  spray.prepend(svg("path",{d:stems.join(""),fill:"none",stroke:stemInk,"stroke-width":[.85,1.15,1.65][tier]}),
-    svg("path",{d:leaves.join(""),fill:stemInk,opacity:".81"}));
+  spray.prepend(svg("path",{d:stems.join(""),fill:"none",stroke:stemInk,"stroke-width":[1.1,1.5,1.95][tier],"stroke-opacity":.82}),
+    inkedLeaf(leaves.join(""),stemInk));
   group.append(spray);
   return {stem:group,x,y,rootX,rootY:bottom};
 }
@@ -177,16 +192,11 @@ function standPrint(source) {
 }
 export function gardenDefs(form, city) {
   const defs=svg("defs");
-  const gradients=[
-    ["stem-ink","#80ab98","#bad5ab","#6f9f8a"],
-    ["leaf-light","#a2c6a5","#d2e2bc","#9ebfab"],
-    ["leaf-dark","#83b29b","#b3d0a5","#7baa94"],
-    ["bud-colour",form.tip,form.root,form.hem],
-  ];
-  for (const [id,start,mid,end] of gradients) {
-    const grad=svg("linearGradient",{id,x1:0,y1:1,x2:.8,y2:0});
-    for(const [offset,colour] of [[0,start],[.55,mid],[1,end]]) grad.append(svg("stop",{offset,"stop-color":colour}));
-    defs.append(grad);
+  for (const [id,colours] of Object.entries({...foliage,"bud-colour":[form.tip,form.root]})) {
+    const swatch=foliageSwatch(colours);
+    const pattern=svg("pattern",{id,width:112,height:112,patternUnits:"userSpaceOnUse"});
+    pattern.append(svg("image",{href:swatch.url,width:112,height:112}));
+    defs.append(pattern);
   }
   for (const view of ["front","side"]) {
     const src=profileURL(city,view);
@@ -214,12 +224,17 @@ export function drawUnderstory(ctx,w,h,seed,form) {
   ctx.restore();
   // Thin distant leaves tie the bases of the clusters together.
   const count=Math.round(clamp(w/17,20,100));
+  const grass=ctx.createPattern(foliageSwatch(foliage["field-mint"]).tile,"repeat");
+  ctx.save();
+  ctx.fillStyle=ctx.strokeStyle=grass;
   for(let i=0;i<count;i++) {
     const root=w*hash(i,seed+3), lean=(hash(i,9)-.5)*w*.17;
     const length=h*(.065+.30*hash(i,seed+15)**2);
     ctx.beginPath(); ctx.moveTo(root,h+3);
     ctx.quadraticCurveTo(root+lean*.13,h-length*.62,root+lean,h-length);
     ctx.quadraticCurveTo(root+lean*.32+9,h-length*.38,root+3,h+3);
-    ctx.fillStyle=i%4?"#92b49c26":"#89ad9e39"; ctx.fill();
+    ctx.globalAlpha=i%4?.48:.65; ctx.fill();
+    ctx.globalAlpha=.16; ctx.lineWidth=2.3; ctx.stroke();
   }
+  ctx.restore();
 }

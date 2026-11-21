@@ -9,9 +9,9 @@ const fills = {
   wood: "#b6cba9", water: "#b5d4cf", building: "#d7ccbb",
 };
 
-export function indexedTile(z, x, y) {
+export function indexedTile(z, x, y, packs = index.packs) {
   const slot = x % 4 + 4 * (y % 4);
-  const pack = index.packs[[z, x >> 2, y >> 2].join("-")];
+  const pack = packs[[z, x >> 2, y >> 2].join("-")];
   return pack && (pack[0] & (1 << slot)) ? { z, x, y, file: pack[1], slot } : null;
 }
 
@@ -120,6 +120,7 @@ export class VectorBasemap {
     ctx.restore();
   }
 
+  tileAt(z, x, y) { return indexedTile(z, x, y); }
   visibleTiles(level, camera, w, h, k) {
     const deg = 360 / 2 ** level;
     const left = Math.floor((camera.x + 180 - w / (2 * k)) / deg);
@@ -133,7 +134,7 @@ export class VectorBasemap {
         let candidates = 0;
         for (let z = level; z >= MIN_LEVEL; z--) {
           const shift = level - z;
-          const tile = indexedTile(z, x >> shift, y >> shift);
+          const tile = this.tileAt(z, x >> shift, y >> shift);
           if (!tile) continue;
           const item = this.resource(tile.file, candidates === 0 || (candidates === 1 && level - z < 4) || z === MIN_LEVEL);
           candidates++;

@@ -17,8 +17,7 @@
       </a>
       <nav id="trail" aria-label="地图位置"></nav>
       <div class="header-tools">
-        <div class="actions"><button type="button" id="open-map" hidden></button><button type="button" id="dismiss-chapter" hidden></button><button type="button" id="enter" hidden></button><button type="button" id="write" hidden></button><a id="back" href="#atlas" hidden></a></div>
-        <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
+        <div class="actions"><button type="button" id="open-map" hidden></button><button type="button" id="dismiss-chapter" hidden></button><button type="button" id="enter" hidden></button><a id="back" href="#atlas" hidden></a></div>
         <div class="map-tools" id="map-tools">
           <select id="level-target" aria-label="选择城市"></select>
           <button type="button" id="zoom-out" aria-label="返回上一级">↶</button>
@@ -45,6 +44,10 @@
       </details>
       <button class="language" id="flow-language" type="button">英文</button>
     </header>
+    <div id="garden-actions" hidden>
+      <button type="button" id="write"></button>
+      <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
+    </div>
     </div>
     <section id="stage" class="stage" data-surface="atlas">
       <div id="map" class="map" role="group" aria-label="地图" tabindex="-1">

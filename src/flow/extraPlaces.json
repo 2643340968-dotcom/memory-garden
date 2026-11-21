@@ -1,0 +1,834 @@
+{
+  "id-kah": {
+    "city": "kashgar",
+    "name": [
+      "艾提尕尔清真寺",
+      "Id Kah Mosque"
+    ],
+    "center": [
+      75.98413,
+      39.47238
+    ],
+    "revision": 92991211,
+    "introduction": [
+      "清真寺的门楼面对广场，院落从老城的街道向里展开。",
+      "The gateway faces a square in Kashgar’s old town, with the prayer courtyard beyond."
+    ]
+  },
+  "akhoja": {
+    "city": "kashgar",
+    "name": [
+      "阿巴和加麻札",
+      "Afaq Khoja Mausoleum"
+    ],
+    "center": [
+      76.023064,
+      39.490669
+    ],
+    "revision": 92029677,
+    "introduction": [
+      "喀什城外，陵园的穹顶覆着彩色琉璃。",
+      "Glazed tiles cover the domes of this family mausoleum outside Kashgar."
+    ]
+  },
+  "mor-pagoda": {
+    "city": "kashgar",
+    "name": [
+      "莫尔寺遗址",
+      "Mor Buddhist site"
+    ],
+    "center": [
+      76.265278,
+      39.604167
+    ],
+    "revision": 86999046,
+    "introduction": [
+      "两座夯土佛塔标出古寺在荒原上的位置。",
+      "Two earthen towers mark the site of a former Buddhist complex on the plain."
+    ]
+  },
+  "kashgar-station": {
+    "city": "kashgar",
+    "name": [
+      "喀什站",
+      "Kashgar Railway Station"
+    ],
+    "center": [
+      76.046111,
+      39.491944
+    ],
+    "revision": 95014394,
+    "introduction": [
+      "这里是南疆铁路和喀和铁路相接的车站。",
+      "The Southern Xinjiang Railway meets the line to Hotan at Kashgar station."
+    ]
+  },
+  "xinjiang-museum": {
+    "city": "urumqi",
+    "name": [
+      "新疆博物馆",
+      "Xinjiang Museum"
+    ],
+    "center": [
+      87.581111,
+      43.818333
+    ],
+    "revision": 95635089,
+    "introduction": [
+      "西北路的展厅收藏着新疆各地出土的器物与纺织品。",
+      "The galleries on Xibei Road hold objects and textiles excavated across Xinjiang."
+    ]
+  },
+  "red-hill": {
+    "city": "urumqi",
+    "name": [
+      "红山公园",
+      "Red Hill Park"
+    ],
+    "center": [
+      87.600783,
+      43.806786
+    ],
+    "revision": 92860880,
+    "introduction": [
+      "红山塔立在城市上方，塔下的步道穿过后来种植的林地。",
+      "Paths through planted woodland climb to the pagoda above the city."
+    ]
+  },
+  "grand-bazaar": {
+    "city": "urumqi",
+    "name": [
+      "新疆国际大巴扎",
+      "Xinjiang International Grand Bazaar"
+    ],
+    "center": [
+      87.614722,
+      43.778333
+    ],
+    "revision": 94714298,
+    "introduction": [
+      "二道桥的市场街区围绕大巴扎展开。",
+      "The bazaar stands among the market streets of Erdaoqiao."
+    ]
+  },
+  "urumqi-station": {
+    "city": "urumqi",
+    "name": [
+      "乌鲁木齐站",
+      "Ürümqi Railway Station"
+    ],
+    "center": [
+      87.526333,
+      43.839392
+    ],
+    "revision": 95605945,
+    "introduction": [
+      "二宫旧站址如今汇集进出乌鲁木齐的客运列车。",
+      "Passenger trains now converge on the former site of Ergong station."
+    ]
+  },
+  "potala": {
+    "city": "lhasa",
+    "name": [
+      "布达拉宫",
+      "Potala Palace"
+    ],
+    "center": [
+      91.1169,
+      29.6578
+    ],
+    "revision": 95630440,
+    "introduction": [
+      "白宫与红宫沿红山的山脊层层升起。",
+      "The White and Red palaces rise in tiers along the ridge of Marpori."
+    ]
+  },
+  "jokhang": {
+    "city": "lhasa",
+    "name": [
+      "大昭寺",
+      "Jokhang Temple"
+    ],
+    "center": [
+      91.132222,
+      29.653056
+    ],
+    "revision": 95647131,
+    "introduction": [
+      "八廓街环绕大昭寺，街巷与寺院在这里相接。",
+      "The Barkhor circuit wraps around the Jokhang at the heart of old Lhasa."
+    ]
+  },
+  "norbulingka": {
+    "city": "lhasa",
+    "name": [
+      "罗布林卡",
+      "Norbulingka"
+    ],
+    "center": [
+      91.095322,
+      29.652342
+    ],
+    "revision": 94839200,
+    "introduction": [
+      "拉萨西郊的园路将夏宫、池水与林地连在一起。",
+      "Garden paths connect summer palaces, pools and groves in western Lhasa."
+    ]
+  },
+  "drepung": {
+    "city": "lhasa",
+    "name": [
+      "哲蚌寺",
+      "Drepung Monastery"
+    ],
+    "center": [
+      91.047,
+      29.676722
+    ],
+    "revision": 93289092,
+    "introduction": [
+      "哲蚌寺的建筑依更丕乌孜山麓展开。",
+      "The halls of Drepung spread across the lower slopes west of Lhasa."
+    ]
+  },
+  "dongguan": {
+    "city": "xining",
+    "name": [
+      "东关清真大寺",
+      "Dongguan Mosque"
+    ],
+    "center": [
+      101.79555,
+      36.61542
+    ],
+    "revision": 95679145,
+    "introduction": [
+      "东关大街南侧，一条由大门通向礼拜堂的轴线贯穿院落。",
+      "A courtyard leads from Dongguan Street to the prayer hall in eastern Xining."
+    ]
+  },
+  "kumbum": {
+    "city": "xining",
+    "name": [
+      "塔尔寺",
+      "Kumbum Monastery"
+    ],
+    "center": [
+      101.599192,
+      36.481439
+    ],
+    "revision": 95428163,
+    "introduction": [
+      "塔尔寺的经院与殿堂分布在湟中山谷。",
+      "The colleges and halls of Kumbum follow the contours of a valley in Huangzhong."
+    ]
+  },
+  "qinghai-museum": {
+    "city": "xining",
+    "name": [
+      "青海省博物馆",
+      "Qinghai Provincial Museum"
+    ],
+    "center": [
+      101.75417,
+      36.63029
+    ],
+    "revision": 94245176,
+    "introduction": [
+      "城西的博物馆陈列青海的考古发现与地方文化。",
+      "The museum in western Xining exhibits archaeology and material culture from Qinghai."
+    ]
+  },
+  "xining-station": {
+    "city": "xining",
+    "name": [
+      "西宁站",
+      "Xining Railway Station"
+    ],
+    "center": [
+      101.812814,
+      36.620536
+    ],
+    "revision": 95611004,
+    "introduction": [
+      "建国路的站台连接向西的高原线路和向东的兰青铁路。",
+      "At Jianguo Road, lines onto the plateau meet the railway east to Lanzhou."
+    ]
+  },
+  "dazhao": {
+    "city": "hohhot",
+    "name": [
+      "大召寺",
+      "Dazhao Temple"
+    ],
+    "center": [
+      111.646667,
+      40.798056
+    ],
+    "revision": 93942459,
+    "introduction": [
+      "呼和浩特旧城里，大召殿内的银佛为寺院留下了「银佛寺」的别称。",
+      "The silver Buddha in the main hall gave this old-city temple another name, the Silver Buddha Temple."
+    ]
+  },
+  "xilituzhao": {
+    "city": "hohhot",
+    "name": [
+      "席力图召",
+      "Xilitu Zhao"
+    ],
+    "center": [
+      111.649709,
+      40.798924
+    ],
+    "revision": 93285129,
+    "introduction": [
+      "席力图召与大召隔街相望，寺内留有多种文字的碑刻。",
+      "Across the street from Dazhao, inscriptions in several scripts survive at Xilitu Zhao."
+    ]
+  },
+  "five-pagodas": {
+    "city": "hohhot",
+    "name": [
+      "五塔寺",
+      "Five Pagoda Temple"
+    ],
+    "center": [
+      111.6575,
+      40.798611
+    ],
+    "revision": 95587467,
+    "introduction": [
+      "五座小塔在同一座石台上并立，成了慈灯寺最容易辨认的轮廓。",
+      "Five small pagodas on a single platform give Cideng Temple its familiar silhouette."
+    ]
+  },
+  "inner-mongolia-museum": {
+    "city": "hohhot",
+    "name": [
+      "内蒙古博物院新华东街旧馆",
+      "Inner Mongolia Museum, Xinhua East Street"
+    ],
+    "center": [
+      111.758072,
+      40.840081
+    ],
+    "revision": 94754600,
+    "introduction": [
+      "新华东街的旧馆曾以草原为线索，展出古生物化石与地方文物。",
+      "The former Xinhua East Street museum displayed fossils and historical objects in galleries devoted to the grasslands."
+    ]
+  },
+  "st-sophia": {
+    "city": "harbin",
+    "name": [
+      "圣索菲亚教堂",
+      "Saint Sophia Cathedral"
+    ],
+    "center": [
+      126.62127,
+      45.7682
+    ],
+    "revision": 92076197,
+    "introduction": [
+      "教堂的绿色穹顶高出道里街区的红砖墙。",
+      "A green dome rises above the red-brick walls in Harbin’s Daoli district."
+    ]
+  },
+  "flood-monument": {
+    "city": "harbin",
+    "name": [
+      "防洪纪念塔",
+      "Flood Control Monument"
+    ],
+    "center": [
+      126.611324,
+      45.778685
+    ],
+    "revision": 94248401,
+    "introduction": [
+      "在中央大街的尽头，纪念塔面向松花江。",
+      "At the river end of Central Street, the monument faces the Songhua."
+    ]
+  },
+  "confucian-temple": {
+    "city": "harbin",
+    "name": [
+      "哈尔滨文庙",
+      "Harbin Confucian Temple"
+    ],
+    "center": [
+      126.66883,
+      45.77302
+    ],
+    "revision": 90841346,
+    "introduction": [
+      "南岗区的文庙由院落、殿宇与庭树组成。",
+      "Courtyards and ceremonial halls form the Confucian Temple in Nangang."
+    ]
+  },
+  "harbin-station": {
+    "city": "harbin",
+    "name": [
+      "哈尔滨站",
+      "Harbin Railway Station"
+    ],
+    "center": [
+      126.623897,
+      45.758458
+    ],
+    "revision": 95653604,
+    "introduction": [
+      "南岗的这座车站最初取名松花江站。",
+      "The early station in Nangang took its name from the Songhua River."
+    ]
+  },
+  "mukden-palace": {
+    "city": "shenyang",
+    "name": [
+      "沈阳故宫",
+      "Shenyang Imperial Palace"
+    ],
+    "center": [
+      123.45,
+      41.7958
+    ],
+    "revision": 94239476,
+    "introduction": [
+      "大政殿与十王亭把盛京早期的宫廷格局保留在沈阳旧城中。",
+      "Dazheng Hall and the Ten Princes’ Pavilions preserve an early palace layout in Shenyang’s old city."
+    ]
+  },
+  "zhaoling": {
+    "city": "shenyang",
+    "name": [
+      "清昭陵",
+      "Zhaoling Mausoleum"
+    ],
+    "center": [
+      123.421611,
+      41.849872
+    ],
+    "revision": 93356788,
+    "introduction": [
+      "昭陵在沈阳城北，陵道穿过今天的北陵公园。",
+      "The approach to Zhaoling runs through Beiling Park north of the old city."
+    ]
+  },
+  "zhang-mansion": {
+    "city": "shenyang",
+    "name": [
+      "张氏帅府",
+      "Zhang Family Mansion"
+    ],
+    "center": [
+      123.458056,
+      41.794722
+    ],
+    "revision": 95691478,
+    "introduction": [
+      "帅府的三进四合院与青砖楼房，留下不同时期的生活空间。",
+      "Successive courtyards and a blue-brick mansion record different periods of the Zhang family residence."
+    ]
+  },
+  "fuling": {
+    "city": "shenyang",
+    "name": [
+      "清福陵",
+      "Fuling Mausoleum"
+    ],
+    "center": [
+      123.590833,
+      41.830278
+    ],
+    "revision": 92027093,
+    "introduction": [
+      "福陵坐落在沈阳东北郊，陵道沿地势向上。",
+      "The approach to Fuling rises through the northeastern outskirts of Shenyang."
+    ]
+  },
+  "giant-goose": {
+    "city": "xian",
+    "name": [
+      "大雁塔",
+      "Giant Wild Goose Pagoda"
+    ],
+    "center": [
+      108.959336,
+      34.219769
+    ],
+    "revision": 95083212,
+    "introduction": [
+      "大慈恩寺内的砖塔与玄奘译经的历史相连。",
+      "The brick pagoda at Daci’en Temple is closely associated with Xuanzang’s translation work."
+    ]
+  },
+  "bell-tower": {
+    "city": "xian",
+    "name": [
+      "西安钟楼",
+      "Xi’an Bell Tower"
+    ],
+    "center": [
+      108.94238,
+      34.26101
+    ],
+    "revision": 94116103,
+    "introduction": [
+      "钟楼位于西安旧城的十字街心，它曾经站在另一处路口。",
+      "The Bell Tower stands at the old city’s central crossroads, some distance from its original site."
+    ]
+  },
+  "city-wall": {
+    "city": "xian",
+    "name": [
+      "西安城墙南门",
+      "Xi’an City Wall, South Gate"
+    ],
+    "center": [
+      108.9423,
+      34.2534
+    ],
+    "revision": 94116134,
+    "introduction": [
+      "地图落点在南门一带，城墙从这里向两侧环绕明清旧城。",
+      "The map marks the South Gate section of the walls encircling the Ming and Qing city."
+    ]
+  },
+  "small-goose": {
+    "city": "xian",
+    "name": [
+      "小雁塔",
+      "Small Wild Goose Pagoda"
+    ],
+    "center": [
+      108.937358,
+      34.240803
+    ],
+    "revision": 94116108,
+    "introduction": [
+      "荐福寺塔的层层密檐，在古长安城南留下细长的轮廓。",
+      "The close-set eaves of Jianfu Temple’s pagoda form a slim silhouette in southern Chang’an."
+    ]
+  },
+  "yellow-crane": {
+    "city": "wuhan",
+    "name": [
+      "黄鹤楼",
+      "Yellow Crane Tower"
+    ],
+    "center": [
+      114.296944,
+      30.546944
+    ],
+    "revision": 94882021,
+    "introduction": [
+      "黄鹤楼今天立在蛇山上，早先的楼址更靠近江岸。",
+      "Today’s Yellow Crane Tower stands on Snake Hill, inland from the original riverside site."
+    ]
+  },
+  "yangtze-bridge": {
+    "city": "wuhan",
+    "name": [
+      "武汉长江大桥",
+      "Wuhan Yangtze River Bridge"
+    ],
+    "center": [
+      114.288,
+      30.549
+    ],
+    "revision": 95196661,
+    "introduction": [
+      "铁轨与公路分层跨过江面，连接汉阳与武昌。",
+      "Railway and roadway cross the river on separate decks between Hanyang and Wuchang."
+    ]
+  },
+  "hubei-museum": {
+    "city": "wuhan",
+    "name": [
+      "湖北省博物馆",
+      "Hubei Provincial Museum"
+    ],
+    "center": [
+      114.358889,
+      30.563889
+    ],
+    "revision": 94450908,
+    "introduction": [
+      "东湖畔的展馆收藏着湖北各地出土的文物。",
+      "The museum beside East Lake holds finds excavated across Hubei."
+    ]
+  },
+  "guiyuan": {
+    "city": "wuhan",
+    "name": [
+      "归元寺",
+      "Guiyuan Temple"
+    ],
+    "center": [
+      114.254673,
+      30.548082
+    ],
+    "revision": 95487334,
+    "introduction": [
+      "汉阳翠微路旁，归元寺的庭院里分布着殿堂与藏经阁。",
+      "Courtyards on Cuiwei Road in Hanyang link the halls and scripture library of Guiyuan Temple."
+    ]
+  },
+  "zhanqiao": {
+    "city": "qingdao",
+    "name": [
+      "栈桥",
+      "Zhanqiao Pier"
+    ],
+    "center": [
+      120.31495,
+      36.059594
+    ],
+    "revision": 93500294,
+    "introduction": [
+      "栈桥从青岛湾岸边伸入海中，尽头立着回澜阁。",
+      "Zhanqiao reaches into Qingdao Bay and ends at the Huilan Pavilion."
+    ]
+  },
+  "st-michaels": {
+    "city": "qingdao",
+    "name": [
+      "圣弥厄尔教堂",
+      "Saint Michael’s Cathedral"
+    ],
+    "center": [
+      120.315611,
+      36.067972
+    ],
+    "revision": 95113763,
+    "introduction": [
+      "双塔从浙江路的坡地上升起，面向老城区的屋顶。",
+      "Twin towers rise above the sloping streets and rooftops around Zhejiang Road."
+    ]
+  },
+  "qingdao-station": {
+    "city": "qingdao",
+    "name": [
+      "青岛站",
+      "Qingdao Railway Station"
+    ],
+    "center": [
+      120.307694,
+      36.065375
+    ],
+    "revision": 95556264,
+    "introduction": [
+      "距离海湾不远的站房，把胶济铁路的终点引到旧城区。",
+      "Close to the bay, the station brought the Jiaozhou–Jinan railway into the old city."
+    ]
+  },
+  "governors-residence": {
+    "city": "qingdao",
+    "name": [
+      "胶澳总督官邸",
+      "Former Governor’s Residence"
+    ],
+    "center": [
+      120.327911,
+      36.064692
+    ],
+    "revision": 93490379,
+    "introduction": [
+      "这座旧官邸建在信号山南麓，后来成为迎宾馆。",
+      "The former governor’s residence on the southern slope of Signal Hill later became a guesthouse."
+    ]
+  },
+  "green-lake": {
+    "city": "kunming",
+    "name": [
+      "翠湖",
+      "Green Lake"
+    ],
+    "center": [
+      102.702278,
+      25.050419
+    ],
+    "revision": 93462248,
+    "introduction": [
+      "湖堤与小岛将翠湖分成数片相连的水面。",
+      "Causeways and small islands divide Green Lake into connected pools."
+    ]
+  },
+  "military-academy": {
+    "city": "kunming",
+    "name": [
+      "云南陆军讲武堂",
+      "Yunnan Military Academy"
+    ],
+    "center": [
+      102.69915,
+      25.05085
+    ],
+    "revision": 93931882,
+    "introduction": [
+      "讲武堂的院落毗邻翠湖，长廊围合着操场。",
+      "Beside Green Lake, the academy buildings enclose the old parade ground."
+    ]
+  },
+  "lianda": {
+    "city": "kunming",
+    "name": [
+      "西南联大纪念碑",
+      "Southwest Associated University Monument"
+    ],
+    "center": [
+      102.69558,
+      25.05945
+    ],
+    "revision": 84929960,
+    "introduction": [
+      "旧校址上的石碑为战时在昆明办学的三所大学留下共同纪念。",
+      "A stone monument on the old campus recalls the three universities that shared a wartime home in Kunming."
+    ]
+  },
+  "yuantong": {
+    "city": "kunming",
+    "name": [
+      "圆通寺",
+      "Yuantong Temple"
+    ],
+    "center": [
+      102.710347,
+      25.055039
+    ],
+    "revision": 93406477,
+    "introduction": [
+      "圆通山脚的寺院沿水池和殿堂展开。",
+      "Pools and temple halls occupy the foot of Yuantong Hill."
+    ]
+  },
+  "chen-academy": {
+    "city": "guangzhou",
+    "name": [
+      "陈家祠",
+      "Chen Clan Academy"
+    ],
+    "center": [
+      113.2405,
+      23.129758
+    ],
+    "revision": 93276312,
+    "introduction": [
+      "祠堂的屋脊、墙面与门扇，集中展现了岭南工匠的雕塑与装饰。",
+      "Ridge ornaments, carved doors and reliefs preserve the work of Lingnan craftspeople."
+    ]
+  },
+  "zhenhai": {
+    "city": "guangzhou",
+    "name": [
+      "镇海楼",
+      "Zhenhai Tower"
+    ],
+    "center": [
+      113.260464,
+      23.140658
+    ],
+    "revision": 93276322,
+    "introduction": [
+      "越秀山上的五层楼曾是广州北城墙的高点。",
+      "This five-storey tower on Yuexiu Hill once marked a high point of Guangzhou’s northern wall."
+    ]
+  },
+  "sun-yat-sen-hall": {
+    "city": "guangzhou",
+    "name": [
+      "中山纪念堂",
+      "Sun Yat-sen Memorial Hall"
+    ],
+    "center": [
+      113.259361,
+      23.136081
+    ],
+    "revision": 95419940,
+    "introduction": [
+      "纪念堂坐落在原总统府旧址，以宽阔的屋顶覆盖集会大厅。",
+      "A broad roof spans the assembly hall on the site of the former presidential office."
+    ]
+  },
+  "guangxiao": {
+    "city": "guangzhou",
+    "name": [
+      "光孝寺",
+      "Guangxiao Temple"
+    ],
+    "center": [
+      113.251058,
+      23.132097
+    ],
+    "revision": 95114659,
+    "introduction": [
+      "光孝寺的院中留有南汉时期铸造的铁塔。",
+      "Iron pagodas from the Southern Han period survive in the courtyards of Guangxiao Temple."
+    ]
+  },
+  "five-lords": {
+    "city": "haikou",
+    "name": [
+      "五公祠",
+      "Temple of the Five Lords"
+    ],
+    "center": [
+      110.355278,
+      20.01
+    ],
+    "revision": 93303896,
+    "introduction": [
+      "祠、楼、泉井聚在海府路旁，纪念不同时代来到海南的人。",
+      "Halls, shrines and springs on Haifu Road commemorate figures who came to Hainan in different centuries."
+    ]
+  },
+  "hai-rui": {
+    "city": "haikou",
+    "name": [
+      "海瑞墓",
+      "Hai Rui’s Tomb"
+    ],
+    "center": [
+      110.291589,
+      20.008239
+    ],
+    "revision": 92413430,
+    "introduction": [
+      "海瑞墓园在海口城西，墓道与展室留下人们纪念这位明代官员的痕迹。",
+      "The burial grounds west of central Haikou commemorate the Ming official Hai Rui."
+    ]
+  },
+  "haikou-station": {
+    "city": "haikou",
+    "name": [
+      "海口站",
+      "Haikou Railway Station"
+    ],
+    "center": [
+      110.156633,
+      20.029367
+    ],
+    "revision": 95475957,
+    "introduction": [
+      "秀英区西部的车站与跨海铁路相接。",
+      "This station in western Xiuying connects Hainan’s railways to the cross-strait route."
+    ]
+  },
+  "xiuying": {
+    "city": "haikou",
+    "name": [
+      "秀英炮台",
+      "Xiuying Fort"
+    ],
+    "center": [
+      110.302473,
+      20.023173
+    ],
+    "revision": 89562376,
+    "introduction": [
+      "秀英村后的小丘保留着清代海防建筑的遗迹。",
+      "A hill behind Xiuying village preserves the remains of a Qing coastal fort."
+    ]
+  }
+}

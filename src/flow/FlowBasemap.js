@@ -1,6 +1,8 @@
-import {VectorBasemap, paintChart} from "../atlas/VectorBasemap.js";
+import {VectorBasemap, indexedTile, paintChart} from "../atlas/VectorBasemap.js";
 import index from "../atlas/maps/vector-index.json" with {type : "json"};
 import {clamp, coversView, framePlacement, mercator} from "./geometry.js";
+
+import streetPacks from "./place-packs.json" with {type:"json"};
 
 const north = mercator(index.bounds[3]);
 export const paper = {
@@ -38,6 +40,7 @@ export class FlowBasemap extends VectorBasemap {
     this.generalizeNational = generalizeNational;
     this.tilePaper = paper.land;
   }
+  tileAt(z, x, y) { return super.tileAt(z, x, y) ?? indexedTile(z, x, y, streetPacks); }
   drawNational(ctx, camera, w, h, k, detailed) {
     detailed = detailed && !this.generalizeNational;
     const item = this.resource(index.national, detailed);

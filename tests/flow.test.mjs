@@ -18,7 +18,11 @@ import {eventsForPlace} from "../src/flow/gardenEvents.js";
 import {windImpulse, settleStem, displacedCrown} from "../src/flow/gardenBreeze.js";
 import {petalBreath, rhythmFor} from "../src/flow/petalLight.js";
 import {chartLabelInLanguage, flowHash, readFlowRoute, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
-import {CITIES, PLACES} from "../src/atlas/places.js";
+import {CITIES, PLACES} from "../src/flow/places.js";
+import extraPlaces from "../src/flow/extraPlaces.json" with {type:"json"};
+import flowPacks from "../src/flow/place-packs.json" with {type:"json"};
+import {gunzipSync} from "node:zlib";
+import {createHash} from "node:crypto";
 
 test("cover flower fronts grow continuously, overlap in time and dissolve before restarting", () => {
   const active = [.015, .8, 2, 3.5, 5, 6.5, 7.7].map(flowerFront);
@@ -158,23 +162,25 @@ test("one gesture follows a chosen branch through three map stops, a held prelud
   const opening = {level:"opening"}, country = {level:"country"};
   assert.deepEqual(nextMapLevel(opening, true), country);
   assert.deepEqual(nextMapLevel(country, false), opening);
-  assert.deepEqual(nextMapLevel(country, true), {level:"city", city:"nanjing"});
+  assert.equal(nextMapLevel(country, true), null);
   for (const mark of nationalMarks) {
     const city = nextMapLevel(country, true, mark);
-    if (!mark.city) { assert.equal(city, null); continue; }
     assert.deepEqual(city, {level:"city", city:mark.city});
-    assert.deepEqual(nextMapLevel(country, true, null, {city:mark.city}), city);
+    assert.equal(nextMapLevel(country, true, null), null);
     assert.deepEqual(nextMapLevel(city, false), country);
     assert.equal(nextMapLevel(city, true, mark), null);
-    assert.equal(nextMapLevel(city, true).place, CITIES[mark.city].places[0]);
+    assert.equal(nextMapLevel(city, true), null);
     for (const [id, data] of Object.entries(PLACES)) {
       const place = nextMapLevel(city, true, {site:id});
       if (data.city !== mark.city) { assert.equal(place, null); continue; }
       assert.deepEqual(place, {level:"place", city:mark.city, place:id});
-      assert.deepEqual(nextMapLevel(city, true, null, {[mark.city]:id}), place);
+      assert.equal(nextMapLevel(city, true, {site:id,members:[id,"neighbour"]}),null);
       const garden = {level:"garden", city:mark.city, place:id};
       const prelude = {...place, level:"arrival"};
-      assert.deepEqual(nextMapLevel(place, true), prelude);
+      assert.equal(nextMapLevel(place, true), null);
+      assert.deepEqual(nextMapLevel(place, true, {site:id}), prelude);
+      const other = CITIES[mark.city].places.find(s=>s!==id);
+      assert.deepEqual(nextMapLevel(place,true,{site:other}),{level:"place",city:mark.city,place:other});
       assert.deepEqual(nextMapLevel(prelude, true), garden);
       assert.deepEqual(nextMapLevel(garden, false), prelude);
       assert.deepEqual(nextMapLevel(prelude, false), place);
@@ -228,16 +234,37 @@ test(
       }
     });
 
-test("the national sheet holds eighteen geographic dots and only its five collection cities open a route", () => {
+test("eighteen city flowers open local collections across the country", () => {
   assert.equal(nationalMarks.length, 18);
   assert.equal(new Set(nationalMarks.map(mark => mark.id)).size, 18);
   const destinations = nationalMarks.filter(mark => mark.city);
   assert.deepEqual(destinations.map(mark => mark.id).sort(), Object.keys(CITIES).sort());
-  for (const mark of destinations) assert.deepEqual(mark.center, PLACES[mark.site].center);
-  const labels = nationalMarks.filter(mark => !mark.city);
-  assert.ok(labels.every(mark => mark.name.length === 2 && !mark.site && !mark.members.length));
-  const x = labels.map(mark => mark.center[0]), y = labels.map(mark => mark.center[1]);
+  assert.equal(Object.keys(PLACES).length,137);
+  for (const mark of destinations) {
+    assert.deepEqual(mark.center,CITIES[mark.city].markCenter ?? PLACES[mark.site].center);
+    assert.ok(CITIES[mark.city].places.length>=4);
+  }
+  const x=destinations.map(m=>m.center[0]), y=destinations.map(m=>m.center[1]);
   assert.ok(Math.max(...x) - Math.min(...x) > 45 && Math.max(...y) - Math.min(...y) > 24);
+});
+
+test("the additional gardens have maps from region to street and independent local records", async () => {
+  const map=Object.create(FlowBasemap.prototype);
+  for (const [id,place] of Object.entries(extraPlaces)) {
+    const [lon, lat]=place.center;
+    for (const z of [8,10,12,13,14]) {
+      const k=2**z/360;
+      assert.ok(map.tileAt(z,Math.floor((lon+180)*k),Math.floor((180-mercator(lat))*k)),id+" z"+z);
+    }
+    const {memories}=await PLACES[id].loadCollection();
+    assert.ok(memories.every(m=>m.id.startsWith(id+"-") && m.body.length===2 && m.sourceUrl));
+  }
+  for (const [mask,file] of Object.values(flowPacks)) {
+    const bytes=readFileSync(new URL("../public/assets/atlas-vectors/"+file,import.meta.url));
+    assert.ok(file.includes(createHash("sha256").update(bytes).digest("hex").slice(0,12)));
+    const slots=Object.keys(JSON.parse(gunzipSync(bytes)));
+    assert.equal(slots.reduce((bits,slot)=>bits | (1<<Number(slot)),0),mask);
+  }
 });
 
 test("flow atlas keeps geographic anchors registered through zoom and its reverse", () => {

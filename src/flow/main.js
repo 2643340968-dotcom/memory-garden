@@ -1,5 +1,5 @@
 import "./style.css";
-import {CITIES, PLACES} from "../atlas/places.js";
+import {CITIES, PLACES} from "./places.js";
 import {getLanguage, placeText, setLanguage, LANGUAGE_STORAGE_KEY} from "../i18n/LanguageController.js";
 import {FlowAtlas} from "./atlas.js";
 import {paper} from "./FlowBasemap.js";
@@ -41,7 +41,6 @@ function updateLandingHint() {
 }
 quiet.addEventListener("change", updateLandingHint);
 touch.addEventListener("change", updateLandingHint);
-const remembered = {};
 function setMode(mode) {
   el("edition").dataset.tools = mode;
 }
@@ -121,7 +120,7 @@ function advance(inward, mark) {
     if (failed) void show(route);
     return;
   }
-  const next = nextMapLevel(route, inward, mark, remembered);
+  const next = nextMapLevel(route, inward, mark);
   if (!next) return;
   if (next.level === "opening") { openLanding(true); return; }
   navigate(next, {chapter:false, focus:false, restore:!inward});
@@ -252,9 +251,9 @@ function chrome() {
   const arrival = route.level === "arrival";
   const tip = isGarden ? local("掠过枝叶可以起风。点花读往事，点「留下记忆」可留言，上滚回到题页。", "Brush the stems to stir a breeze. Pick a flower to read or choose Leave a memory to write. Scroll up for the prelude.") :
       arrival ? local("下滚进入花园，上滚回到地点。", "Scroll down into the garden or up to the place.") :
-      site ? local("划过花丛拨动涟漪。下滚抵达花园题页，上滚返回城市。", "Brush the flowers to stir their ripples. Scroll down to the garden prelude or up to the city.") :
+      site ? local("指向地点的花丛并下滚，进入它的花园题页。上滚返回城市。", "Point to this place’s flowers and scroll down for its garden prelude. Scroll up for the city.") :
       city ? local("指向想看的地点并下滚，上滚回到全国。", "Point to a place and scroll down to visit. Scroll up for the national map.") :
-      local("指向带地名的城市并下滚，上滚回到首页。", "Point to a labelled city and scroll down to explore. Scroll up for Home.");
+      local("指向一朵城市花并下滚，上滚回到首页。", "Point to a city flower and scroll down to explore. Scroll up for Home.");
   el("intro").textContent = site ? placeText(site.introduction) : tip;
   el("guide-tip").textContent = tip;
   const guide = local("地图导览、图例与来源", "Map guide, legend and sources");
@@ -268,7 +267,6 @@ function chrome() {
   el("stage").dataset.level = route.level;
   el("enter").hidden = route.level !== "place";
   el("enter").textContent = local("进入花园 ↓", "Enter garden ↓");
-  el("write").hidden = !isGarden;
   el("write").textContent = local("＋  留下记忆", "＋  Leave a memory");
   const back = el("back");
   back.hidden = !(isGarden || arrival);
@@ -383,8 +381,6 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
     garden.leave(!atTitle && !opening && !quiet.matches);
   route = next;
   flowerBook.destination(next.city, next.level === "city" && (!previous || previous === "country"));
-  if (route.city) remembered.city = route.city;
-  if (route.place) remembered[route.city] = route.place;
   hovered = null;
   failed = false;
   setMode(atTitle || enteringField ? "garden" : opening ? "cover" : "map");
@@ -515,9 +511,22 @@ document.addEventListener("wheel", event => {
   const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
   const delta = event.deltaY * unit * (event.ctrlKey ? -1 : 1);
   event.preventDefault();
+  const onMap = !landing.active && ["country","city","place"].includes(route.level);
+  const inward = delta > 0;
+  const mark = onMap && target.closest("#map") ? atlas.targetAt(event).mark : null;
+  if (onMap && inward && !mark) return;
   if (!atlas.wheel.consume(delta, event.timeStamp)) return;
-  advance(delta > 0, target.closest("#map") ? atlas.destinationAt(event) : undefined);
+  if (onMap) atlas.step(inward,mark);
+  else advance(inward);
 }, {passive:false});
+
+// These surfaces pan, brush or change levels themselves. A native touch fling
+// can otherwise consume the next tap on a flower, a grouped place or the invitation.
+for (const id of ["map","arrival","garden","city-leaf"]) {
+  el(id).addEventListener("touchmove", event => {
+    if (event.cancelable) event.preventDefault();
+  }, {passive:false});
+}
 
 function gardenSwipe(surface) {
   let start;
@@ -536,7 +545,8 @@ function gardenSwipe(surface) {
     }
     if (Math.abs(dy) > 48 && Math.abs(dy) > Math.abs(dx) * 1.2) {
       surface.addEventListener("click", suppressSwipeClick, {capture:true, once:true, signal:AbortSignal.timeout(380)});
-      advance(dy < 0);
+      const from = route;
+      requestAnimationFrame(() => { if (route === from) advance(dy < 0); });
     }
   });
 }
@@ -549,7 +559,9 @@ document.addEventListener("keydown", e => {
       garden.sheet.open || e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
   if (!["PageDown","PageUp","ArrowDown","ArrowUp"].includes(e.key)) return;
   e.preventDefault();
-  advance(e.key === "PageDown" || e.key === "ArrowDown", e.target.closest(".pin")?.mark);
+  const inward = e.key === "PageDown" || e.key === "ArrowDown";
+  if (["country","city","place"].includes(route.level)) atlas.step(inward,e.target.closest(".pin")?.mark);
+  else advance(inward);
 });
 void show(readFlowRoute(location.hash), {focus : false, opening : !location.hash});
 if (new URLSearchParams(location.search).has("flowers")) void flowerBook.open();

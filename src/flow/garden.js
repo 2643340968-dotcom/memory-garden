@@ -1,4 +1,4 @@
-import {PLACES} from "../atlas/places.js";
+import {PLACES} from "./places.js";
 import {getLanguage, getLocalizedMemoryText, placeText, t} from "../i18n/LanguageController.js";
 import {createMemoryPool} from "../data/memoryPool.js";
 import {VisitorMemoryCard} from "../memory/VisitorMemoryCard.js";
@@ -32,7 +32,8 @@ export class FlowGarden {
     this.invitation = el("garden-invitation");
     el("invitation-write").onclick = () => this.openEditor();
     el("invitation-browse").onclick = () => {
-      this.dismissInvitation();
+      this.visit.exploring = true;
+      this.updateActions();
       this.seedLayer.querySelector("button")?.focus({preventScroll:true});
     };
     this.stalks.addEventListener("click", e => {
@@ -62,8 +63,11 @@ export class FlowGarden {
       this.card.hide();
       this.clearRecord();
       this.mode = null;
-      if (this.visit && !this.root.inert && this.focusAfterSheet && !this.seedLayer.contains(document.activeElement))
-        this.focusAfterSheet.focus({preventScroll:true});
+      this.updateActions();
+      if (this.visit && !this.root.inert && this.focusAfterSheet && !this.seedLayer.contains(document.activeElement)) {
+        const target=document.querySelector(this.focusAfterSheet);
+        (target?.getClientRects().length ? target : el("invitation-browse")).focus({preventScroll:true});
+      }
       this.focusAfterSheet = null;
     });
     this.sheet.addEventListener("click", event => {
@@ -93,6 +97,7 @@ export class FlowGarden {
     el("later").onclick = () => this.turn(1);
     this.resize = new ResizeObserver(() => this.paint());
     this.resize.observe(this.root);
+    this.resize.observe(el("toolbar-panel").parentElement);
   }
   enter(id, collection, events, revealDelay = 0) {
     this.departure?.cancel();
@@ -120,12 +125,13 @@ export class FlowGarden {
     this.card.attachment = this.visit.attachment;
     this.page = 0;
     this.root.hidden = false;
+    this.updateActions();
     this.paint();
-    this.invitation.hidden = Boolean(this.visit.invitationDismissed);
   }
-  dismissInvitation() {
-    if (this.visit) this.visit.invitationDismissed = true;
-    this.invitation.hidden = true;
+  updateActions() {
+    const present = Boolean(this.visit && !this.root.inert && !this.sheet.open);
+    this.invitation.hidden = !present || this.visit.exploring === true;
+    el("garden-actions").hidden = !present || this.visit.exploring !== true;
   }
   leave(linger = false) {
     this.invitation.hidden = true;
@@ -142,6 +148,7 @@ export class FlowGarden {
     }
     this.id = null;
     this.visit = null;
+    this.updateActions();
     this.card.attachment = null;
     this.root.inert = true;
     const finish = () => {
@@ -196,7 +203,7 @@ export class FlowGarden {
       return;
     const dpr = Math.min(devicePixelRatio || 1, 2, Math.sqrt(8000000 / (w * h)));
     const compact = w < 740;
-    const top = Math.max(h * .10, el("toolbar-panel").getBoundingClientRect().bottom + (compact ? 9 : 17));
+    const top = Math.max(h * .10, el("toolbar-panel").parentElement.getBoundingClientRect().bottom + (compact ? 9 : 17));
     const area = {
       x : w * (compact ? .085 : .073),
       y : top,
@@ -314,16 +321,16 @@ export class FlowGarden {
   }
   showSheet(titleId) {
     if (!this.sheet.open) {
-      this.focusAfterSheet = this.currentRecord
-        ? this.seedLayer.querySelector('[data-id="'+CSS.escape(this.currentRecord.id)+'"]')
-        : el("write");
+      const seedId = this.currentRecord?.id ?? document.activeElement.closest?.(".seed")?.dataset.id;
+      this.focusAfterSheet = seedId ? '#seeds [data-id="'+CSS.escape(seedId)+'"]' :
+        this.visit.exploring ? "#write" : "#invitation-write";
     }
-    this.dismissInvitation();
     this.breeze.rest();
     this.sheet.setAttribute("aria-labelledby", titleId);
     el("sheet-place").textContent = placeText(this.site.name);
     if (!this.sheet.open)
       this.sheet.showModal();
+    this.updateActions();
   }
   openEditor(memory = null) {
     if (!this.visit)
@@ -347,9 +354,10 @@ export class FlowGarden {
     this.card.attachment = null;
     this.visit.attachment = null;
     this.text.value = this.visit.draft = "";
+    this.visit.contributed = true;
     this.sheet.close();
     this.page = 0;
-    this.paint();
+    this.updateLanguage();
     this.saved();
     this.seedLayer.querySelector("[data-id=\"" + m.id + "\"]")?.focus({preventScroll : true});
   }
@@ -397,11 +405,12 @@ export class FlowGarden {
       return;
     el("sheet-place").textContent = placeText(this.site.name);
     el("sheet-title").textContent = say("留下你的记忆", "Leave a memory");
-    el("invitation-title").textContent = say("关于这里，你记得什么？", "What do you remember here?");
-    el("invitation-note").textContent = say("点一朵花，读一段往事。你也可以留下文字、照片、一段声音或影像。",
+    el("invitation-title").textContent = this.visit.contributed ? say("你的记忆已在这里生长", "Your memory is growing here") : say("关于这里，你记得什么？", "What do you remember here?");
+    el("invitation-write").hidden = Boolean(this.visit.contributed);
+    el("invitation-note").textContent = this.visit.contributed ? say("点花可回看自己的留言，也能读到这个地点的往事。","Pick a flower to revisit your memory or read another story from this place.") : say("点一朵花，读一段往事。你也可以留下文字、照片、一段声音或影像。",
       "Pick a flower to read its story. You can also leave a few words, a photo, audio or video.");
     el("invitation-write").textContent = say("留下记忆", "Leave a memory");
-    el("invitation-browse").textContent = say("先逛花园", "Explore the garden");
+    el("invitation-browse").textContent = this.visit.contributed ? say("探索花园","Explore the garden") : say("先逛花园", "Explore the garden");
     el("writing-prompt").textContent = placeText(this.site.prompt);
     el("save").textContent = say("在这里发布记忆", "Place this memory here");
     el("close-sheet").setAttribute("aria-label", say("关闭", "Close"));
