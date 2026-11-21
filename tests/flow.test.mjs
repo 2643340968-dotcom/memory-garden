@@ -7,6 +7,8 @@ import {openingPose} from "../src/flow/landing.js";
 import {flowerFront, frontsAt, openingFlowers} from "../src/flow/coverFlowers.js";
 import {WetPaper} from "../src/flow/wetPaper.js";
 import {nationalMarks} from "../src/flow/overview.js";
+import {cityFlowers} from "../src/flow/cityFlowers.js";
+import {forms} from "../src/flow/flowerForms.js";
 import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
 import {CITIES, PLACES} from "../src/atlas/places.js";
 
@@ -40,11 +42,36 @@ test("the top-down opening has staggered, different-sized flowers on both sides 
   }
 });
 
+test("all eighteen national marks have their own sourced bilingual flower, distinct drawing and opening", () => {
+  const ids=nationalMarks.map(mark=>mark.id).sort();
+  assert.deepEqual(Object.keys(forms).sort(),ids);
+  assert.deepEqual(Object.keys(cityFlowers).sort(),ids);
+  assert.deepEqual(openingFlowers(1280,760).map(b=>b.type).sort(),ids);
+  for (const flower of Object.values(cityFlowers)) {
+    for (const pair of [flower.name,flower.reason,flower.source]) {
+      assert.match(pair[0],/\p{Script=Han}/u); assert.doesNotMatch(pair[1],/\p{Script=Han}/u);
+      assert.ok(pair[1].trim().length);
+    }
+    assert.equal(new URL(flower.url).protocol,"https:");
+  }
+  assert.equal(new Set(ids.map(id=>cityFlowers[id].name[0])).size,18);
+  assert.equal(new Set(ids.map(id=>JSON.stringify([forms[id].whorls,forms[id].florets]))).size,18);
+  assert.equal(cityFlowers.nanjing.name[0],"紫金草");
+  assert.equal(forms.nanjing.whorls[0].petals,4);
+});
+
+// Synthetic circular plates keep the water solver test independent of Canvas.
+const maskSize=32;
+const testPlate={outline:new Float32Array(128).fill(.84),reserve:Uint8Array.from({length:maskSize**2},(_,i)=>{
+  const r=Math.hypot((i%maskSize+.5)*2/maskSize-1,(Math.floor(i/maskSize)+.5)*2/maskSize-1);
+  return r<.67 ? 255 : 0;
+})};
+const testPlates={nanjing:testPlate, xining:testPlate};
 test("wet dye builds only where different flowers meet, then diffuses and dries gradually", () => {
-  const a = {x:70, y:82, radius:72, type:0, angle:0};
-  const b = {x:125, y:82, radius:72, type:1, angle:Math.PI};
-  const paper = new WetPaper(200, 160, [a, b]);
-  const reversed = new WetPaper(200, 160, [b, a]);
+  const a = {x:58, y:82, radius:62, type:"nanjing", angle:0};
+  const b = {x:143, y:82, radius:62, type:"xining", angle:Math.PI};
+  const paper = new WetPaper(200, 160, [a, b], testPlates);
+  const reversed = new WetPaper(200, 160, [b, a], testPlates);
   const touching = [.85, .9, 1.0].map(radius => ({radius, progress:.4, wetness:1}));
   const distant = [{radius:.03, progress:.01, wetness:1}];
   const amount = field => field.wet.reduce((total, value, i) => total + (i % 4 === 3 ? value : 0), 0);
@@ -57,6 +84,9 @@ test("wet dye builds only where different flowers meet, then diffuses and dries 
   for (let n = 1; n < 20; n++) paper.step([touching, touching], .05);
   const pool = amount(paper);
   assert.ok(pool > first * 4);
+  assert.ok(paper.erosion.some((v,i)=>i%4===3 && v>30));
+  assert.ok(paper.pixels.every((v,i)=>i%4!==3 || paper.free[i>>2]>0 || v===0));
+  assert.ok(paper.erosion.every((v,i)=>i%4!==3 || (paper.free[i>>2]>0 && paper.rim[i>>2]>0) || v===0));
   for (let n = 0; n < 20; n++) reversed.step([touching, touching], .05);
   const channelError = paper.pixels.reduce((max, value, i) => Math.max(max, Math.abs(value - reversed.pixels[i])), 0);
   assert.ok(channelError <= 1);

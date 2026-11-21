@@ -18,7 +18,7 @@
       </a>
       <nav id="trail" aria-label="地图位置"></nav>
       <div class="header-tools">
-        <div class="actions"><button type="button" id="open-map" hidden></button><button type="button" id="dismiss-chapter" hidden></button><button type="button" id="enter" hidden></button><button type="button" id="write" hidden></button><a id="back" href="#atlas" hidden></a></div>
+        <div class="actions"><button type="button" id="cover-book"></button><button type="button" id="open-map" hidden></button><button type="button" id="dismiss-chapter" hidden></button><button type="button" id="enter" hidden></button><button type="button" id="write" hidden></button><a id="back" href="#atlas" hidden></a></div>
         <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
         <div class="map-tools" id="map-tools">
           <select id="level-target" aria-label="选择城市"></select>
@@ -31,6 +31,7 @@
         <div class="guide-page"><p id="guide-tip"></p>
           <div class="legend-row"><div id="legend" class="legend" aria-label="图例"></div>
             <div class="north" aria-hidden="true"><span>北</span><i></i></div></div>
+          <button type="button" id="open-flower-book"></button>
           <button type="button" id="replay"></button>
           <div class="guide-meta">
             <div class="reading"><i aria-hidden="true"></i><span id="readout"></span><span id="coordinates" dir="ltr"></span></div>
@@ -77,6 +78,14 @@
       <h2 id="arrival-title" tabindex="-1"></h2><p id="arrival-note"></p><button type="button" id="skip"></button><button type="button" id="arrival-back" hidden></button>
     </section>
   </main>
+  <dialog id="flower-book" aria-labelledby="flower-book-title">
+    <header class="book-head">
+      <h2 id="flower-book-title"></h2>
+      <button type="button" id="book-language" class="language"></button>
+      <button type="button" id="close-book" class="close" autofocus>×</button>
+    </header>
+    <div id="book-grid" class="book-grid"></div>
+  </dialog>
   <dialog id="sheet" aria-labelledby="sheet-title">
     <div class="sheet-top"><span id="sheet-place"></span><button type="button" id="sheet-language" class="language">英文</button><button type="button" id="close-sheet" class="close" aria-label="关闭">×</button></div>
     <form id="memory-form">

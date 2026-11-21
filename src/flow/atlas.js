@@ -7,6 +7,7 @@ import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "./levels.js";
 import {RippleField} from "./ripples.js";
 import {FlowBasemap, NavigationChart, paintChart} from "./FlowBasemap.js";
 import {nationalMarks, OverviewRipples} from "./overview.js";
+import {cityFlowers} from "./cityFlowers.js";
 
 const stops = {
   country : 860,
@@ -492,6 +493,7 @@ export class FlowAtlas {
         pin.mark = g;
         pin.style.setProperty("--pin-ink", cityInks[g.city] ?? "#6d817d");
         const name = placeText(g.name);
+        if (g.national) pin.setAttribute("aria-description", placeText(cityFlowers[g.id].reason));
         const entrance = this.route.level === "place" && this.route.place === g.site;
         pin.lastElementChild.textContent = entrance ? name + " ↗" : name;
         const action = entrance ? (zh() ? " · 进入花园" : " · Enter the garden") : "";
@@ -549,6 +551,11 @@ export class FlowAtlas {
         continue;
       }
       const label = pin.lastElementChild, national = pin.mark.national;
+      if (national) {
+        const name = placeText(pin.mark.name);
+        const text = hot ? name + " · " + placeText(cityFlowers[pin.mark.id].name) : name;
+        if (label.textContent !== text) label.textContent = text;
+      }
       const width = Math.min(this.w * .42, Math.ceil(this.ctx.measureText(label.textContent).width +
                                                     (national && this.w < 620 ? 6 : 14)));
       const height = national && this.w <= 560 ? 20 : 24;

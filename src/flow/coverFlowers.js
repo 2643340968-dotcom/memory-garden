@@ -1,51 +1,27 @@
 import {clamp, smooth, TAU} from "./geometry.js";
-import {flowers, makePlates} from "./coverPigments.js";
+import {loadPlates} from "./coverPlates.js";
 import {WetPaper} from "./wetPaper.js";
 
 // Positions in the two drifts, with room above the inner crowns for the
 // title and a clear passage between them below for the scroll cue.
 const beds = [
-  // x, y, relative radius, specimen, rotation (degrees), time of opening
-  [-.022,.38,.144,4, 11,.55], [.077,.24,.108,5, 24,0], [.154,.19,.050,3,-19,.68],
-  [.187,.35,.092,1, 16,.33], [.116,.48,.071,2, 35,.87], [.038,.68,.141,5,-12,.25],
-  [.167,.73,.087,4, 26,1.04], [.234,.57,.114,6,-20,.56], [.309,.51,.057,3, 6,1.20],
-  [.372,.555,.102,0, 26,.18], [.443,.598,.069,4,-5,.81], [.071,.90,.053,1,-8,1.27],
-  [1.023,.36,.132,1,-13,.39], [.927,.22,.112,4, 15,.10], [.842,.21,.059,2,-3,.94],
-  [.810,.36,.103,5,-18,.67], [.897,.52,.081,3, 9,.42], [.970,.72,.142,4, 24,.15],
-  [.831,.76,.082,6,-16,.98], [.754,.58,.117,1, 16,.34], [.681,.51,.057,2, 12,1.14],
-  [.620,.575,.107,5,-19,.51], [.557,.587,.072,0, 17,.23], [.925,.90,.046,3, 30,1.30],
+  // x, y, relative radius, city, rotation in degrees, opening delay
+  [.054,.33,.142,"harbin", 12,.22], [.151,.19,.069,"hohhot",-16,.02],
+  [.192,.41,.123,"beijing", 21,.45], [.063,.61,.142,"dunhuang",-12,.36],
+  [.102,.85,.073,"urumqi", 15,1.24], [.229,.70,.116,"guangzhou",-19,.67],
+  [.313,.49,.070,"kashgar", 16,1.17], [.377,.575,.123,"nanjing", 22,.09],
+  [.448,.63,.069,"lhasa", -8,.91],
+  [.946,.30,.144,"chengdu",-12,.38], [.844,.23,.075,"xining", 12,.04],
+  [.815,.414,.112,"qingdao", 23,.70], [.941,.58,.142,"haikou", -8,.46],
+  [.919,.84,.065,"wuhan", 28,1.29], [.797,.70,.121,"quanzhou",-17,.17],
+  [.698,.48,.063,"xian",  8,1.15], [.624,.59,.128,"kunming",-16,.47],
+  [.554,.64,.073,"shenyang", 11,.29],
 ];
 
 const ease = n => smooth(clamp(n, 0, 1));
 const frontLife = 7.8;
 const interval = 2.72;
 const stillTime = 10.4;
-
-async function loadPlates() {
-  if (typeof Worker !== "undefined" && typeof OffscreenCanvas !== "undefined") {
-    const images = await new Promise(resolve => {
-      let worker;
-      try {
-        worker = new Worker(new URL("./cover.worker.js", import.meta.url), {type:"module"});
-        worker.onmessage = event => { worker.terminate(); resolve(event.data); };
-        worker.onmessageerror = () => { worker.terminate(); resolve(null); };
-        worker.onerror = event => { event.preventDefault(); worker.terminate(); resolve(null); };
-      } catch { resolve(null); }
-    });
-    if (images) return images;
-  }
-  const surface = size => {
-    const c = document.createElement("canvas");
-    c.width = c.height = size;
-    return c;
-  };
-  const plates = [];
-  for (const [index, specimen] of flowers.entries()) {
-    await new Promise(resolve => setTimeout(resolve, 0));
-    plates.push(makePlates(specimen, index, surface));
-  }
-  return plates;
-}
 
 export function openingFlowers(w, h) {
   const bedHeight = h * .69;
@@ -95,40 +71,48 @@ function stamp(ctx, plate, radius) {
   ctx.drawImage(plate, -radius, -radius, radius * 2, radius * 2);
 }
 
-function corolla(ctx, plate, bloom, age) {
-  const petals = flowers[bloom.type].petals;
-  if (age >= 1.75) {
-    const swell = 1 + .028 * (1 - Math.cos((age - 1.75) * TAU / frontLife));
-    ctx.globalAlpha = .88;
-    stamp(ctx, plate.body, bloom.radius * swell);
+// Reveal the actual specimen outward from its heart, including asymmetric
+// racemes. A feathered opening travels over the drawing as it unfolds.
+function corolla(ctx, scratch, plate, bloom, age) {
+  if (age >= 1.85) {
+    stamp(ctx, plate.body, bloom.radius);
     return;
   }
-  // Separate washes open at their own angles, then join the continuous crown.
-  const joined = ease((age - .88) / .87);
-  const step = TAU / petals;
-  for (let i = 0; i < petals; i++) {
-    const t = ease((age - .27 * (.5 + .5 * Math.sin(i * 2.41 + bloom.angle))) / 1.45);
-    if (t <= 0) continue;
-    ctx.save();
-    ctx.rotate(i * step + (1 - t) * .12 * Math.sin(i + bloom.angle));
-    ctx.globalAlpha = (1 - joined) * ease(t * 2);
-    stamp(ctx, plate.petal, bloom.radius * (.09 + .91 * t));
-    ctx.restore();
-  }
-  if (joined > 0) {
-    ctx.globalAlpha = .88 * joined;
-    stamp(ctx, plate.body, bloom.radius * (.88 + .12 * joined));
-  }
+  const t = ease(age / 1.85), canvas = scratch.canvas, half = canvas.width / 2;
+  const radius = half * (.045 + 1.36 * t);
+  scratch.clearRect(0, 0, canvas.width, canvas.height);
+  scratch.drawImage(plate.body, 0, 0, canvas.width, canvas.height);
+  scratch.globalCompositeOperation = "destination-in";
+  const aperture = scratch.createRadialGradient(half, half, 0, half, half, radius);
+  aperture.addColorStop(0, "white");
+  aperture.addColorStop(.59, "white");
+  aperture.addColorStop(1, "rgba(255,255,255,0)");
+  scratch.fillStyle = aperture;
+  scratch.fillRect(0, 0, canvas.width, canvas.height);
+  scratch.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = ease(t * 3.5);
+  stamp(ctx, canvas, bloom.radius * (.72 + .28 * t));
+}
+
+function newCanvas(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
 }
 
 export class CoverFlowers {
   constructor(canvas, motion) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    this.scratch = newCanvas(208, 208).getContext("2d");
     this.motion = motion;
     this.time = 0;
     this.observer = new ResizeObserver(() => {
-      if (this.active) { this.size(); this.wake(); }
+      if (this.active) {
+        this.size();
+        this.wake();
+      }
     });
     this.observer.observe(canvas);
     motion.addEventListener("change", () => {
@@ -139,21 +123,27 @@ export class CoverFlowers {
   }
   size() {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
-    if (!w || !h) return;
+    if (!w || !h || !this.plates) return;
     const dpr = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1900000 / (w * h)));
     const width = Math.round(w * dpr), height = Math.round(h * dpr);
-    if (this.canvas.width === width && this.canvas.height === height && this.w === w && this.h === h) return;
+    if (this.canvas.width === width && this.canvas.height === height && this.w === w && this.h === h)
+      return;
     this.canvas.width = width;
     this.canvas.height = height;
     this.ctx.setTransform(width / w, 0, 0, height / h, 0, 0);
-    this.w = w; this.h = h;
+    this.w = w;
+    this.h = h;
     this.blooms = openingFlowers(w, h);
-    this.paper = new WetPaper(w, h, this.blooms);
+    this.paper = new WetPaper(w, h, this.blooms, this.plates);
+    this.crowns = newCanvas(width, height).getContext("2d");
+    this.crowns.setTransform(width / w, 0, 0, height / h, 0, 0);
     this.washCanvas ??= document.createElement("canvas");
     this.washCanvas.width = this.paper.width;
     this.washCanvas.height = this.paper.height;
     this.washCtx = this.washCanvas.getContext("2d");
     this.washImage = new ImageData(this.paper.pixels, this.paper.width, this.paper.height);
+    this.rimCtx = newCanvas(this.paper.width, this.paper.height).getContext("2d");
+    this.rimImage = new ImageData(this.paper.erosion, this.paper.width, this.paper.height);
     this.washTime = null;
   }
   open() {
@@ -165,6 +155,7 @@ export class CoverFlowers {
     this.washTime = null;
     this.loading ??= loadPlates().then(plates => {
       this.plates = plates;
+      this.size();
       this.wake();
     });
     this.wake();
@@ -182,7 +173,8 @@ export class CoverFlowers {
   wake() {
     cancelAnimationFrame(this.frame);
     this.previous = null;
-    if (!this.active || !this.onPaper || document.hidden || !this.blooms || !this.plates) return;
+    if (!this.active || !this.onPaper || this.obscured || document.hidden || !this.blooms || !this.plates)
+      return;
     this.frame = requestAnimationFrame(now => this.tick(now));
   }
   tick(now) {
@@ -207,6 +199,7 @@ export class CoverFlowers {
       this.paper.step(fronts, dt);
     }
     this.washCtx.putImageData(this.washImage, 0, 0);
+    this.rimCtx.putImageData(this.rimImage, 0, 0);
     this.washTime = time;
   }
   draw(time) {
@@ -214,30 +207,40 @@ export class CoverFlowers {
     const fronts = this.blooms.map(bloom => frontsAt(bloom, time));
     this.updateWash(time, fronts);
     ctx.clearRect(0, 0, this.w, this.h);
-    ctx.globalCompositeOperation = "source-over";
-    for (const bloom of this.blooms) {
-      const age = (time - bloom.delay) * bloom.pace;
-      if (age <= 0) continue;
-      ctx.save();
-      ctx.translate(bloom.x, bloom.y);
-      ctx.rotate(bloom.angle);
-      corolla(ctx, this.plates[bloom.type], bloom, age);
-      ctx.restore();
-    }
-    // The inner front travels over the petals from the heart. Its dye
-    // diffuses into the paper where the outer shoulders of two fronts meet.
+    const crowns = this.crowns;
+    crowns.clearRect(0, 0, this.w, this.h);
     this.blooms.forEach((bloom, i) => {
-      if (!fronts[i].length) return;
+      const age = (time - bloom.delay) * bloom.pace;
+      if (age <= 0) return;
+      const plate = this.plates[bloom.type];
       ctx.save();
       ctx.translate(bloom.x, bloom.y);
       ctx.rotate(bloom.angle);
       for (const wave of fronts[i]) {
-        ctx.globalAlpha = wave.opacity;
-        stamp(ctx, this.plates[bloom.type].ring, bloom.radius * wave.radius);
+        if (wave.radius < .78) continue;
+        ctx.globalAlpha = .45 * wave.opacity * ease((wave.radius - .78) / .24);
+        stamp(ctx, plate.ring, bloom.radius * wave.radius);
       }
       ctx.restore();
+      crowns.save();
+      crowns.translate(bloom.x, bloom.y);
+      crowns.rotate(bloom.angle);
+      corolla(crowns, this.scratch, plate, bloom, age);
+      // The wave inside a flower is reflected light. Only its outer lip can
+      // carry pigment into a neighbour. It cannot deposit colour on a face.
+      for (const wave of fronts[i]) {
+        if (wave.radius > 1.03) continue;
+        crowns.globalAlpha = .20 * wave.opacity * (1 - ease((wave.radius - .72) / .31));
+        stamp(crowns, plate.light, bloom.radius * wave.radius);
+      }
+      crowns.restore();
     });
     const {spacing, top, width, height} = this.paper;
-    ctx.drawImage(this.washCanvas, -spacing, top - spacing, width * spacing, height * spacing);
+    const left = -spacing, y = top - spacing, w = width * spacing, h = height * spacing;
+    ctx.drawImage(this.washCanvas, left, y, w, h);
+    crowns.globalCompositeOperation = "destination-out";
+    crowns.drawImage(this.rimCtx.canvas, left, y, w, h);
+    crowns.globalCompositeOperation = "source-over";
+    ctx.drawImage(crowns.canvas, 0, 0, this.w, this.h);
   }
 }

@@ -32,6 +32,7 @@ export class MapToolbar {
   }
   setMode(mode) {
     this.host.dataset.tools = mode;
+    document.getElementById("cover-book").hidden = mode !== "cover";
     this.grip.hidden = mode !== "map";
     this.expand(false);
   }

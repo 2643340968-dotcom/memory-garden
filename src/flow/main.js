@@ -6,6 +6,7 @@ import {paper} from "./FlowBasemap.js";
 import {FlowGarden} from "./garden.js";
 import {AtlasLanding} from "./landing.js";
 import {MapToolbar} from "./toolbar.js";
+import {FlowerBook} from "./flowerBook.js";
 import {placePhase, waterprint} from "./ripples.js";
 import {clamp, smooth} from "./geometry.js";
 
@@ -68,6 +69,10 @@ const landing = new AtlasLanding(el("landing"), atlas, () => {
   toolbar.setMode("map");
   if (route?.level === "country" && !location.hash)
     history.pushState({flowFrom : "opening"}, "", "#atlas");
+});
+const flowerBook = new FlowerBook(el("flower-book"), open => {
+  landing.flowers.obscured = open;
+  landing.flowers.wake();
 });
 
 function openLanding() {
@@ -202,6 +207,7 @@ function chrome() {
   for (const b of [el("flow-language"), el("sheet-language")])
     b.setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
   toolbar.updateLabel();
+  flowerBook.updateLanguage(getLanguage() === "zh-CN");
   el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
   document.querySelector(".north span").textContent = local("北", "N");
   if (el("notice").textContent) el("notice").textContent = savedMessage();
@@ -504,7 +510,7 @@ function changeLanguage() {
   atlas.closeNearby();
   chrome();
 }
-el("flow-language").onclick = el("sheet-language").onclick = changeLanguage;
+el("flow-language").onclick = el("sheet-language").onclick = el("book-language").onclick = changeLanguage;
 window.addEventListener("popstate", () => {
   void show(readAtlasRoute(location.hash), {restore : true, opening : !location.hash});
 });
@@ -514,3 +520,4 @@ window.addEventListener("hashchange", () => {
     void show(next, {restore : true, opening : !location.hash});
 });
 void show(readAtlasRoute(location.hash), {focus : false, opening : !location.hash});
+if (new URLSearchParams(location.search).has("flowers")) void flowerBook.open();
