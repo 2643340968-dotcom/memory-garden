@@ -1,191 +1,120 @@
 import {VectorBasemap, paintChart} from "../atlas/VectorBasemap.js";
 import index from "../atlas/maps/vector-index.json" with {type : "json"};
-import {clamp, mercator, noise, TAU} from "./geometry.js";
+import {clamp, mercator} from "./geometry.js";
+import {buildImpression} from "./print.js";
 
-const top = mercator(index.bounds[3]);
-const paper = "#fbfaf5";
-const screens = [
-  {
-    ink : "#55b5dd",
-    angle : -.27,
-    offset : 4,
-    centres : [ [ 83, 32, 9, 6 ], [ 98, 39, 9, 4 ], [ 109, 26, 9, 5 ], [ 128, 48, 7, 5 ] ]
-  },
-  {
-    ink : "#a4d964",
-    angle : .22,
-    offset : 73,
-    centres : [ [ 87, 43, 10, 5 ], [ 101, 30, 8, 5 ], [ 115, 38, 8, 6 ], [ 124, 45, 5, 6 ] ]
-  },
-  {
-    ink : "#9188c8",
-    angle : -.04,
-    offset : 122,
-    centres : [ [ 84, 37, 5, 2.5 ], [ 106, 32, 5, 3 ], [ 118, 45, 7, 3 ] ]
-  },
-  {
-    ink : "#f87539",
-    angle : .43,
-    offset : 207,
-    centres : [ [ 93, 39, 4, 3 ], [ 103, 27, 4, 3 ], [ 114, 34, 5, 3 ], [ 122, 45, 3, 3 ] ]
-  },
-];
-for (const screen of screens)
-  screen.wells = screen.centres.map(([ x, lat, rx, ry ]) => [x, mercator(lat), rx, ry * 1.23]);
-function fill(ctx, path, ink) {
+const north = mercator(index.bounds[3]);
+// First column is a material sample for the live print. Second column is the
+// very light wash beneath the individual grains. Both come from the same path.
+const material = {
+  sea : [ "#050807", "#f3f5f2" ],
+  outside : [ "#10150a", "#faf9f3" ],
+  land : [ "#e5dfd8", "#faf8f0" ],
+  built : [ "#c2aac5", "#f8f5ef" ],
+  sand : [ "#a18be2", "#fbf3e7" ],
+  farm : [ "#95df85", "#f7f7e7" ],
+  park : [ "#82f85c", "#f1f5e6" ],
+  wood : [ "#6af33c", "#ecf3e1" ],
+  water : [ "#f35135", "#e2f0ef" ],
+  building : [ "#c68ff0", "#f2eef2" ],
+  bank : [ "#ff8a66", "#7eaeae" ],
+  lane : [ "#786e73", "#fbf9f1" ],
+  road : [ "#3b3639", "#fcfaf3" ],
+  artery : [ "#29212c", "#fcfaf2" ],
+};
+function area(ctx, path, ink) {
   if (path) {
     ctx.fillStyle = ink;
     ctx.fill(path);
   }
 }
-function line(ctx, path, ink, width) {
+function stroke(ctx, path, ink, width) {
   if (path) {
     ctx.strokeStyle = ink;
     ctx.lineWidth = width;
     ctx.stroke(path);
   }
 }
-
-function inkStrength(lon, my, screen, layer) {
-  const {offset, wells} = screen;
-  const broad = noise(lon * .19 + offset, my * .19);
-  const fine = noise(lon * .51, my * .51 + offset);
-  const driftX = 2.8 * Math.sin(my * .29 + offset) + 2.1 * (broad - .5);
-  const driftY = 2.8 * Math.sin(lon * .26 - my * .12 + offset);
-  let well = 0;
-  for (const [x, y, rx, ry] of wells) {
-    const dx = (lon - x + driftX) / rx, dy = (my - y + driftY) / ry;
-    well = Math.max(well, 1 - (dx * dx + dy * dy) * .39);
-  }
-  const current = .5 + .5 * Math.cos(lon * .33 + my * .24 + 4.6 * broad + offset);
-  const value = .66 * well + .43 * broad + .16 * fine + .16 * current;
-  const openings = Math.max(0, .53 - noise(lon * .27 + 6, my * .29 - 8));
-  return clamp((value - (layer < 2 ? .55 : .72) - openings * .74) * (layer < 2 ? 1.67 : 2.1), 0, 1);
-}
-
-// Each ink has a different screen angle. Sample in projected geography and
-// clip to the real national outline so the print stays registered when panned.
-function screenprint(ctx, camera, w, h, k) {
-  const step = Math.max(.065, .27 * 2 ** Math.round(Math.log2(5.6 / (k * .27))));
-  const lowX = Math.max(72, camera.x - w / (2 * k) - step),
-        highX = Math.min(136, camera.x + w / (2 * k) + step);
-  const lowY = Math.max(18, camera.y - h / (2 * k) - step),
-        highY = Math.min(66, camera.y + h / (2 * k) + step);
-  if (lowX >= highX || lowY >= highY)
-    return;
-  for (const [layer, screen] of screens.entries()) {
-    const cs = Math.cos(screen.angle), sn = Math.sin(screen.angle);
-    const corners = [ [ lowX, lowY ], [ lowX, highY ], [ highX, lowY ], [ highX, highY ] ];
-    const us = corners.map(([ x, y ]) => (x * cs + y * sn) / step),
-          vs = corners.map(([ x, y ]) => (-x * sn + y * cs) / step);
-    const left = Math.floor(Math.min(...us)), right = Math.ceil(Math.max(...us));
-    const first = Math.floor(Math.min(...vs)), last = Math.ceil(Math.max(...vs));
-    const dots = new Path2D();
-    for (let j = first; j <= last; j++)
-      for (let i = left; i <= right; i++) {
-        const lon = (i * cs - j * sn) * step, my = (i * sn + j * cs) * step;
-        if (lon < lowX || lon > highX || my < lowY || my > highY)
-          continue;
-        const value = inkStrength(lon, my, screen, layer);
-        if (value < .075)
-          continue;
-        const x = w / 2 + (lon - camera.x) * k, y = h / 2 + (camera.y - my) * k,
-              radius = (.06 + .52 * value) * step * k;
-        dots.moveTo(x + radius, y);
-        dots.arc(x, y, radius, 0, TAU);
-      }
-    ctx.fillStyle = screen.ink;
-    ctx.fill(dots);
-  }
+function surface(w, h) {
+  if (typeof OffscreenCanvas === "function")
+    return new OffscreenCanvas(w, h);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  return canvas;
 }
 
 export class FlowBasemap extends VectorBasemap {
   constructor(redraw, root) {
     super(redraw, root);
-    this.plates = new Map();
+    this.mask = surface(1, 1);
+    this.pen = this.mask.getContext("2d", {alpha : false, willReadFrequently : true});
   }
-
+  draw(ctx, camera, w, h, options) {
+    const sw = Math.max(1, Math.ceil(w * .51)), sh = Math.max(1, Math.ceil(h * .51));
+    if (this.mask.width !== sw)
+      this.mask.width = sw;
+    if (this.mask.height !== sh)
+      this.mask.height = sh;
+    this.pen.setTransform(sw / w, 0, 0, sh / h, 0, 0);
+    this.pass = 0;
+    this.tilePaper = material.land[0];
+    super.draw(this.pen, camera, w, h, options);
+    const grains = buildImpression(camera, w, h, this.pen.getImageData(0, 0, sw, sh));
+    this.pass = 1;
+    this.tilePaper = material.land[1];
+    return {...super.draw(ctx, camera, w, h, options), ...grains};
+  }
   drawNational(ctx, camera, w, h, k, detailed) {
     const item = this.resource(index.national, detailed);
     const {paths : p} = item && detailed ? this.paths(item, "national") : this.overview;
-    ctx.fillStyle = "#f4f4f3";
+    const pass = this.pass, unit = k / index.units;
+    ctx.fillStyle = material.sea[pass];
     ctx.fillRect(0, 0, w, h);
-    const origin = ctx.getTransform(), unit = k / index.units;
     ctx.save();
-    ctx.translate(w / 2 + (index.bounds[0] - camera.x) * k, h / 2 + (camera.y - top) * k);
+    ctx.translate(w / 2 + (index.bounds[0] - camera.x) * k, h / 2 + (camera.y - north) * k);
     ctx.scale(unit, unit);
-    fill(ctx, p.land, paper);
-    line(ctx, p.land, "#b9c0ca", .62 / unit);
-    fill(ctx, p.focus, "#f8f6ed");
-    if (k < 120) {
-      ctx.save();
-      ctx.clip(p.focus);
-      ctx.setTransform(origin);
-      ctx.globalCompositeOperation = "multiply";
-      screenprint(ctx, camera, w, h, k);
-      ctx.restore();
+    area(ctx, p.land, material.outside[pass]);
+    area(ctx, p.focus, material.land[pass]);
+    if (pass) {
+      stroke(ctx, p.land, "#abb4bb8a", .6 / unit);
+      stroke(ctx, p.ridgeLight, "#899eab39", .7 / unit);
+      stroke(ctx, p.ridge, "#789c9d40", .65 / unit);
+      stroke(ctx, p.ridgeDark, "#9997ba65", .76 / unit);
+      stroke(ctx, p.focus, "#617e909c", .9 / unit);
+      stroke(ctx, p.province, "#787c9b80", .7 / unit);
+      stroke(ctx, p.tributary, "#82b0bb94", .65 / unit);
+      stroke(ctx, p.river, "#6fabb7", 1.15 / unit);
+    } else {
+      stroke(ctx, p.province, "#838383", 1.35 / unit);
+      stroke(ctx, p.river, material.water[0], 2.8 / unit);
     }
-    line(ctx, p.ridgeLight, "#65999647", .65 / unit);
-    line(ctx, p.ridge, "#6694a54f", .65 / unit);
-    line(ctx, p.ridgeDark, "#586aa160", .83 / unit);
-    line(ctx, p.province, "#fffdf6d6", 2 / unit);
-    line(ctx, p.province, "#6a748e94", .66 / unit);
-    line(ctx, p.tributary, "#3d8fa79c", .65 / unit);
-    line(ctx, p.river, "#fafff5df", 2.2 / unit);
-    line(ctx, p.river, "#3b91b0", 1 / unit);
-    line(ctx, p.focus, "#5b648dcc", 1.15 / unit);
     ctx.restore();
   }
-
-  dotScreen(ctx, ink, pitch, unit) {
-    const key = ink + pitch;
-    if (!this.plates.has(key)) {
-      const tile = typeof OffscreenCanvas === "function" ? new OffscreenCanvas(20, 20) :
-                                                           document.createElement("canvas");
-      tile.width = tile.height = 20;
-      const pen = tile.getContext("2d");
-      pen.fillStyle = ink;
-      for (const [x, y] of [[ 5, 5 ], [ 15, 15 ]]) {
-        pen.beginPath();
-        pen.arc(x, y, 3.6, 0, TAU);
-        pen.fill();
-      }
-      this.plates.set(key, ctx.createPattern(tile, "repeat"));
-    }
-    const pattern = this.plates.get(key);
-    pattern.setTransform(new DOMMatrix().scale(pitch / (10 * unit)));
-    return pattern;
-  }
-
   drawTile(ctx, p, unit, size, level) {
-    ctx.fillStyle = paper;
+    const pass = this.pass, px = 1 / unit;
+    ctx.fillStyle = material.land[pass];
     ctx.fillRect(0, 0, 4096, 4096);
-    const px = 1 / unit;
     ctx.lineJoin = ctx.lineCap = "round";
-    fill(ctx, p.built, "#eeecf4");
-    fill(ctx, p.sand, "#f4dfca");
-    fill(ctx, p.farm, "#e6efce");
-    fill(ctx, p.park, "#e1edd5");
-    fill(ctx, p.wood, "#d4e7c4");
-    fill(ctx, p.wood, this.dotScreen(ctx, "#7eac78", 4.8, unit));
-    fill(ctx, p.park, this.dotScreen(ctx, "#8fb489", 4.1, unit));
-    fill(ctx, p.water, "#c4e4ec");
-    fill(ctx, p.water, this.dotScreen(ctx, "#65adc3", 4.4, unit));
-    line(ctx, p.water, "#63a2b9", .85 * px);
-    line(ctx, p.stream, "#75b7c9", Math.min(10, Math.max(1, unit * 5)) * px);
-    fill(ctx, p.building, "#d9d9e9");
-    line(ctx, p.building, "#a3a5be", .6 * px);
-    const road = clamp(size / 190, 1.2, 9), lane = Math.max(.8, road * .48);
-    line(ctx, p.path, "#b6b2c3", .7 * px);
-    line(ctx, p.lane, "#c1bece", (lane + 1) * px);
-    line(ctx, p.road, "#a7a9be", (road + 1.35) * px);
-    line(ctx, p.artery, "#c38c83", (road * 1.5 + 1.55) * px);
-    line(ctx, p.lane, "#fffdf7", lane * px);
-    line(ctx, p.road, "#fffdf9", road * px);
-    line(ctx, p.artery, "#ffe2c4", road * 1.5 * px);
-    line(ctx, p.rail, "#8b83a3", .85 * px);
-    if (level === 14 && p.building && size > 980)
-      fill(ctx, p.building, this.dotScreen(ctx, "#9b95b8", 3.5, unit));
+    for (const key of ["built", "sand", "farm", "park", "wood", "water", "building"]) {
+      area(ctx, p[key], material[key][pass]);
+    }
+    stroke(ctx, p.water, material.bank[pass], (pass ? .7 : 2.1) * px);
+    stroke(ctx, p.stream, material.water[pass], clamp(4 * unit, 1.7, 11) * px);
+    const width = clamp(size / 220, 1.5, 8);
+    // The network opens channels in the ink. Thin registration marks retain
+    // street and block geometry where a lane is smaller than one screen dot.
+    stroke(ctx, p.path, material.lane[pass], .9 * px);
+    stroke(ctx, p.lane, material.lane[pass], Math.max(1.3, width * .74) * px);
+    stroke(ctx, p.road, material.road[pass], (width + 1.25) * px);
+    stroke(ctx, p.artery, material.artery[pass], (width * 1.45 + 2) * px);
+    if (pass) {
+      stroke(ctx, p.artery, "#bb806854", .8 * px);
+      stroke(ctx, p.road, "#89869238", .65 * px);
+      if (level >= 13)
+        stroke(ctx, p.building, "#a798b35c", .58 * px);
+      stroke(ctx, p.rail, "#968aa46b", .65 * px);
+    }
   }
 }
 export {paintChart};

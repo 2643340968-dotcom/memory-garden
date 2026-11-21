@@ -6,5 +6,5 @@ self.onmessage = ({data : job}) => {
   surface ??= new OffscreenCanvas(1, 1);
   const result = paintChart(painter, surface, job);
   const bitmap = surface.transferToImageBitmap();
-  self.postMessage({...result, bitmap}, [ bitmap ]);
+  self.postMessage({...result, bitmap}, [ bitmap, result.dots.buffer, result.offsets.buffer ]);
 };

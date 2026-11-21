@@ -204,7 +204,7 @@ export class VectorBasemap {
       ctx.beginPath();
       ctx.rect(snap(x), snap(y), snap(x + size) - snap(x), snap(y + size) - snap(y));
       ctx.clip();
-      ctx.fillStyle = "#efeada";
+      ctx.fillStyle = this.tilePaper ?? "#efeada";
       ctx.fillRect(snap(x), snap(y), snap(x + size) - snap(x), snap(y + size) - snap(y));
       ctx.translate(x, y);
       ctx.scale(unit, unit);

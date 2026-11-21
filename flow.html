@@ -28,11 +28,11 @@
     </header>
     <section id="stage" class="stage" data-surface="atlas">
       <div id="map" class="map" role="group" aria-label="地图">
-        <canvas id="base" aria-hidden="true"></canvas><canvas id="notations" aria-hidden="true"></canvas>
+        <canvas id="base" aria-hidden="true"></canvas><canvas id="ink" aria-hidden="true"></canvas><canvas id="notations" aria-hidden="true"></canvas>
         <canvas id="waves" aria-hidden="true"></canvas><div id="pins"></div>
       </div>
       <div id="garden" class="garden" hidden role="group" aria-label="记忆花园">
-        <canvas id="waterbed" aria-hidden="true"></canvas><div id="seeds"></div>
+        <canvas id="waterbed" aria-hidden="true"></canvas><canvas id="garden-water" aria-hidden="true"></canvas><div id="seeds"></div>
       </div>
       <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
       <div class="heading" id="chapter">
@@ -57,7 +57,7 @@
       </div></details>
     </footer>
     <section id="arrival" hidden aria-labelledby="arrival-title">
-      <div class="arrival-ink" aria-hidden="true"></div><p id="arrival-place"></p>
+      <canvas class="arrival-ink" aria-hidden="true"></canvas><p id="arrival-place"></p>
       <h2 id="arrival-title" tabindex="-1"></h2><p id="arrival-note"></p><button type="button" id="skip"></button><button type="button" id="arrival-back" hidden></button>
     </section>
   </main>

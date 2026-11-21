@@ -3,6 +3,8 @@ import {CITIES, PLACES, atlasHash, readAtlasRoute} from "../atlas/places.js";
 import {getLanguage, placeText, setLanguage, LANGUAGE_STORAGE_KEY} from "../i18n/LanguageController.js";
 import {FlowAtlas} from "./atlas.js";
 import {FlowGarden} from "./garden.js";
+import {placePhase, waterprint} from "./ripples.js";
+import {clamp, smooth} from "./geometry.js";
 
 const el = id => document.getElementById(id);
 const local = (zh, en) => getLanguage() === "zh-CN" ? zh : en;
@@ -83,7 +85,7 @@ function chooseSite(id) {
   entryTimer = setTimeout(() => {
     if (version === expected)
       navigate({...place, level : "garden"});
-  }, quiet.matches ? 180 : 760);
+  }, quiet.matches ? 180 : (atlas.flight?.duration ?? 0) + 180);
 }
 function navigate(next, opts = {}) {
   cancelEntry();
@@ -219,7 +221,37 @@ function chrome() {
   else
     atlas.invalidate();
 }
+let passageFrame = 0, paperFade, passageStart = 0;
+function paintPassage(origin) {
+  const canvas = document.querySelector(".arrival-ink"), ctx = canvas.getContext("2d");
+  const start = performance.now(), seed = placePhase(route.place);
+  passageStart = start;
+  function frame(now) {
+    if (el("arrival").hidden)
+      return;
+    const w = canvas.clientWidth, h = canvas.clientHeight, dpr = Math.min(devicePixelRatio || 1, 1.5);
+    const width = Math.round(w * dpr), height = Math.round(h * dpr);
+    if (width !== canvas.width || height !== canvas.height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const age = quiet.matches ? 1.3 : (now - start) / 1000;
+    const f = smooth(clamp(age / 1.15, 0, 1));
+    const cx = w * ((origin?.[0] ?? .5) * (1 - f) + .5 * f),
+          cy = h * ((origin?.[1] ?? .49) * (1 - f) + .49 * f);
+    const radius = Math.min(w * .51, h * .46, 332) * (.25 + .75 * f);
+    waterprint(ctx, cx, cy, radius, age * .82 + seed * .31, seed, .76);
+    if (!quiet.matches)
+      passageFrame = requestAnimationFrame(frame);
+  }
+  frame(start);
+}
 function closeTitle() {
+  cancelAnimationFrame(passageFrame);
+  paperFade?.cancel();
+  paperFade = null;
   clearTimeout(holdTimer);
   releaseTitle?.();
   releaseTitle = null;
@@ -227,11 +259,15 @@ function closeTitle() {
   el("stage").inert = false;
   document.querySelector(".masthead").inert = document.querySelector("footer").inert = false;
 }
-function holdTitle() {
+function holdTitle(origin = null) {
   el("stage").inert = true;
   document.querySelector(".masthead").inert = document.querySelector("footer").inert = true;
   el("arrival").hidden = false;
   el("arrival").classList.remove("fading");
+  if (!quiet.matches)
+    paperFade = el("arrival").animate(
+        [ {opacity : 0}, {opacity : 1} ], {duration : 560, easing : "cubic-bezier(.3,0,.28,1)"});
+  paintPassage(origin);
   el("arrival-title").focus({preventScroll : true});
   const readingTime = el("arrival-note").textContent.length * (getLanguage() === "en" ? 29 : 88);
   return new Promise(resolve => {
@@ -244,7 +280,7 @@ async function finishTitle(turn) {
     return;
   if (!quiet.matches && !skipped) {
     el("arrival").classList.add("fading");
-    await new Promise(resolve => setTimeout(resolve, 400));
+    await new Promise(resolve => setTimeout(resolve, 630));
   }
   if (turn === version) {
     closeTitle();
@@ -254,6 +290,17 @@ async function finishTitle(turn) {
 async function show(next, {keep = false, restore = false, focus = true} = {}) {
   cancelEntry();
   const turn = ++version;
+  const returning = route?.level === "garden" && next.level !== "garden";
+  let origin = null;
+  if (next.level === "garden" && route && route.level !== "garden") {
+    const pin = atlas.pins.get(next.place);
+    if (pin && !pin.hidden) {
+      const box = pin.getBoundingClientRect(), host = el("edition").getBoundingClientRect();
+      origin = [
+        (box.x + box.width / 2 - host.x) / host.width, (box.y + box.height / 2 - host.y) / host.height
+      ];
+    }
+  }
   if (route && route.level !== "garden" && !keep && atlas.w && atlasHash(route) !== atlasHash(next)) {
     visits.set(atlasHash(route), atlas.snapshot());
   }
@@ -272,6 +319,9 @@ async function show(next, {keep = false, restore = false, focus = true} = {}) {
     garden.root.hidden = true;
     atlas.show(
         route, {keep, restore : restore ? visits.get(atlasHash(route)) : null, immediate : turn === 1});
+    if (returning && !quiet.matches)
+      atlas.root.animate(
+          [ {opacity : .18}, {opacity : 1} ], {duration : 470, easing : "cubic-bezier(.2,.62,.28,1)"});
     chrome();
     if (!keep && !restore)
       playChapter();
@@ -279,14 +329,18 @@ async function show(next, {keep = false, restore = false, focus = true} = {}) {
       el("title").focus({preventScroll : true});
     return;
   }
-  atlas.hide();
+  atlas.hide(!!origin);
   chrome();
   el("write").disabled = true;
   try {
-    const [collection] = await Promise.all([ PLACES[route.place].loadCollection(), holdTitle() ]);
+    const [collection] = await Promise.all([ PLACES[route.place].loadCollection(), holdTitle(origin) ]);
     if (turn !== version)
       return;
-    garden.enter(route.place, collection);
+    atlas.root.hidden = true;
+    const phase = quiet.matches ?
+        1.15 :
+        (performance.now() - passageStart) / 1000 * .82 + placePhase(route.place) * .31;
+    garden.enter(route.place, collection, phase);
     el("write").disabled = false;
     chrome();
     await finishTitle(turn);

@@ -2,8 +2,8 @@ import {PLACES} from "../atlas/places.js";
 import {getLanguage, getLocalizedMemoryText, placeText, t} from "../i18n/LanguageController.js";
 import {createMemoryPool} from "../data/memoryPool.js";
 import {VisitorMemoryCard} from "../memory/VisitorMemoryCard.js";
-import {clamp, hash, noise, TAU} from "./geometry.js";
-import {waterprint} from "./ripples.js";
+import {clamp, hash, noise, smooth, TAU} from "./geometry.js";
+import {placePhase, waterprint} from "./ripples.js";
 
 const el = id => document.getElementById(id);
 const say = (cn, en) => getLanguage() === "zh-CN" ? cn : en;
@@ -29,7 +29,7 @@ function gardenPositions(count, area) {
   return pts.slice(0, count);
 }
 
-function drawBed(ctx, w, h, area, pts, seed) {
+function drawBed(ctx, w, h, area, seed) {
   ctx.fillStyle = "#faf8f2";
   ctx.fillRect(0, 0, w, h);
   const {x, y, w : aw, h : ah} = area;
@@ -94,12 +94,6 @@ function drawBed(ctx, w, h, area, pts, seed) {
     ctx.lineWidth = i % 6 === 0 ? 1 : .58;
     ctx.stroke();
   }
-  for (let i = 0; i < 2; i++) {
-    if (!pts[i])
-      continue;
-    const [px, py] = pts[i], r = clamp(Math.min(aw, ah) * (.34 + i * .045), 58, w < 600 ? 137 : 218);
-    waterprint(ctx, px, py, r, .7 + i, seed + i * 2.9, .97);
-  }
 }
 
 export class FlowGarden {
@@ -108,6 +102,11 @@ export class FlowGarden {
     this.readout = readout;
     this.root = el("garden");
     this.canvas = el("waterbed");
+    this.water = el("garden-water");
+    this.ink = this.water.getContext("2d");
+    this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
+    this.quiet.addEventListener("change", () => this.wakeWater());
+    document.addEventListener("visibilitychange", () => this.wakeWater());
     this.seedLayer = el("seeds");
     this.ctx = this.canvas.getContext("2d");
     this.visits = new Map();
@@ -152,16 +151,18 @@ export class FlowGarden {
     this.seedLayer.addEventListener("pointerover", e => this.seedHint(e.target.closest("button")));
     this.seedLayer.addEventListener("pointerout", e => {
       if (!e.relatedTarget?.closest?.(".seed"))
-        this.readout(null);
+        this.seedHint(null);
     });
     this.seedLayer.addEventListener("focusin", e => this.seedHint(e.target.closest("button")));
-    this.seedLayer.addEventListener("focusout", () => this.readout(null));
+    this.seedLayer.addEventListener("focusout", () => this.seedHint(null));
     el("earlier").onclick = () => this.turn(-1);
     el("later").onclick = () => this.turn(1);
     this.resize = new ResizeObserver(() => this.paint());
     this.resize.observe(this.root);
   }
-  enter(id, collection) {
+  enter(id, collection, phase = 1.15) {
+    this.entryPhase = phase;
+    this.entryTime = performance.now();
     this.id = id;
     this.site = PLACES[id];
     this.collection = collection;
@@ -179,6 +180,10 @@ export class FlowGarden {
     this.paint();
   }
   leave() {
+    cancelAnimationFrame(this.waterFrame);
+    this.waterFrame = 0;
+    this.pools = null;
+    this.attended = null;
     if (this.sheet.open)
       this.sheet.close();
     this.card.hide();
@@ -208,8 +213,40 @@ export class FlowGarden {
     return t("memory.example");
   }
   seedHint(mark) {
-    if (mark)
-      this.readout(this.label(this.visit.pool.getById(mark.dataset.id)));
+    this.readout(mark ? this.label(this.visit.pool.getById(mark.dataset.id)) : null);
+    const id = mark?.dataset.kind === "featured" ? mark.dataset.id : null;
+    if (id !== this.attended) {
+      this.attended = id;
+      this.wakeWater();
+    }
+  }
+  wakeWater() {
+    if (!this.pools || this.waterFrame || document.hidden || !this.id)
+      return;
+    this.waterFrame = requestAnimationFrame(now => {
+      this.waterFrame = 0;
+      if (!this.pools || !this.id || document.hidden)
+        return;
+      const dt = clamp((now - (this.lastWater ?? now)) / 1000, 0, .08);
+      this.lastWater = now;
+      const ctx = this.ink;
+      ctx.clearRect(0, 0, this.water.width, this.water.height);
+      let moving = false;
+      const remaining = this.quiet.matches ? 0 : 1 - smooth(clamp((now - this.entryTime) / 1050, 0, 1));
+      for (const p of this.pools) {
+        const target = p.id === this.attended && !this.sheet.open ? 1 : 0;
+        p.energy += (target - p.energy) * (1 - Math.exp(-dt * (target ? 3.2 : 1.7)));
+        if (!this.quiet.matches)
+          p.phase += dt * p.energy * .88;
+        const x = p.x + (this.waterCenter.x - p.x) * remaining * .45;
+        const y = p.y + (this.waterCenter.y - p.y) * remaining * .45;
+        waterprint(ctx, x, y, p.r, p.phase, p.seed, .94);
+        if (target || p.energy > .015)
+          moving = true;
+      }
+      if (moving && !this.quiet.matches)
+        this.wakeWater();
+    });
   }
   turn(n) {
     this.page += n;
@@ -248,12 +285,31 @@ export class FlowGarden {
     if (key === this.layoutKey)
       return;
     this.layoutKey = key;
+    this.waterCenter = {x : w * .5, y : h * .49};
     const pts = gardenPositions(records.length, area);
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const seed = Array.from(this.id).reduce((n, c) => n + c.charCodeAt(0), 0) % 97 / 17;
-    drawBed(this.ctx, w, h, area, pts, seed);
+    drawBed(this.ctx, w, h, area, seed);
+    const wdpr = Math.min(dpr, 1.65);
+    this.water.width = Math.round(w * wdpr);
+    this.water.height = Math.round(h * wdpr);
+    this.ink.setTransform(wdpr, 0, 0, wdpr, 0, 0);
+    this.pools = featured.map((memory, i) => {
+      const prior = this.pools?.find(p => p.id === memory.id);
+      return {
+        id : memory.id,
+        x : pts[i][0],
+        y : pts[i][1],
+        seed : placePhase(this.id) + i * 2.9,
+        r : clamp(Math.min(area.w, area.h) * (.34 + i * .045), 58, w < 600 ? 137 : 218),
+        phase : prior?.phase ?? (this.entryPhase + i * .87),
+        energy : prior?.energy ?? 1
+      };
+    });
+    this.lastWater = performance.now();
+    this.wakeWater();
     const nodes = records.map((memory, i) => {
       const b = document.createElement("button");
       b.type = "button";

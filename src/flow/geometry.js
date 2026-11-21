@@ -4,6 +4,14 @@ export const latitude = y => Math.atan(Math.sinh(y * Math.PI / 180)) * 180 / Mat
 export const smooth = t => t * t * (3 - 2 * t);
 export const TAU = Math.PI * 2;
 
+// A geographic landing starts and finishes at rest. Wheel packets can
+// inherit the previous log-scale velocity when their destination moves.
+export function cameraProgress(t, slope = 0) {
+  const u = clamp(t, 0, 1);
+  const rest = u * u * u * (10 + u * (-15 + u * 6));
+  return rest + clamp(slope, 0, 2.4) * u * (1 - u) ** 3 * (1 + 3 * u);
+}
+
 export function project(view, w, h, [ lon, lat ]) {
   const k = w / view.span;
   return [ w / 2 + (lon - view.x) * k, h / 2 + (view.y - mercator(lat)) * k ];

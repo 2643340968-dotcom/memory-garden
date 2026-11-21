@@ -96,7 +96,7 @@ export class AtlasCharts {
     }, 0));
   }
 
-  receive({ level, labels, bitmap }) {
+  receive({ level, labels, bitmap, dots, offsets }) {
     const job = this.busy;
     const layer = this.layers[job.layer], canvas = layer.canvas;
     this.busy = null;
@@ -118,6 +118,7 @@ export class AtlasCharts {
     else layer.context.drawImage(bitmap, 0, 0);
     bitmap.close?.();
     layer.frame = { ...job, level, labels };
+    if (dots) Object.assign(layer.frame, { dots, offsets });
     this.redraw();
   }
 }

@@ -251,7 +251,7 @@ a {
   cursor: grabbing;
 }
 
-#base,#notations,#waves,#waterbed,#pins,#seeds {
+#base,#ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
   position: absolute;
   left: 0;
   top: 0;
@@ -263,14 +263,15 @@ a {
   will-change: transform;
 }
 
-#notations,#waves,#waterbed,#pins,#seeds {
+#ink,#notations,#waves,#waterbed,#garden-water,#pins,#seeds {
   width: 100%;
   height: 100%;
 }
 
-#waves {
+#ink,#garden-water {
   mix-blend-mode: multiply;
 }
+#notations { transition: opacity .35s ease; }
 
 .heading {
   position: absolute;
@@ -598,6 +599,12 @@ body:has(.stage[data-surface="garden"]) .legend .personal::before {
   box-shadow: 0 0 0 1.5px #fffdf6cf;
   display: grid;
   place-items: center;
+  animation: mark-appears .34s ease-out both;
+  transition: transform .48s cubic-bezier(.22,.7,.22,1), box-shadow .5s ease;
+}
+@keyframes mark-appears {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .stamp::before {
@@ -661,8 +668,8 @@ body:has(.stage[data-surface="garden"]) .legend .personal::before {
 }
 
 .pin.active .stamp,.pin:focus-visible .stamp {
-  outline: 1px solid var(--pin-ink);
-  outline-offset: 3px;
+  transform: translate(-50%,-50%) rotate(2deg) scale(1.12);
+  box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px color-mix(in srgb,var(--pin-ink) 78%,transparent);
 }
 
 footer {
@@ -808,6 +815,7 @@ footer {
 
 .seed:not([data-kind="featured"]) span {
   opacity: 0;
+  transition: opacity .26s ease;
 }
 
 .seed:is(:hover,:focus-visible) {
@@ -848,7 +856,7 @@ footer {
   gap: 16px;
   overflow: hidden;
   background: #faf8f3;
-  transition: opacity .38s ease;
+  transition: opacity .62s cubic-bezier(.34,0,.28,1);
 }
 
 #arrival.fading {
@@ -858,26 +866,10 @@ footer {
 
 .arrival-ink {
   position: absolute;
-  left: 50%;
-  top: 48%;
-  width: min(68vw,420px);
-  aspect-ratio: 1;
-  border-radius: 45% 55% 43% 57%;
-  transform: translate(-50%,-50%) rotate(-14deg);
-  background: repeating-radial-gradient(ellipse at 50% 46%,transparent 0 8%,#a794db28 8.2% 8.6%,transparent 9% 11%),radial-gradient(ellipse at 36% 47%,#81abc678,transparent 53%),radial-gradient(ellipse at 63% 48%,#e5a0bbaa,transparent 52%),radial-gradient(ellipse at 46% 70%,#f3cf9e88,transparent 54%);
-  animation: surface-in .8s ease-out both;
-}
-
-@keyframes surface-in {
-  from {
-    opacity: 0;
-    scale: .86;
-  }
-
-  to {
-    opacity: 1;
-    scale: 1;
-  }
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 #arrival-place,#arrival-title,#arrival-note,#skip {
@@ -950,6 +942,12 @@ dialog {
 dialog::backdrop {
   background: #514e713b;
   backdrop-filter: blur(4px);
+}
+dialog[open] { animation: memory-on-paper .28s cubic-bezier(.22,.66,.28,1); }
+dialog[open]::backdrop { animation: mark-appears .26s ease; }
+@keyframes memory-on-paper {
+  from { opacity: 0; transform: translateY(7px) scale(.988); }
+  to { opacity: 1; transform: none; }
 }
 
 .sheet-top {

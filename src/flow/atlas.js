@@ -3,13 +3,14 @@ import {CHINA, CITIES, PLACES} from "../atlas/places.js";
 import {groupMarkers, overlaps} from "../atlas/markerLayout.js";
 import {adjacentStop, routeAtZoom} from "../atlas/zoomRoute.js";
 import {getLanguage, placeText} from "../i18n/LanguageController.js";
-import {blend, clamp, latitude, mercator, project, under} from "./geometry.js";
+import {blend, cameraProgress, clamp, latitude, mercator, project, under} from "./geometry.js";
 import {RippleField} from "./ripples.js";
+import {InkSurface} from "./InkSurface.js";
 
 const stops = {
-  country : 650,
-  city : 570,
-  place : 490
+  country : 860,
+  city : 780,
+  place : 660
 };
 const stopScale = .0055;
 const cityInks = {
@@ -42,8 +43,11 @@ export class FlowAtlas {
           import("./FlowBasemap.js").then(({FlowBasemap,
                                             paintChart}) => ({VectorBasemap : FlowBasemap, paintChart})),
     });
-    this.ripples =
-        new RippleField(root.querySelector("#waves"), coord => project(this.view, this.w, this.h, coord));
+    this.ink = new InkSurface(root.querySelector("#ink"));
+    this.ink.onRestore = () => this.invalidate();
+    this.ripples = new RippleField(
+        root.querySelector("#waves"), coord => project(this.view, this.w, this.h, coord),
+        (fronts, now, quiet) => this.active && this.ink.render(this.view, fronts, now, quiet));
     this.route = {level : "country"};
     this.active = true;
     this.observer = new ResizeObserver(() => this.resize());
@@ -67,7 +71,8 @@ export class FlowAtlas {
     this.flight = null;
     this.notes.width = Math.round(w * dpr);
     this.notes.height = Math.round(h * dpr);
-    this.ripples.resize(w, h, dpr);
+    this.ink.resize(w, h, dpr);
+    this.ripples.resize(w, h, Math.min(1.65, dpr));
     this.invalidate();
   }
   fit(route) {
@@ -99,19 +104,32 @@ export class FlowAtlas {
     } else
       this.invalidate();
   }
-  hide() {
+  hide(holdFrame = false) {
     this.unhover();
     this.active = false;
     this.pointers.clear();
     this.flight = null;
-    this.ripples.clear();
-    this.root.hidden = true;
+    this.ripples.clear(holdFrame);
+    this.root.hidden = !holdFrame;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
   }
   fly(to, duration = 0, free = false) {
+    const now = performance.now(), prior = this.flight;
+    let velocity = 0;
+    if (prior) {
+      const t = clamp((now - prior.start) / prior.duration, 0, 1);
+      const p = cameraProgress(t, prior.slope);
+      velocity = (cameraProgress(t + .001, prior.slope) - p) * 1000 / prior.duration *
+          Math.log(prior.to.span / prior.from.span);
+      this.view = blend(prior.from, prior.to, p);
+    }
+    const distance = Math.log(to.span / this.view.span);
+    if (duration > 250)
+      duration += Math.min(325, Math.abs(distance) * 64);
+    const slope = Math.abs(distance) > .00001 ? velocity * duration / distance : 0;
     this.flight = duration && !this.quiet.matches ?
-        {from : {...this.view}, to, start : performance.now(), duration, free} :
+        {from : {...this.view}, to, start : now, duration, free, slope} :
         null;
     if (!this.flight)
       this.view = to;
@@ -227,6 +245,8 @@ export class FlowAtlas {
     root.addEventListener("pointermove", e => {
       const track = this.pointers.get(e.pointerId);
       if (!track) {
+        if (!e.buttons && e.pointerType !== "touch")
+          this.ripples.steer(...this.point(e));
         if (this.wheel) {
           const [x, y] = this.point(e);
           if (Math.hypot(x - this.wheel.xy[0], y - this.wheel.xy[1]) >= 5)
@@ -268,6 +288,11 @@ export class FlowAtlas {
       if (!this.pointers.size) {
         this.dragging = false;
         root.classList.remove("dragging");
+        if (this.pinchStop && performance.now() - this.pinchStop.time < 220 &&
+            Math.abs(Math.log(this.view.span / this.pinchStop.span)) < .28) {
+          this.fly(this.fit(this.route), 430, true);
+        }
+        this.pinchStop = null;
         this.invalidate();
       }
     };
@@ -298,7 +323,9 @@ export class FlowAtlas {
       factor, point = [ this.w * (this.w >= 820 ? .515 : .5), this.h * .50 ], next = point, site = null,
       touch = false) {
     this.callbacks.gesture();
-    const base = this.flight?.free ? this.flight.to : this.view;
+    const flight = this.flight;
+    const reversing = flight && (flight.to.span - this.view.span) * (factor - 1) > 0;
+    const base = flight?.free && !reversing ? flight.to : this.view;
     if (site)
       point = next = project(base, this.w, this.h, PLACES[site].center);
     const [lon, my] = under(base, this.w, this.h, ...point);
@@ -319,9 +346,13 @@ export class FlowAtlas {
     if (route !== this.route) {
       const step = adjacentStop(this.route, route);
       this.callbacks.step(step);
-      this.fly(this.fit(step), touch ? 0 : stops[step.level], true);
+      if (touch) {
+        this.pinchStop = {time : performance.now(), span};
+        this.fly(dest, 0, true);
+      } else
+        this.fly(this.fit(step), stops[step.level], true);
     } else
-      this.fly(dest, touch ? 0 : 125, true);
+      this.fly(dest, touch ? 0 : 185, true);
   }
   groups() {
     const national = this.route.level === "country";
@@ -345,21 +376,26 @@ export class FlowAtlas {
       return;
     if (this.flight) {
       const f = this.flight, t = clamp((now - f.start) / f.duration, 0, 1);
-      this.view = blend(f.from, f.to, 1 - (1 - t) ** 3);
+      this.view = blend(f.from, f.to, cameraProgress(t, f.slope));
       if (t === 1)
         this.flight = null;
     }
     const f = this.flight;
-    const landing = f && Math.abs(Math.log2(f.to.span / f.from.span)) > 2 ? f.to : this.view;
+    // Request the next nearby scale; presenting a distant landing here would
+    // replace the wide map with a tiny street chart halfway through a flight.
+    const gap = f ? Math.abs(Math.log(f.to.span / this.view.span)) : 0;
+    const landing = gap > .20 ? blend(this.view, f.to, Math.min(.22, .15 / gap)) : this.view;
     const chart = this.charts.update(
         "base", this.view, this.w, this.h, this.dpr, getLanguage(), !!f || this.dragging, landing);
-    if (chart)
+    if (chart) {
       this.root.dataset.vectorLevel = chart.frame.level;
+      this.ink.update(chart.frame, now, this.quiet.matches);
+    }
     const groups = this.groups();
     const reserved = this.drawPins(groups);
     this.annotate(chart, reserved);
     this.charts.flush();
-    this.ripples.schedule();
+    this.ripples.present(now, !!this.flight);
     document.querySelector("#zoom-out").disabled =
         this.view.span >= this.fit({level : "country"}).span * .999;
     document.querySelector("#zoom-in").disabled = this.view.span <= stopScale * 1.001;
@@ -454,8 +490,9 @@ export class FlowAtlas {
     const {ctx, w, h, dpr, view} = this;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    if (this.flight || this.dragging)
-      return;
+    const opacity = this.flight || this.dragging ? "0.45" : "1";
+    if (this.notes.style.opacity !== opacity)
+      this.notes.style.opacity = opacity;
     const k = w / view.span, step = 10 ** Math.floor(Math.log10(view.span * .32)), grid = step * k;
     ctx.font = "9px Consolas, monospace";
     ctx.fillStyle = "#747687";
@@ -493,17 +530,20 @@ export class FlowAtlas {
     ctx.strokeStyle = "#fbfaf2d9";
     ctx.fillStyle = "#687383";
     const used = new Set();
+    const limit = view.span > 8 ? 4 : Math.max(3, Math.min(16, Math.floor(w * h / 78000)));
     for (const {name, x, y} of candidates) {
       if (!name || used.has(name) || x < 27 || y < 20 || x > w - 27 || y > h - 15)
         continue;
       const extent = ctx.measureText(name).width / 2 + 4,
             b = {left : x - extent, right : x + extent, top : y - 13, bottom : y + 3};
-      if (reserved.some(pos => overlaps(b, pos, 8)))
+      if (reserved.some(pos => overlaps(b, pos, 17)))
         continue;
       ctx.strokeText(name, x, y);
       ctx.fillText(name, x, y);
       reserved.push(b);
       used.add(name);
+      if (used.size >= limit)
+        break;
     }
     ctx.textAlign = "start";
   }

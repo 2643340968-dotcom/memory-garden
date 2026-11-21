@@ -17,7 +17,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 - `/png.html` is the current main demo.
 - `/model.html` is a retained legacy GLB demo, but it is no longer an active development or routine QA target.
 - The project root redirects to `./png.html`.
-- The automated suite has 39 tests, including visitor media, bidirectional camera stops and free zoom, atlas pack integrity and multiscale coverage for 85 sites, geographic clustering, bilingual flower selections and specimen placement, per-place collections, bilingual source records, the Jiangdongmen bloom, and Flow Atlas camera registration and independent lingering waves.
+- The automated suite has 43 tests, including visitor media, bidirectional zoom, atlas pack integrity and multiscale coverage for 85 sites, bilingual flowers and source records, per-place collections, and the Jiangdongmen bloom. Flow Atlas coverage includes camera registration and velocity, map-driven grain placement, continuous geographic screen subdivision, fading waves and interference.
 - Both Vite entry points return successfully and have been checked in a browser without console errors.
 - The public `MEMORIES` count is the number of BloomEvents. Actual PNG instance counts remain available through runtime/debug state.
 
@@ -25,6 +25,7 @@ This repository is an interactive Three.js exhibition prototype about memory and
 
 - `/png.html` → `src/png-main.js` → national atlas, then a lazy-loaded PNG garden with the selected site's collection.
 - `/flow.html` → `src/flow/main.js` → an independently styled halftone atlas and top-down garden. This entry shares the place catalogue, vector chart cache and memory intake. Its title cards, water fronts, camera, garden marks and page-local visit state belong to the new edition.
+- `src/flow/FlowBasemap.js` samples vector land, water, vegetation, streets and buildings for each map view. `print.js` generates geographically registered grains at every scale. `InkSurface.js` draws those points via WebGL or Canvas 2D and `ripples.js` drives their shared displacement field and the visible pigment currents.
 - `/model.html` → `src/model-main.js` → preserved GLB flower version.
 - `/` → `./png.html` → national atlas.
 
