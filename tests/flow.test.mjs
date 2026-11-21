@@ -4,6 +4,28 @@ import {project, under, mercator, latitude, blend, cameraProgress, coversView, f
 import {NavigationChart} from "../src/flow/FlowBasemap.js";
 import {AFTERGLOW, envelope, releaseWave, displaceGrain} from "../src/flow/ripples.js";
 import {buildImpression, printScale} from "../src/flow/print.js";
+import {openingPose} from "../src/flow/landing.js";
+
+test(
+    "scrolling the cover in either direction recovers the same title, paper and map registration", () => {
+      const start = openingPose(0), middle = openingPose(.46), end = openingPose(1);
+      assert.equal(start.title, 1);
+      assert.equal(start.wash, 1);
+      assert.ok(middle.title > 0 && middle.title < 1 && middle.drift < start.drift);
+      assert.equal(end.title, 0);
+      assert.equal(end.wash, 0);
+      assert.equal(end.drift, 0);
+      assert.equal(end.scale, 1);
+      assert.deepEqual(openingPose(-1), start);
+      assert.deepEqual(openingPose(2), end);
+      for (const p of [0, .25, .5, .75, 1]) {
+        const still = openingPose(p, true);
+        assert.equal(still.title, openingPose(p).title);
+        assert.equal(still.lift, 0);
+        assert.equal(still.drift, 0);
+        assert.equal(still.scale, 1);
+      }
+    });
 
 test("flow atlas keeps geographic anchors registered through zoom and its reverse", () => {
   const country = {x : 104.8, y : mercator(36), span : 90};

@@ -286,6 +286,7 @@ export class RippleField {
     this.schedule();
   }
   clear(holdLastFrame = false) {
+    this.opening = null;
     this.waves.length = 0;
     this.pointer = null;
     this.shear = null;
@@ -295,6 +296,12 @@ export class RippleField {
     if (!holdLastFrame && this.ctx && this.width)
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.canvas.dataset.waves = "0";
+  }
+  turnOpening(progress) {
+    if (this.opening === progress)
+      return;
+    this.opening = progress;
+    this.schedule();
   }
   schedule() {
     if (this.frame || !this.width || document.hidden)
@@ -340,6 +347,20 @@ export class RippleField {
         alpha : envelope(mark, now, quiet),
         phase : quiet ? 1.15 : age + mark.seed * .31,
         seed : mark.seed
+      });
+    }
+    if (this.opening != null && !quiet && fronts.length < RIPPLE_LIMIT) {
+      const t = smooth(this.opening);
+      const [x, y] = this.project([ 104.07 + 14.66 * t, 30.66 + 1.39 * t ]);
+      fronts.push({
+        x,
+        y,
+        r : Math.min(w * .25, h * .40, 215),
+        ux : .94,
+        uy : -.28,
+        seed : 2.17,
+        phase : 1.1 + t * 2.7,
+        alpha : .54 * (1 - t)
       });
     }
     for (const f of fronts)

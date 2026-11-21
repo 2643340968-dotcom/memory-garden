@@ -11,51 +11,62 @@
 <body>
   <main id="edition">
     <header class="masthead">
-      <a class="home" href="#atlas" aria-label="全国地图">
+      <a class="home" href="./flow.html" aria-label="项目首页">
         <svg class="imprint" viewBox="0 0 45 37" aria-hidden="true"><g fill="none" stroke-width="1.6">
           <path stroke="#695db4" d="M3 18C5 8 22 1 32 4S44 18 37 25S16 37 7 31S1 23 3 18Z"/>
           <path stroke="#398bb1" d="M7 19C10 11 22 5 30 7S38 18 33 24S18 32 11 29S5 25 7 19Z"/>
           <path stroke="#cf604c" d="M13 19C15 14 22 10 28 11S34 18 29 23S19 28 15 25S11 22 13 19Z"/>
           <path stroke="#415386" d="M18 19C20 15 25 14 27 16S27 21 23 23S17 22 18 19Z"/>
-        </g></svg><span id="edition-name"></span>
+        </g></svg><span id="edition-name" class="sr"></span>
       </a>
       <nav id="trail" aria-label="地图位置"></nav>
+      <div class="header-tools">
+        <div class="actions"><button type="button" id="open-map" hidden></button><button type="button" id="dismiss-chapter" hidden></button><button type="button" id="enter" hidden></button><button type="button" id="write" hidden></button><a id="back" href="#atlas" hidden></a></div>
+        <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
+        <div class="map-tools" id="map-tools">
+          <button type="button" id="zoom-in" aria-label="放大">+</button>
+          <button type="button" id="zoom-out" aria-label="缩小">−</button>
+          <button type="button" id="fit" aria-label="回到当前范围"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="2.2"/></svg></button>
+        </div>
+      </div>
       <details id="guide" class="guide">
         <summary id="guide-toggle" aria-label="地图导览">i</summary>
-        <div class="guide-page"><p id="guide-tip"></p><div id="legend" class="legend" aria-label="图例"></div><button type="button" id="replay"></button></div>
+        <div class="guide-page"><p id="guide-tip"></p><div id="legend" class="legend" aria-label="图例"></div><button type="button" id="replay"></button>
+          <div class="guide-meta">
+            <div class="reading"><i aria-hidden="true"></i><span id="readout"></span><span id="coordinates" dir="ltr"></span></div>
+            <details class="credits"><summary id="credit-title"></summary><div>
+              <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth ↗</a>
+              <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap ↗</a>
+              <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors ↗</a>
+            </div></details>
+          </div>
+        </div>
       </details>
       <button class="language" id="flow-language" type="button">EN</button>
     </header>
     <section id="stage" class="stage" data-surface="atlas">
-      <div id="map" class="map" role="group" aria-label="地图">
+      <div id="map" class="map" role="group" aria-label="地图" tabindex="-1">
         <canvas id="surround" aria-hidden="true"></canvas><canvas id="base" aria-hidden="true"></canvas><canvas id="ink" aria-hidden="true"></canvas><canvas id="notations" aria-hidden="true"></canvas>
         <canvas id="waves" aria-hidden="true"></canvas><div id="pins"></div>
       </div>
-      <div id="garden" class="garden" hidden role="group" aria-label="记忆花园">
+      <div id="garden" class="garden" hidden role="group" aria-label="记忆花园" tabindex="-1">
         <canvas id="waterbed" aria-hidden="true"></canvas><canvas id="garden-water" aria-hidden="true"></canvas><div id="seeds"></div>
       </div>
-      <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
+      <section id="landing" hidden aria-labelledby="landing-title">
+        <div class="landing-wash" aria-hidden="true"></div>
+        <div class="landing-type">
+          <h1 id="landing-title">记忆之场</h1>
+          <p id="landing-hint">向下滚动，展开地图</p>
+          <span class="scroll-stroke" aria-hidden="true"></span>
+        </div>
+        <div id="landing-scroll" role="region" tabindex="0" aria-describedby="landing-hint"><div class="scroll-distance" aria-hidden="true"></div></div>
+      </section>
       <div class="heading" id="chapter">
-        <p id="folio"></p><h1 id="title" tabindex="-1"></h1><p id="intro"></p>
-        <button type="button" id="dismiss-chapter" hidden></button>
+        <p id="folio"></p><h2 id="title" tabindex="-1"></h2><p id="intro"></p>
       </div>
-      <div class="actions"><button type="button" id="enter" hidden></button><button type="button" id="write" hidden></button><a id="back" href="#atlas" hidden></a></div>
       <div class="north" aria-hidden="true"><span>N</span><i></i></div>
-      <div class="map-tools" id="map-tools">
-        <button type="button" id="zoom-in" aria-label="放大">+</button>
-        <button type="button" id="zoom-out" aria-label="缩小">−</button>
-        <button type="button" id="fit" aria-label="回到当前范围"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="2.2"/></svg></button>
-      </div>
       <p id="notice" class="notice" role="status"></p>
     </section>
-    <footer>
-      <div class="reading"><i aria-hidden="true"></i><span id="readout"></span><span id="coordinates" dir="ltr"></span></div>
-      <details class="credits"><summary id="credit-title"></summary><div>
-        <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth ↗</a>
-        <a href="https://openfreemap.org/" target="_blank" rel="noreferrer">OpenFreeMap ↗</a>
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors ↗</a>
-      </div></details>
-    </footer>
     <section id="arrival" hidden aria-labelledby="arrival-title">
       <canvas class="arrival-ink" aria-hidden="true"></canvas><p id="arrival-place"></p>
       <h2 id="arrival-title" tabindex="-1"></h2><p id="arrival-note"></p><button type="button" id="skip"></button><button type="button" id="arrival-back" hidden></button>
