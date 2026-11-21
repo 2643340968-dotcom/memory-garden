@@ -1,9 +1,9 @@
 import {AtlasCharts} from "../atlas/AtlasCharts.js";
 import {CHINA, CITIES, PLACES} from "../atlas/places.js";
 import {groupMarkers, overlaps} from "../atlas/markerLayout.js";
-import {adjacentStop, routeAtZoom} from "../atlas/zoomRoute.js";
 import {getLanguage, placeText} from "../i18n/LanguageController.js";
-import {blend, cameraProgress, clamp, latitude, mercator, project, under} from "./geometry.js";
+import {blend, cameraProgress, clamp, mercator, project} from "./geometry.js";
+import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "./levels.js";
 import {RippleField} from "./ripples.js";
 import {FlowBasemap, NavigationChart, paintChart} from "./FlowBasemap.js";
 import {nationalMarks, OverviewRipples} from "./overview.js";
@@ -13,7 +13,6 @@ const stops = {
   city : 780,
   place : 660
 };
-const stopScale = .0055;
 const cityInks = {
   nanjing : "#815b97",
   beijing : "#ba645b",
@@ -49,6 +48,8 @@ export class FlowAtlas {
     this.root = root;
     this.callbacks = callbacks;
     this.markers = root.querySelector("#pins");
+    this.nearby = document.getElementById("nearby");
+    this.wheel = new WheelGesture();
     this.notes = root.querySelector("#notations");
     this.ctx = this.notes.getContext("2d");
     this.pointers = new Map();
@@ -78,12 +79,11 @@ export class FlowAtlas {
     const dpr = Math.min(devicePixelRatio || 1, 2.5, Math.sqrt(9000000 / (w * h)));
     if (this.w === w && this.h === h && dpr === this.dpr)
       return;
-    const old = this.w && this.fit(this.route);
     this.w = w;
     this.h = h;
     this.dpr = dpr;
     const fit = this.fit(this.route);
-    this.view = old && this.manual ? {...this.view, span : this.view.span * fit.span / old.span} : fit;
+    this.view = this.manual && this.view ? {...this.view, span : fit.span} : fit;
     if (this.cover) this.positionCover();
     this.flight = null;
     this.notes.width = Math.round(w * dpr);
@@ -122,7 +122,8 @@ export class FlowAtlas {
     }
     this.invalidate();
   }
-  show(route, {restore = null, keep = false, immediate = false} = {}) {
+  show(route, {restore = null, immediate = false} = {}) {
+    this.closeNearby();
     this.unhover();
     this.selectedLabel = null;
     if (route.level !== "country") this.overviewRipples.stop();
@@ -130,28 +131,28 @@ export class FlowAtlas {
     this.route = route;
     this.root.hidden = false;
     this.resize();
-    if (!keep)
-      this.wheel = null;
     this.groupKey = "";
-    this.manual = Boolean(restore || keep);
-    if (!keep) {
-      const dest = restore ?? this.fit(route);
-      this.fly(dest, immediate || restore ? 0 : stops[route.level]);
-    } else
-      this.invalidate();
+    this.manual = Boolean(restore);
+    const fitted = this.fit(route);
+    const dest = restore ? {...fitted, x: restore.x, y: restore.y} : fitted;
+    this.fly(dest, immediate ? 0 : stops[route.level]);
   }
   hide(holdFrame = false) {
+    this.closeNearby();
     this.unhover();
     this.overviewRipples.stop();
     this.active = false;
     this.pointers.clear();
+    this.pinch = null;
+    this.dragging = false;
+    this.root.classList.remove("dragging");
     this.flight = null;
     this.ripples.clear(holdFrame);
     this.root.hidden = !holdFrame;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
   }
-  fly(to, duration = 0, free = false) {
+  fly(to, duration = 0) {
     const now = performance.now(), prior = this.flight;
     let velocity = 0;
     if (prior) {
@@ -166,7 +167,7 @@ export class FlowAtlas {
       duration += Math.min(325, Math.abs(distance) * 64);
     const slope = Math.abs(distance) > .00001 ? velocity * duration / distance : 0;
     this.flight = duration && !this.quiet.matches ?
-        {from : {...this.view}, to, start : now, duration, free, slope} :
+        {from : {...this.view}, to, start : now, duration, slope} :
         null;
     if (!this.flight)
       this.view = to;
@@ -220,24 +221,44 @@ export class FlowAtlas {
       return;
     }
     if (mark.members.length > 1) {
-      this.unhover();
-      const places = mark.members.map(id => PLACES[id].center);
-      const xs = places.map(p => p[0]), ys = places.map(p => mercator(p[1]));
-      const xr = Math.max(...xs) - Math.min(...xs), yr = Math.max(...ys) - Math.min(...ys);
-      const span = Math.max(
-          stopScale,
-          Math.min(this.view.span * .44, Math.max(.012, xr * 2.3, yr * 2.3 * this.w / this.h)));
-      this.manual = true;
-      this.fly(
-          {
-            x : (Math.max(...xs) + Math.min(...xs)) / 2,
-            y : (Math.max(...ys) + Math.min(...ys)) / 2,
-            span
-          },
-          330);
+      this.openNearby(pin);
       return;
     }
     this.callbacks.choose(mark.site);
+  }
+  openNearby(pin) {
+    if (this.nearbyPin === pin) { this.closeNearby(true); return; }
+    this.closeNearby();
+    this.nearbyPin = pin;
+    pin.setAttribute("aria-expanded", "true");
+    this.nearby.replaceChildren(...pin.mark.members.map(id => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = placeText(PLACES[id].name);
+      button.onclick = () => this.callbacks.choose(id);
+      return button;
+    }));
+    this.nearby.hidden = false;
+    this.positionNearby();
+    this.nearby.firstElementChild.focus({preventScroll: true});
+  }
+  positionNearby() {
+    const pin = this.nearbyPin;
+    if (!pin) return;
+    if (!pin.isConnected || pin.hidden) { this.closeNearby(); return; }
+    const [x, y] = project(this.view, this.w, this.h, pin.mark.center);
+    const width = this.nearby.offsetWidth, height = this.nearby.offsetHeight;
+    const below = y + 18;
+    this.nearby.style.left = clamp(x - width / 2, 8, this.w - width - 8) + "px";
+    this.nearby.style.top = clamp(below + height < this.h - 8 ? below : y - height - 18,
+                                  8, this.h - height - 8) + "px";
+  }
+  closeNearby(focus = false) {
+    if (!this.nearbyPin) return;
+    this.nearbyPin.setAttribute("aria-expanded", "false");
+    if (focus) this.nearbyPin.focus({preventScroll: true});
+    this.nearbyPin = null;
+    this.nearby.hidden = true;
   }
   selectLabel(id) {
     if (this.selectedLabel === id) return;
@@ -262,93 +283,83 @@ export class FlowAtlas {
     markers.addEventListener("focusout", () => this.unhover());
     markers.addEventListener("click", e => {
       const pin = e.target.closest(".pin");
-      if (pin && performance.now() > (this.suppressClickUntil ?? 0))
+      if (pin && (e.detail === 0 || performance.now() > (this.suppressClickUntil ?? 0)))
         this.activate(pin);
     });
     root.addEventListener("wheel", e => {
       e.preventDefault();
-      const xy = this.point(e), prev = this.wheel;
-      // The pin can move under a stationary pointer at a semantic stop.
-      // Only moving the pointer or choosing another control changes its anchor.
-      const same = prev && Math.hypot(prev.xy[0] - xy[0], prev.xy[1] - xy[1]) < 5;
-      const site = (same ? prev.site : null) ?? e.target.closest(".pin")?.mark.site;
-      this.wheel = {xy, site};
-      const delta = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.h : 1);
-      this.zoom(Math.exp(-clamp(delta, -300, 300) * .0028), xy, xy, site);
-    }, {passive : false});
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      const units = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? this.h : 1;
+      const delta = e.deltaY * units * (e.ctrlKey ? -1 : 1);
+      if (!this.wheel.consume(delta, e.timeStamp)) return;
+      if (delta > 0 && this.flight && this.flight.to.span < this.flight.from.span) return;
+      this.step(delta > 0, e.target.closest(".pin")?.mark);
+    }, {passive: false});
     root.addEventListener("pointerdown", e => {
-      if (e.button !== 0 || this.pointers.size >= 2)
-        return;
-      if (!e.target.closest(".pin")) this.selectLabel(null);
+      if (e.button !== 0 || this.pointers.size >= 2) return;
+      if (!this.pointers.size) this.suppressClickUntil = 0;
+      const pin = e.target.closest(".pin");
+      if (!pin) this.selectLabel(null);
       const point = this.point(e);
       this.callbacks.gesture();
-      this.wheel = null;
-      this.pointers.set(e.pointerId, {point, start : point});
+      this.pointers.set(e.pointerId, {point, start: point, mark: pin?.mark});
       if (this.pointers.size === 2) {
+        const [a, b] = this.pointers.values();
+        const [x, y] = [(a.point[0] + b.point[0]) / 2, (a.point[1] + b.point[1]) / 2];
+        const box = root.getBoundingClientRect();
+        const midPin = document.elementFromPoint(box.left + x, box.top + y)?.closest(".pin");
+        this.pinch = {distance: Math.hypot(a.point[0] - b.point[0], a.point[1] - b.point[1]),
+                      mark: midPin?.mark ?? a.mark ?? b.mark, used: false};
         this.dragging = true;
-        for (const id of this.pointers.keys())
-          root.setPointerCapture(id);
+        for (const id of this.pointers.keys()) root.setPointerCapture(id);
       }
     });
     root.addEventListener("pointermove", e => {
       const track = this.pointers.get(e.pointerId);
       if (!track) {
-        if (!e.buttons && e.pointerType !== "touch")
-          this.ripples.steer(...this.point(e));
-        if (this.wheel) {
-          const [x, y] = this.point(e);
-          if (Math.hypot(x - this.wheel.xy[0], y - this.wheel.xy[1]) >= 5)
-            this.wheel = null;
+        if (!e.buttons && e.pointerType !== "touch") this.ripples.steer(...this.point(e));
+        return;
+      }
+      const xy = this.point(e), old = track.point;
+      track.point = xy;
+      if (this.pinch) {
+        const other = [...this.pointers.values()].find(p => p !== track);
+        if (!other || this.pinch.used) return;
+        const distance = Math.hypot(xy[0] - other.point[0], xy[1] - other.point[1]);
+        const change = distance - this.pinch.distance;
+        if (Math.abs(change) >= Math.max(14, this.pinch.distance * .16)) {
+          this.pinch.used = true;
+          this.step(change > 0, this.pinch.mark);
         }
         return;
       }
-      const xy = this.point(e), old = track.point,
-            other = [...this.pointers.values() ].find(t => t !== track)?.point;
-      if (!this.dragging && Math.hypot(xy[0] - track.start[0], xy[1] - track.start[1]) < 5)
-        return;
-      if (!root.hasPointerCapture(e.pointerId))
-        root.setPointerCapture(e.pointerId);
+      if (!this.dragging && Math.hypot(xy[0] - track.start[0], xy[1] - track.start[1]) < 5) return;
+      if (!root.hasPointerCapture(e.pointerId)) root.setPointerCapture(e.pointerId);
       this.dragging = true;
+      if (this.flight) return;
       this.unhover();
-      this.flight = null;
       this.manual = true;
       root.classList.add("dragging");
-      track.point = xy;
-      if (other) {
-        const gap = p => Math.max(1, Math.hypot(p[0] - other[0], p[1] - other[1]));
-        const mid = p => [(p[0] + other[0]) / 2, (p[1] + other[1]) / 2];
-        this.zoom(gap(xy) / gap(old), mid(old), mid(xy), null, true);
-        return;
-      }
       const k = this.view.span / this.w;
       this.view = {
         ...this.view,
-        x : clamp(this.view.x - (xy[0] - old[0]) * k, 65, 146),
-        y : clamp(this.view.y + (xy[1] - old[1]) * k, 14, 70)
+        x: clamp(this.view.x - (xy[0] - old[0]) * k, 65, 146),
+        y: clamp(this.view.y + (xy[1] - old[1]) * k, 14, 70)
       };
       this.invalidate();
     });
     const end = e => {
-      if (!this.pointers.delete(e.pointerId))
-        return;
-      if (this.dragging)
-        this.suppressClickUntil = performance.now() + 350;
+      if (!this.pointers.delete(e.pointerId)) return;
+      if (this.dragging) this.suppressClickUntil = performance.now() + 300;
       if (!this.pointers.size) {
         this.dragging = false;
+        this.pinch = null;
         root.classList.remove("dragging");
-        if (this.pinchStop && performance.now() - this.pinchStop.time < 220 &&
-            Math.abs(Math.log(this.view.span / this.pinchStop.span)) < .28) {
-          this.fly(this.fit(this.route), 430, true);
-        }
-        this.pinchStop = null;
         this.invalidate();
       }
     };
     root.addEventListener("pointerup", end);
     root.addEventListener("pointercancel", end);
-    root.addEventListener("pointerleave", () => {
-      this.wheel = null;
-    });
     root.addEventListener("lostpointercapture", e => {
       if (e.target === root)
         end(e);
@@ -356,6 +367,24 @@ export class FlowAtlas {
     window.addEventListener("pointerup", end);
     root.addEventListener("keydown", e => {
       if (e.key === "Escape") this.selectLabel(null);
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+      if (e.key === "PageUp" || e.key === "PageDown") {
+        e.preventDefault();
+        this.step(e.key === "PageDown", e.target.closest(".pin")?.mark);
+        root.focus({preventScroll: true});
+      }
+    });
+    this.nearby.addEventListener("keydown", e => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      this.closeNearby(true);
+    });
+    document.addEventListener("pointerdown", e => {
+      if (this.nearbyPin && !this.nearby.contains(e.target) && e.target.closest(".pin") !== this.nearbyPin)
+        this.closeNearby();
+    });
+    this.nearby.addEventListener("focusout", e => {
+      if (e.relatedTarget && !this.nearby.contains(e.relatedTarget)) this.closeNearby();
     });
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.overviewRipples.stop();
@@ -363,51 +392,32 @@ export class FlowAtlas {
     });
     this.quiet.addEventListener("change", () => this.invalidate());
     document.fonts?.ready.then(() => this.invalidate());
-    document.querySelector("#zoom-in").onclick = () => this.zoom(1.85);
-    document.querySelector("#zoom-out").onclick = () => this.zoom(1 / 1.85);
-    document.querySelector("#fit").onclick = () => this.recenter();
+    document.querySelector("#level-target").onchange = e => {
+      const id = e.target.value;
+      if (!id) return;
+      this.step(true, this.route.level === "country" ? {national: true, city: id} : {site: id});
+      root.focus({preventScroll: true});
+    };
+    document.querySelector("#zoom-out").onclick = () => {
+      this.step(false);
+      root.focus({preventScroll: true});
+    };
+    document.querySelector("#fit").onclick = () => {
+      this.recenter();
+      root.focus({preventScroll: true});
+    };
   }
   recenter() {
     this.callbacks.gesture();
     this.unhover();
     this.manual = false;
-    this.wheel = null;
     this.fly(this.fit(this.route), 450);
   }
-  zoom(
-      factor, point = [ this.w * (this.w >= 820 ? .515 : .5), this.h * .50 ], next = point, site = null,
-      touch = false) {
+  step(inward, mark) {
+    const next = nextMapLevel(this.route, inward, mark);
+    if (!next) return;
     this.callbacks.gesture();
-    const flight = this.flight;
-    const reversing = flight && (flight.to.span - this.view.span) * (factor - 1) > 0;
-    const base = flight?.free && !reversing ? flight.to : this.view;
-    if (site)
-      point = next = project(base, this.w, this.h, PLACES[site].center);
-    const [lon, my] = under(base, this.w, this.h, ...point);
-    const cap = this.fit({level : "country"}), span = clamp(base.span / factor, stopScale, cap.span);
-    const dest = {
-      x : clamp(lon - (next[0] - this.w / 2) * span / this.w, 65, 146),
-      y : clamp(my + (next[1] - this.h / 2) * span / this.w, 14, 70),
-      span
-    };
-    if (factor < 1 && span > cap.span * .70) {
-      const pull = (span - Math.max(base.span, cap.span * .70)) /
-          Math.max(.001, cap.span - Math.max(base.span, cap.span * .70));
-      dest.x += (cap.x - dest.x) * clamp(pull, 0, 1);
-      dest.y += (cap.y - dest.y) * clamp(pull, 0, 1);
-    }
-    this.manual = true;
-    const route = routeAtZoom(this.route, span, factor < 1, [ lon, latitude(my) ], r => this.fit(r).span);
-    if (route !== this.route) {
-      const step = adjacentStop(this.route, route);
-      this.callbacks.step(step);
-      if (touch) {
-        this.pinchStop = {time : performance.now(), span};
-        this.fly(dest, 0, true);
-      } else
-        this.fly(this.fit(step), stops[step.level], true);
-    } else
-      this.fly(dest, touch ? 0 : 185, true);
+    this.callbacks.step(next);
   }
   groups() {
     const national = this.route.level === "country";
@@ -453,11 +463,9 @@ export class FlowAtlas {
     const reserved = this.cover ? [] : this.drawPins(this.groups());
     this.overviewRipples.update(this.route.level === "country" && !this.cover, !f && !!chart && !this.dragging);
     this.annotate(chart, reserved);
+    this.positionNearby();
     this.charts.flush();
     this.ripples.present(now, !!this.flight);
-    document.querySelector("#zoom-out").disabled =
-        this.view.span >= this.fit({level : "country"}).span * .999;
-    document.querySelector("#zoom-in").disabled = this.view.span <= stopScale * 1.001;
     this.root.dataset.level = this.route.level;
     if (this.flight)
       this.invalidate();
@@ -484,18 +492,29 @@ export class FlowAtlas {
         pin.mark = g;
         pin.style.setProperty("--pin-ink", cityInks[g.city] ?? "#6d817d");
         const name = placeText(g.name);
-        pin.lastElementChild.textContent = name;
+        const entrance = this.route.level === "place" && this.route.place === g.site;
+        pin.lastElementChild.textContent = entrance ? name + " ↗" : name;
+        const action = entrance ? (zh() ? " · 进入花园" : " · Enter the garden") : "";
+        if (entrance) pin.title = name + action;
+        else pin.removeAttribute("title");
         pin.firstElementChild.firstElementChild.textContent =
             g.members.length > 1 ? g.members.length : "";
         pin.setAttribute(
             "aria-label",
-            name + (!g.city ? (zh() ? " · 地图标注" : " · Map location") : "") +
+            name + action + (!g.city ? (zh() ? " · 地图标注" : " · Map location") : "") +
                 (g.members.length > 1 ? (zh() ? " · 附近 " : " · ") + g.members.length +
                          (zh() ? " 处地点" : " nearby places") :
                                         ""));
         pin.classList.toggle("national", !!g.national);
         pin.classList.toggle("annotation", !g.city);
         pin.classList.toggle("cluster", g.members.length > 1);
+        if (g.members.length > 1) {
+          pin.setAttribute("aria-controls", "nearby");
+          pin.setAttribute("aria-expanded", String(pin === this.nearbyPin));
+        } else {
+          pin.removeAttribute("aria-controls");
+          pin.removeAttribute("aria-expanded");
+        }
       }
       for (const id of gone) {
         if (this.hot === id)
@@ -596,8 +615,9 @@ export class FlowAtlas {
           const [x, y] = project(view, w, h, [ lon, lat ]);
           return {x, y, name : zh() ? cn : en};
         }) :
-        (chart?.frame.labels ?? [])
+        (chart?.frame.language === getLanguage() ? chart.frame.labels : [])
             .slice(0, 180)
+            .filter(label => chartLabelInLanguage(label.name, getLanguage()))
             .map(
                 l => ({name : l.name, x : chart.x + l.x * chart.scale, y : chart.y + l.y * chart.scale}));
     ctx.font = (view.span > 8 ? "italic 13px Georgia, serif" : "11px system-ui");

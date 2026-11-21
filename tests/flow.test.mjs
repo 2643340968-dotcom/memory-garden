@@ -4,8 +4,73 @@ import {project, under, mercator, latitude, blend, cameraProgress, coversView, f
 import {FlowBasemap, NavigationChart} from "../src/flow/FlowBasemap.js";
 import {AFTERGLOW, envelope, releaseWave, RippleField} from "../src/flow/ripples.js";
 import {openingPose} from "../src/flow/landing.js";
+import {flowerFront, openingFlowers} from "../src/flow/coverFlowers.js";
 import {nationalMarks} from "../src/flow/overview.js";
+import {chartLabelInLanguage, nextMapLevel, WheelGesture} from "../src/flow/levels.js";
 import {CITIES, PLACES} from "../src/atlas/places.js";
+
+test("cover flower fronts grow continuously, overlap in time and dissolve before restarting", () => {
+  const active = [0.1, 1, 2, 3, 4, 5.3].map(flowerFront);
+  assert.ok(active.every(wave => wave.opacity > 0));
+  assert.ok(active.every((wave, i) => i === 0 || wave.radius > active[i - 1].radius));
+  assert.ok(active[0].opacity < active[2].opacity && active.at(-1).opacity < .01);
+  assert.equal(flowerFront(-1), null);
+  assert.equal(flowerFront(5.4), null);
+  assert.ok([4.6, 2.8, 1].every(age => flowerFront(age)?.opacity > 0));
+});
+
+test("the top-down opening has staggered, different-sized flowers on both sides at phone and desktop widths", () => {
+  for (const [w, h] of [[390, 540], [1440, 550]]) {
+    const bed = openingFlowers(w, h);
+    for (const side of [bed.filter(b => b.x < w / 2), bed.filter(b => b.x > w / 2)]) {
+      assert.ok(new Set(side.map(b => b.type)).size >= 5);
+      assert.ok(Math.max(...side.map(b => b.radius)) > 2 * Math.min(...side.map(b => b.radius)));
+      assert.ok(Math.max(...side.map(b => b.delay)) - Math.min(...side.map(b => b.delay)) > 1);
+      assert.ok(side.every(b => b.y >= 0 && b.y < h));
+    }
+  }
+});
+
+test("Flow advances only through the pointed city and its places and retreats exactly one level", () => {
+  const country = {level: "country"};
+  assert.equal(nextMapLevel(country, true), null);
+  assert.equal(nextMapLevel(country, false), null);
+  for (const mark of nationalMarks) {
+    const city = nextMapLevel(country, true, mark);
+    if (!mark.city) { assert.equal(city, null); continue; }
+    assert.deepEqual(city, {level: "city", city: mark.city});
+    assert.deepEqual(nextMapLevel(city, false), country);
+    assert.equal(nextMapLevel(city, true, mark), null);
+    assert.equal(nextMapLevel(city, true), null);
+    for (const [id, data] of Object.entries(PLACES)) {
+      const place = nextMapLevel(city, true, {site: id});
+      if (data.city !== city.city) { assert.equal(place, null); continue; }
+      assert.deepEqual(place, {level: "place", city: city.city, place: id});
+      assert.equal(nextMapLevel(place, true, {site: id}), null);
+      assert.deepEqual(nextMapLevel(place, false), city);
+    }
+  }
+});
+
+test("a sustained trackpad tail takes one step and a deliberate reversal can interrupt it", () => {
+  const wheel = new WheelGesture();
+  assert.equal(wheel.consume(2, 0), false);
+  assert.equal(wheel.consume(8, 12), true);
+  for (let now = 25; now < 800; now += 30) assert.equal(wheel.consume(4, now), false);
+  assert.equal(wheel.consume(-100, 802), true);
+  assert.equal(wheel.consume(-42, 828), false);
+  assert.equal(wheel.consume(-26, 1100), true);
+  assert.equal(wheel.consume(100, 1110), true);
+});
+
+test("street labels stay in the chosen language even when a vector tile lacks a translation", () => {
+  assert.equal(chartLabelInLanguage("水西门大街", "en"), false);
+  assert.equal(chartLabelInLanguage("Shuiximen Avenue", "en"), true);
+  assert.equal(chartLabelInLanguage("水西门大街", "zh-CN"), true);
+  assert.equal(chartLabelInLanguage("Shuiximen Avenue", "zh-CN"), false);
+  for (const language of ["en", "zh-CN"])
+    assert.equal(chartLabelInLanguage("水西门 Shuiximen", language), false);
+});
 
 test(
     "scrolling the cover in either direction recovers the same title, paper and map registration", () => {

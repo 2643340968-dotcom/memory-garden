@@ -1,4 +1,5 @@
 import {clamp, smooth} from "./geometry.js";
+import {CoverFlowers} from "./coverFlowers.js";
 
 // Native scrolling supplies the distance, including touch inertia and reversals.
 // The atlas receives wheel and pan only after this separate scroll surface ends.
@@ -22,6 +23,7 @@ export class AtlasLanding {
     this.atlas = atlas;
     this.onEnter = onEnter;
     this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
+    this.flowers = new CoverFlowers(section.querySelector("#landing-flowers"), this.quiet);
     this.quiet.addEventListener("change", () => {
       if (this.active)
         this.paint();
@@ -94,6 +96,7 @@ export class AtlasLanding {
     this.atlas.root.inert = true;
     this.stage.classList.add("show-opening");
     this.scroll.scrollTop = 0;
+    this.flowers.open();
     this.paint();
     if (focus)
       this.scroll.focus({preventScroll : true});
@@ -118,9 +121,15 @@ export class AtlasLanding {
   paint() {
     const pose = openingPose(this.progress, this.quiet.matches);
     const style = this.stage.style;
+    this.stage.parentElement.style.setProperty("--toolbar-shape", pose.wash);
+    this.stage.parentElement.style.setProperty("--toolbar-type", pose.title);
     style.setProperty("--cover-title", pose.title);
     style.setProperty("--cover-wash", pose.wash);
     style.setProperty("--cover-lift", -pose.lift + "vh");
+    style.setProperty("--cover-flowers", 1 - smooth(clamp((this.progress - .04) / .66, 0, 1)));
+    style.setProperty("--flower-lift", (this.quiet.matches ? 0 : this.progress * 7) + "%");
+    style.setProperty("--flower-zoom", this.quiet.matches ? 1 : 1 + this.progress * .16);
+    this.flowers.revealMap(this.progress);
     this.atlas.setCover(pose);
   }
   close() {
@@ -130,6 +139,7 @@ export class AtlasLanding {
     clearTimeout(this.snapTimer);
     cancelAnimationFrame(this.frame);
     this.frame = 0;
+    this.flowers.close();
     this.atlas.setCover(null);
     this.stage.classList.remove("show-opening");
     this.section.hidden = this.control.hidden = true;

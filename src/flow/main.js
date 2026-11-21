@@ -5,6 +5,7 @@ import {FlowAtlas} from "./atlas.js";
 import {paper} from "./FlowBasemap.js";
 import {FlowGarden} from "./garden.js";
 import {AtlasLanding} from "./landing.js";
+import {MapToolbar} from "./toolbar.js";
 import {placePhase, waterprint} from "./ripples.js";
 import {clamp, smooth} from "./geometry.js";
 
@@ -26,14 +27,12 @@ try {
 } catch {
 }
 setLanguage(initialLanguage, {persist : false});
-let route, version = 0, entryTimer, holdTimer, releaseTitle, skipped = false, failed = false,
+let route, version = 0, holdTimer, releaseTitle, skipped = false, failed = false,
            hovered = null, noticeTimer, chapterTimer;
 const quiet = matchMedia("(prefers-reduced-motion: reduce)");
 const touch = matchMedia("(hover:none)");
+const toolbar = new MapToolbar(el("edition"));
 
-function cancelEntry() {
-  clearTimeout(entryTimer);
-}
 function closeChapter() {
   clearTimeout(chapterTimer);
   el("chapter").classList.remove("visible");
@@ -50,13 +49,12 @@ function playChapter() {
 }
 function mapGesture() {
   landing.enter();
-  cancelEntry();
   closeChapter();
-  el("guide").open = false;
+  toolbar.expand(false);
 }
 const atlas = new FlowAtlas(el("map"), {
   navigate : r => navigate(r),
-  step : r => navigate(r, {replace : true, keep : true, focus : false}),
+  step : r => navigate(r, {chapter : false, focus : false}),
   gesture : mapGesture,
   read : mark => {
     hovered = mark;
@@ -67,12 +65,13 @@ const atlas = new FlowAtlas(el("map"), {
   choose : chooseSite,
 });
 const landing = new AtlasLanding(el("landing"), atlas, () => {
+  toolbar.setMode("map");
   if (route?.level === "country" && !location.hash)
     history.pushState({flowFrom : "opening"}, "", "#atlas");
 });
 
 function openLanding() {
-  el("guide").open = false;
+  toolbar.setMode("cover");
   closeChapter();
   const home = new URL(location.href);
   home.hash = "";
@@ -85,10 +84,10 @@ function openLanding() {
     landing.open(true);
   }
 }
+const savedMessage = () => local("已留在此处的花园，本次到访可回看。", "Saved in this garden for your visit.");
 const garden = new FlowGarden({
   saved : () => {
-    el("notice").textContent =
-        local("已留在此处的花园，本次到访可回看。", "Saved in this garden for your visit.");
+    el("notice").textContent = savedMessage();
     clearTimeout(noticeTimer);
     noticeTimer = setTimeout(() => el("notice").textContent = "", 4200);
   },
@@ -105,21 +104,15 @@ function chooseSite(id) {
   }
   void PLACES[id].loadCollection().catch(() => {});
   navigate(place);
-  const expected = version;
-  entryTimer = setTimeout(() => {
-    if (version === expected)
-      navigate({...place, level : "garden"});
-  }, quiet.matches ? 180 : (atlas.flight?.duration ?? 0) + 180);
 }
 function navigate(next, opts = {}) {
-  cancelEntry();
   if (route && atlasHash(route) === atlasHash(next)) {
     if (next.level !== "garden")
       atlas.recenter();
     return;
   }
   const state = {flowFrom : route ? atlasHash(route) : null};
-  history[opts.replace ? "replaceState" : "pushState"](state, "", atlasHash(next));
+  history.pushState(state, "", atlasHash(next));
   void show(next, opts);
 }
 function link(r, label) {
@@ -154,7 +147,10 @@ function readout(gardenLabel = null) {
   else if (route.city)
     label = placeText((PLACES[route.place] ?? CITIES[route.city]).name);
   el("readout").textContent = label;
-  el("coordinates").textContent = pos ? pos[1].toFixed(3) + "° N  /  " + pos[0].toFixed(3) + "° E" : "";
+  if (pos) {
+    const lat = pos[1].toFixed(3) + "°", lon = pos[0].toFixed(3) + "°";
+    el("coordinates").textContent = local("北纬 " + lat + "  /  东经 " + lon, lat + " N  /  " + lon + " E");
+  } else el("coordinates").textContent = "";
 }
 function legend(isGarden) {
   const values = isGarden ?
@@ -183,8 +179,15 @@ function chrome() {
   const project = local("记忆之场", "Site of Memory"), gardenName = local("记忆花园", "Memory Garden");
   el("edition-name").textContent = project;
   el("landing-title").textContent = project;
-  el("landing-translation").textContent = local("Site of Memory", "记忆之场");
-  el("landing-translation").lang = local("en", "zh-CN");
+  const intro = el("landing-intro");
+  if (getLanguage() === "zh-CN") {
+    intro.replaceChildren(...["沿着地图走进记忆花园，", "读一段往事，", "也可以留下自己的记忆。"].map(words => {
+      const phrase = document.createElement("span");
+      phrase.textContent = words;
+      return phrase;
+    }));
+  } else intro.textContent = "Follow the map into a memory garden to read a story or leave one of your own.";
+  document.querySelector('meta[name="description"]').content = intro.textContent;
   el("landing-hint").textContent =
       local(touch.matches ? "上滑进入地图" : "下滑进入地图", touch.matches ? "Swipe to enter" : "Scroll to enter");
   el("landing-scroll")
@@ -195,9 +198,13 @@ function chrome() {
   el("trail").setAttribute("aria-label", local("当前位置", "Current location"));
   el("map").setAttribute("aria-label", local("可缩放的记忆地图", "Interactive memory atlas"));
   el("garden").setAttribute("aria-label", gardenName);
-  el("flow-language").textContent = el("sheet-language").textContent = local("EN", "中文");
+  el("flow-language").textContent = el("sheet-language").textContent = local("英文", "Chinese");
   for (const b of [el("flow-language"), el("sheet-language")])
-    b.setAttribute("aria-label", local("Switch to English", "切换为中文"));
+    b.setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
+  toolbar.updateLabel();
+  el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
+  document.querySelector(".north span").textContent = local("北", "N");
+  if (el("notice").textContent) el("notice").textContent = savedMessage();
   el("folio").textContent = site ? placeText(city.name) + "  /  " +
           (isGarden ? local("花园俯视图", "Garden plan") : local("地点地图", "Local map")) :
       city ? local("城市地图", "City atlas") + "  /  " + local(n + " 处地点", n + " places") :
@@ -208,10 +215,10 @@ function chrome() {
   el("title").textContent = heading;
   el("title").classList.toggle("long", heading.length > (getLanguage() === "en" ? 24 : 8));
   const tip = isGarden ? local("轻触印记，读一段记忆。", "Select a mark to read a memory.") :
-      site             ? local("点选此处，进入花园。", "Select this place to enter its garden.") :
-      city          ? local("点开数字，再选一处地点。", "Open a numbered group, then choose a place.") :
-      local("全国有 18 个圆点。点选带地名的五座城市可进入城市地图，轻触小圆点可查看地名。",
-            "Explore the five labelled cities, or select any of the other thirteen dots to see its name.");
+      site ? local("点选当前地点进入花园，上滚返回城市。", "Select this place to enter its garden, or scroll up to return to the city.") :
+      city ? local("指向地点下滚，或轻触地点进入近景。点开数字可选附近地点，上滚返回全国。", "Scroll down over a place or tap it to move closer. Select a number for nearby places. Scroll up to return to China.") :
+      local("指向带地名的城市下滚，或轻触进入城市地图。其余圆点可查看地名。",
+            "Scroll down over a labelled city or tap it to explore. Select a smaller dot to see its name.");
   el("intro").textContent = site ? placeText(site.introduction) : tip;
   el("guide-tip").textContent = tip;
   const guide = local("地图导览、图例与来源", "Map guide, legend and sources");
@@ -235,9 +242,24 @@ function chrome() {
   el("map-tools").hidden = isGarden;
   document.querySelector(".north").hidden = isGarden;
   el("credit-title").textContent = local("地图来源", "Map sources");
-  el("zoom-in").setAttribute("aria-label", local("放大", "Zoom in"));
-  el("zoom-out").setAttribute("aria-label", local("缩小", "Zoom out"));
-  el("fit").setAttribute("aria-label", local("地图居中", "Fit this view"));
+  el("natural-credit").textContent = local("自然地球地图数据", "Natural Earth") + " ↗";
+  el("free-credit").textContent = local("开放自由地图", "OpenFreeMap") + " ↗";
+  el("street-credit").textContent = local("© 开放街图贡献者", "© OpenStreetMap contributors") + " ↗";
+  const target = el("level-target"), country = route.level === "country";
+  target.hidden = !country && route.level !== "city";
+  if (!target.hidden) {
+    const prompt = country ? local("选择城市", "Choose a city") : local("选择地点", "Choose a place");
+    const ids = country ? Object.keys(CITIES) : city.places;
+    target.replaceChildren(new Option(prompt, ""), ...ids.map(id =>
+      new Option(placeText((country ? CITIES : PLACES)[id].name), id)));
+    target.setAttribute("aria-label", prompt);
+  }
+  el("zoom-out").disabled = country;
+  for (const [id, label] of [["zoom-out", local("返回上一级", "Return one level")],
+                             ["fit", local("地图居中", "Recenter map")]]) {
+    el(id).title = label;
+    el(id).setAttribute("aria-label", label);
+  }
   el("arrival-title").textContent =
       failed ? local("花园载入未完成", "The garden could not load") : gardenName;
   el("arrival-place").textContent = site ? placeText(city.name) + "  /  " + placeText(site.name) : "";
@@ -291,11 +313,11 @@ function closeTitle() {
   releaseTitle = null;
   el("arrival").hidden = true;
   el("stage").inert = false;
-  document.querySelector(".masthead").inert = false;
+  document.querySelector(".toolbar-shell").inert = false;
 }
 function holdTitle(origin = null) {
   el("stage").inert = true;
-  document.querySelector(".masthead").inert = true;
+  document.querySelector(".toolbar-shell").inert = true;
   el("arrival").hidden = false;
   el("arrival").classList.remove("fading");
   if (!quiet.matches)
@@ -321,8 +343,7 @@ async function finishTitle(turn) {
     el("garden").focus({preventScroll : true});
   }
 }
-async function show(next, {keep = false, restore = false, focus = true, opening = false} = {}) {
-  cancelEntry();
+async function show(next, {chapter = true, restore = false, focus = true, opening = false} = {}) {
   landing.close();
   const turn = ++version;
   const returning = route?.level === "garden" && next.level !== "garden";
@@ -336,7 +357,7 @@ async function show(next, {keep = false, restore = false, focus = true, opening 
       ];
     }
   }
-  if (route && route.level !== "garden" && !keep && atlas.w && atlasHash(route) !== atlasHash(next)) {
+  if (route && route.level !== "garden" && atlas.w && atlasHash(route) !== atlasHash(next)) {
     visits.set(atlasHash(route), atlas.snapshot());
   }
   closeChapter();
@@ -350,10 +371,10 @@ async function show(next, {keep = false, restore = false, focus = true, opening 
   hovered = null;
   skipped = false;
   failed = false;
+  toolbar.setMode(route.level === "garden" ? "garden" : opening ? "cover" : "map");
   if (route.level !== "garden") {
     garden.root.hidden = true;
     atlas.show(route, {
-      keep,
       restore : restore && !opening ? visits.get(atlasHash(route)) : null,
       immediate : opening || turn === 1
     });
@@ -365,7 +386,7 @@ async function show(next, {keep = false, restore = false, focus = true, opening 
       landing.open(focus && turn > 1);
       return;
     }
-    if (route.level !== "country" && !keep && !restore)
+    if (route.level !== "country" && chapter && !restore)
       playChapter();
     if (focus && turn > 1)
       (el("chapter").classList.contains("visible") ? el("title") : el("map")).focus({
@@ -442,6 +463,11 @@ document.addEventListener("keydown", e => {
     el("guide-toggle").focus();
     return;
   }
+  if (toolbar.expanded) {
+    toolbar.expand(false);
+    toolbar.grip.focus({preventScroll: true});
+    return;
+  }
   if (landing.active)
     landing.enter();
   closeChapter();
@@ -475,6 +501,7 @@ function changeLanguage() {
   } catch {
   }
   setLanguage(lang, {persist : false});
+  atlas.closeNearby();
   chrome();
 }
 el("flow-language").onclick = el("sheet-language").onclick = changeLanguage;

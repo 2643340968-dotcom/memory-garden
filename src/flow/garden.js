@@ -7,6 +7,13 @@ import {placePhase, waterprint} from "./ripples.js";
 
 const el = id => document.getElementById(id);
 const say = (cn, en) => getLanguage() === "zh-CN" ? cn : en;
+const sources = {
+  "Visit Nanjing": ["南京旅游", "Visit Nanjing"],
+  "UNESCO": ["联合国教科文组织", "UNESCO"],
+  "UNESCO World Heritage Centre": ["联合国教科文组织世界遗产中心", "UNESCO World Heritage Centre"],
+  "北京市人民政府 / Beijing Government": ["北京市人民政府", "Beijing Government"],
+  "Wikipedia · 维基百科": ["维基百科", "Wikipedia"],
+};
 const GOLDEN = .618033988749895;
 
 function gardenPositions(count, area) {
@@ -209,7 +216,7 @@ export class FlowGarden {
     if (memory.image)
       return t("memory.archiveImage", {number : memory.label.split(" · ").at(-1)});
     if (memory.audio)
-      return t("memory.archiveVoice") + " " + (memory.audioId ?? "");
+      return [t("memory.archiveVoice"), memory.audioId?.match(/\d+$/)?.[0]].filter(Boolean).join(" ");
     return t("memory.example");
   }
   seedHint(mark) {
@@ -440,7 +447,7 @@ export class FlowGarden {
       link.hidden = !m.sourceUrl;
       if (m.sourceUrl) {
         link.href = m.sourceUrl;
-        link.textContent = m.source + " ↗";
+        link.textContent = say(...(sources[m.source] ?? ["查看来源", "View source"])) + " ↗";
       }
       const image = el("record-media").querySelector("img");
       if (image)
