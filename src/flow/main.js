@@ -32,6 +32,13 @@ let route, version = 0, holdTimer, releaseTitle, skipped = false, failed = false
            hovered = null, noticeTimer, chapterTimer;
 const quiet = matchMedia("(prefers-reduced-motion: reduce)");
 const touch = matchMedia("(hover:none)");
+function updateLandingHint() {
+  const scroll = local(touch.matches ? "上滑进入地图" : "下滑进入地图", touch.matches ? "Swipe up to enter" : "Scroll to enter");
+  const drag = local(touch.matches ? "横划花瓣" : "拖动花瓣", touch.matches ? "Brush petals sideways" : "Drag the petals");
+  el("landing-hint").textContent = quiet.matches ? scroll : drag + " · " + scroll;
+}
+quiet.addEventListener("change", updateLandingHint);
+touch.addEventListener("change", updateLandingHint);
 const toolbar = new MapToolbar(el("edition"));
 
 function closeChapter() {
@@ -193,8 +200,7 @@ function chrome() {
     }));
   } else intro.textContent = "Follow the map into a memory garden to read a story or leave one of your own.";
   document.querySelector('meta[name="description"]').content = intro.textContent;
-  el("landing-hint").textContent =
-      local(touch.matches ? "上滑进入地图" : "下滑进入地图", touch.matches ? "Swipe to enter" : "Scroll to enter");
+  updateLandingHint();
   el("landing-scroll")
       .setAttribute("aria-label", local("滚动进入全国地图", "Scroll into the national atlas"));
   el("open-map").textContent = local("进入地图", "Enter map");

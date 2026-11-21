@@ -1,327 +1,228 @@
 import {TAU} from "./geometry.js";
 
-// A blade grows along x from 0 to 1. Its two sides are measured in petal
-// half-widths. Shoulders, notches and tips use the same geometry at every size.
+// Each blade points along +x. Rounded shoulders, paired lobes and pointed
+// bracts give the same small vocabulary very different silhouettes.
 const blades = {
-  floret: [
-    "M0 0Q.18 -.44 .49 -.77Q.71 -.98 .88 -.55L.98 -.12Q1.03 0 .98 .12L.88 .55Q.71 .98 .49 .77Q.18 .44 0 0Z",
-    "silk"
-  ],
-  spoon: [
-    "M0 0Q.25 -.06 .38 -.38C.49 -.71 .59 -.96 .74 -.96C.90 -.96 1 -.56 1 0C1 .56 .90 .96 .74 .96C.59 .96 .49 .71 .38 .38Q.25 .06 0 0Z",
-    "silk"
-  ],
-  oval: [
-    "M0 0Q.20 -.34 .39 -.72C.62 -1.16 .89 -.91 .98 -.35Q1.03 0 .98 .35C.89 .91 .62 1.16 .39 .72Q.20 .34 0 0Z",
-    "silk"
-  ],
-  round: [
-    "M0 0Q.17 -.07 .25 -.46C.35 -.98 .66 -1.12 .86 -.76C1.05 -.43 1.05 .43 .86 .76C.66 1.12 .35 .98 .25 .46Q.17 .07 0 0Z",
-    "silk"
-  ],
-  point: ["M0 0Q.23 -.66 .53 -.90Q.59 -.93 .66 -.78L1.04 0L.66 .78Q.59 .93 .53 .90Q.23 .66 0 0Z", "keel"],
-  lance: ["M0 0Q.30 -.57 .59 -.84Q.70 -.91 .78 -.64L1.02 0L.78 .64Q.70 .91 .59 .84Q.30 .57 0 0Z", "keel"],
-  cup: [
-    "M0 0Q.27 -.75 .59 -.92Q.76 -1 .88 -.65L.97 -.33Q1.04 0 .97 .33L.88 .65Q.76 1 .59 .92Q.27 .75 0 0Z",
-    "silk"
-  ],
-  fan: [
-    "M0 0Q.25 -.60 .56 -.92Q.73 -1.08 .87 -.78Q1.03 -.57 1.00 -.24Q1.05 .08 .92 .32Q.86 .68 .65 .80Q.35 .91 0 0Z",
-    "fan"
-  ],
-  notch: [
-    "M0 0L.73 -.89Q.89 -1.03 .98 -.90L.92 -.51L1.02 -.27L.95 0L1.02 .27L.92 .51L.98 .90Q.89 1.03 .73 .89Z",
-    "fan"
-  ],
-  ruffle: [
-    "M0 0Q.26 -.57 .57 -.90Q.76 -1.08 .85 -.70Q1.00 -.74 .98 -.32Q1.09 0 .98 .32Q1 .74 .85 .70Q.76 1.08 .57 .90Q.26 .57 0 0Z",
-    "flute"
-  ],
-  fold: [
-    "M0 0C.16 -.66 .44 -1.08 .77 -.92Q1.05 -.77 .99 -.35C.93 .11 .62 .57 .18 .88Q.36 .43 .33 .20Q.20 .01 0 0Z",
-    "roll"
-  ],
-  curl: [
-    "M0 0Q.30 -.62 .61 -.91Q.86 -1.03 .99 -.58Q1.05 -.32 .91 -.09L.69 .48Q.51 .91 .35 .76Q.13 .53 0 0Z",
-    "roll"
-  ],
-  bract: [
-    "M0 0Q.19 -.58 .46 -.87Q.57 -1 .66 -.83L1.06 -.04Q1.10 0 1.05 .04L.64 .83Q.53 1.03 .39 .78Q.12 .44 0 0Z",
-    "keel"
-  ],
-  calyx: ["M0 0L.47 -.82Q.53 -.93 .59 -.78L1.04 0L.59 .78Q.53 .93 .47 .82Z", "keel"],
-  keel: [
-    "M0 0Q.28 -.13 .55 -.55Q.83 -1.00 1.04 -1.00Q.98 -.45 .76 -.01Q.51 .62 .26 .64Q.12 .55 0 0Z", "roll"
-  ],
+  floret: "M-.03 0Q.19 -.36 .44 -.69C.68 -.98 .90 -.73 1 0C.88 .78 .65 .96 .43 .67Q.17 .33 -.03 0Z",
+  spoon: "M-.03 0C.20 -.03 .34 -.28 .47 -.62C.61 -1.05 .86 -1.04 .98 -.43Q1.06 0 .98 .43C.85 1.04 .61 1.05 .47 .62C.32 .26 .18 .04 -.03 0Z",
+  oval: "M-.05 0C.12 -.34 .44 -.93 .69 -.95C.94 -.99 1.04 -.42 .99 -.03C1.03 .42 .89 .94 .67 .92C.39 .89 .12 .31 -.05 0Z",
+  round: "M-.04 0C.12 -.39 .30 -.91 .60 -.97C.86 -1.02 1.04 -.52 .99 -.16Q.97 0 .99 .16C1.03 .53 .87 1.00 .60 .97C.30 .93 .13 .39 -.04 0Z",
+  point: "M-.05 0C.12 -.49 .36 -.94 .59 -.88Q.80 -.81 1.03 0Q.80 .81 .59 .88C.36 .94 .12 .49 -.05 0Z",
+  lance: "M-.05 0C.17 -.64 .52 -.98 .72 -.80Q.92 -.61 1.02 0Q.91 .62 .71 .82C.49 1 .15 .61 -.05 0Z",
+  cup: "M-.06 0C.12 -.48 .30 -.96 .60 -.99C.80 -1 .94 -.75 .96 -.46Q1.05 -.19 .97 0Q1.05 .20 .96 .49C.89 .86 .80 .99 .58 .98C.33 .95 .12 .46 -.06 0Z",
+  fan: "M-.03 0C.12 -.50 .35 -.96 .62 -1C.80 -1.02 .91 -.79 .91 -.55Q1.08 -.42 1 -.15Q1.05 .13 .89 .34C.85 .71 .66 .92 .49 .80Q.19 .64 -.03 0Z",
+  notch: "M-.04 0Q.22 -.54 .54 -.84Q.84 -1.01 .95 -.87Q1.05 -.68 .94 -.43Q1.06 -.26 .95 -.04Q1.07 .20 .96 .40Q1.05 .63 .96 .83Q.85 1.03 .55 .85Q.22 .54 -.04 0Z",
+  ruffle: "M-.04 0C.13 -.53 .34 -.98 .60 -.99C.88 -1.01 1.06 -.55 .96 -.19Q.88 0 .96 .19C1.06 .55 .88 1.01 .60 .99C.34 .98 .13 .53 -.04 0Z",
+  fold: "M-.10 .03C.03 -.56 .34 -1.08 .65 -.98C.94 -1.01 1.05 -.61 .98 -.31C.91 .32 .57 .68 .18 .87Q.31 .55 .29 .31Q.20 .07 -.10 .03Z",
+  curl: "M-.06 .01C.18 -.57 .42 -.95 .65 -.93C.94 -.99 1.05 -.49 .95 -.18Q.82 .27 .64 .47Q.34 .88 .16 .66Q.09 .48 -.06 .01Z",
+  bract: "M-.04 0C.11 -.51 .33 -.89 .54 -.93Q.77 -.90 1.04 -.03Q1.07 0 1.04 .03Q.77 .90 .54 .93C.33 .89 .11 .51 -.04 0Z",
+  calyx: "M-.04 0Q.20 -.45 .49 -.81Q.57 -.89 .64 -.67L1.04 0L.64 .67Q.57 .89 .49 .81Q.20 .45 -.04 0Z",
+  keel: "M-.03 0Q.22 -.10 .50 -.52Q.83 -1.05 1.05 -.87Q1.05 -.28 .78 .11Q.50 .70 .26 .68Q.08 .57 -.03 0Z",
 };
 
-// Each fold occupies a bounded part of the face. The main wash shows
-// through the rest, including when travelling light crosses the specimen.
-const folds = {
-  silk: "M.13 0Q.47 -.08 .86 -.37Q.67 -.19 .54 -.07Q.34 .035 .13 0Z",
-  keel: "M.07 0Q.56 -.06 1.06 0L.70 -.83L.40 -.78Z",
-  fan: "M.08 0Q.47 -.17 .99 -.54L.79 -.94Q.38 -.45 .08 0Z",
-  flute: "M.08 0Q.50 -.23 .99 -.38Q.80 -.33 .69 -.62Q.46 -.38 .08 0Z",
-  roll: "M.15 .81Q.70 .55 .98 -.41Q.94 .11 .72 .40Q.47 .73 .15 .81Z",
-};
-const ridge = "M.12 0Q.53 -.075 .94 -.02Q.54 -.025 .12 0Z";
-const fluting = "M.12 0Q.50 .19 .88 .54Q.57 .30 .12 0Z";
-const paths = new Map();
-function path(d) {
-  if (!paths.has(d)) paths.set(d, new Path2D(d));
-  return paths.get(d);
-}
-
-function placePetal(ctx, layer, index) {
-  ctx.rotate(layer.rotation * Math.PI / 180 + TAU * index / layer.petals);
-  ctx.scale(layer.length, layer.width);
-}
-
-function paintPetal(ctx, form, layer, index, blade, fold) {
-  ctx.save();
-  placePetal(ctx, layer, index);
-  ctx.clip(blade);
-  const pigment = ctx.createLinearGradient(.04, -.16, 1.03, .20);
-  pigment.addColorStop(0, form.root);
-  pigment.addColorStop(.54, form.mid);
-  pigment.addColorStop(1, form.tip);
-  ctx.fillStyle = pigment;
-  ctx.fillRect(-.08, -1.18, 1.25, 2.36);
-
-  const reflected = ctx.createRadialGradient(.58, -.30, .08, .53, -.12, 1.20);
-  reflected.addColorStop(0, "rgba(255,250,242,.32)");
-  reflected.addColorStop(.62, "rgba(255,250,242,.21)");
-  reflected.addColorStop(1, "rgba(255,250,242,.11)");
-  ctx.fillStyle = reflected;
-  ctx.fillRect(-.08, -1.18, 1.25, 2.36);
-  const light = ctx.createLinearGradient(.30, -.90, .74, .48);
-  light.addColorStop(0, form.tip + "89");
-  light.addColorStop(.62, "#fff8ec32");
-  light.addColorStop(1, form.tip + "02");
-  ctx.fillStyle = light;
-  ctx.fill(path(folds[fold]));
-  if (fold === "keel" || fold === "fan") {
-    ctx.fillStyle = "#fff8e665";
-    ctx.fill(path(fold === "keel" ? ridge : fluting));
-  }
-  ctx.restore();
-}
-
-function paintWhorl(ctx, form, layer) {
+const layerCache = new WeakMap();
+function makeLayer(layer) {
+  const cached = layerCache.get(layer);
+  if (cached) return cached;
+  const all = new Path2D(), petals = [], step = TAU / layer.petals;
+  const angle = layer.rotation * Math.PI / 180, length = layer.length;
   if (layer.shape === "mouth") {
-    paintTrumpet(ctx, form, layer);
-    return;
+    const at = (a, r) => [length * r * Math.cos(a), length * r * Math.sin(a)];
+    all.moveTo(...at(angle - step / 2, .73));
+    for (let i = 0; i < layer.petals; i++) {
+      const a = angle + i * step;
+      all.bezierCurveTo(...at(a - .33 * step, 1.18), ...at(a + .33 * step, 1.18), ...at(a + step / 2, .73));
+    }
+    all.closePath();
+  } else {
+    const blade = new Path2D(blades[layer.shape]);
+    for (let i = 0; i < layer.petals; i++) {
+      const a = angle + i * step, c = Math.cos(a), s = Math.sin(a);
+      const shape = new Path2D();
+      shape.addPath(blade, new DOMMatrix([length * c, length * s, -layer.width * s, layer.width * c, 0, 0]));
+      all.addPath(shape);
+      petals.push({shape, c, s});
+    }
   }
-  const [outline, fold] = blades[layer.shape], blade = path(outline);
-  for (let i = 0; i < layer.petals; i++) paintPetal(ctx, form, layer, i, blade, fold);
-  // Close the weave: the first petal overlaps the last by the same amount
-  // as every other neighbour. Repaint just their common area.
-  if (layer.petals > 2) {
-    ctx.save();
-    const base = ctx.getTransform();
-    placePetal(ctx, layer, layer.petals - 1);
-    ctx.clip(blade);
-    ctx.setTransform(base);
-    paintPetal(ctx, form, layer, 0, blade, fold);
-    ctx.restore();
-  }
+  const geometry = {all, petals};
+  layerCache.set(layer, geometry);
+  return geometry;
 }
 
-// Jacaranda has a fused mouth. Join the five arcs before painting so that
-// the throat sits inside one tube and the folds end at the lip.
-function paintTrumpet(ctx, form, layer) {
-  const rim = new Path2D(), step = TAU / layer.petals;
-  const polar = (angle, radius) => [Math.cos(angle) * radius, Math.sin(angle) * radius];
-  rim.moveTo(...polar(-step / 2, .72));
-  for (let i = 0; i < layer.petals; i++) {
-    const axis = i * step;
-    rim.bezierCurveTo(
-        ...polar(axis - .34 * step, 1.16), ...polar(axis + .34 * step, 1.16),
-        ...polar(axis + step / 2, .72));
+// The outside circle is fixed on the plate. Only the small circle of the
+// two-circle radial gradient moves, carrying the light through the pigment.
+function petalInk(ctx, form, length, cx, cy, fx, fy) {
+  const ink = ctx.createRadialGradient(fx, fy, .018 * length, cx, cy, .80 * length);
+  ink.addColorStop(0, form.root);
+  ink.addColorStop(.23, form.root);
+  ink.addColorStop(.55, form.mid);
+  ink.addColorStop(.88, form.tip);
+  ink.addColorStop(1, form.tip);
+  return ink;
+}
+
+function paintWhorl(ctx, form, layer, focusX, focusY) {
+  const {all, petals} = makeLayer(layer), l = layer.length;
+  const dx = focusX * .53, dy = focusY * .53;
+  if (!petals.length) {
+    ctx.fillStyle = petalInk(ctx, form, l, 0, 0, (-.16 + dx) * l, (.13 + dy) * l);
+    ctx.fill(all);
+  } else {
+    const fillPetal = ({shape, c, s}) => {
+      const cx = (.24 * c - .065 * s) * l, cy = (.24 * s + .065 * c) * l;
+      const fx = (.38 * c - .12 * s + dx - .065) * l;
+      const fy = (.38 * s + .12 * c + dy - .055) * l;
+      ctx.fillStyle = petalInk(ctx, form, l, cx, cy, fx, fy);
+      ctx.fill(shape);
+    };
+    petals.forEach(fillPetal);
+    if (petals.length > 2) {
+      ctx.save();
+      ctx.clip(petals.at(-1).shape);
+      fillPetal(petals[0]);
+      ctx.restore();
+    }
   }
-  rim.closePath();
+  // Daylight is shared by the whole whorl. The upper lips catch apricot
+  // light while the lower scallops hold a cooler, more saturated ink.
+  const hem = ctx.createLinearGradient(-.10 * l, -l, .16 * l, l);
+  hem.addColorStop(0, "#fff2da75");
+  hem.addColorStop(.36, "#fff2da00");
+  hem.addColorStop(.54, form.hem + "00");
+  hem.addColorStop(1, form.hem + "b8");
+  ctx.fillStyle = hem;
+  ctx.fill(all);
+}
+
+const cream = "#fff5d4";
+const eye = "M0 -.98Q.11 -.31 .99 0Q.19 .26 0 .98Q-.23 .29 -.99 0Q-.23 -.35 0 -.98Z";
+const seed = "M0 -1C.52 -.71 .69 -.19 .54 .24Q.35 .73 0 1Q-.39 .67 -.52 .22C-.66 -.22 -.44 -.76 0 -1Z";
+const sepal = "M-.99 0Q-.22 -.47 .15 -.43Q.69 -.33 1 0Q.54 .42 .09 .43Q-.40 .36 -.99 0Z";
+const bud = "M0 -1C.46 -.87 .96 -.49 .96 -.02C.96 .48 .45 .79 0 1C-.51 .79 -.96 .48 -.96 -.02C-.96 -.49 -.46 -.87 0 -1Z";
+const symbols = new Map();
+function glyph(ctx, d, x, y, w, h, angle, ink) {
+  if (!symbols.has(d)) symbols.set(d, new Path2D(d));
   ctx.save();
-  ctx.rotate(layer.rotation * Math.PI / 180);
-  ctx.scale(layer.length, layer.length);
-  ctx.clip(rim);
-  const tube = ctx.createRadialGradient(-.15, .08, .03, 0, 0, 1);
-  tube.addColorStop(0, form.root);
-  tube.addColorStop(.42, form.mid);
-  tube.addColorStop(1, form.tip);
-  ctx.fillStyle = tube;
-  ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
-  const reflected = ctx.createLinearGradient(-.55, -.78, .64, .70);
-  reflected.addColorStop(0, "#fff9f547");
-  reflected.addColorStop(1, "#f6f0ff18");
-  ctx.fillStyle = reflected;
-  ctx.fillRect(-1.2, -1.2, 2.4, 2.4);
-  ctx.fillStyle = "#fffaed48";
-  for (let i = 0; i < layer.petals; i++) {
-    ctx.fill(path("M.55 -.29Q.93 -.24 .94 .05Q.93 .23 .72 .33Q.88 .22 .87 .04Q.86 -.16 .55 -.29Z"));
-    ctx.rotate(step);
-  }
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(w, h);
+  ctx.fillStyle = ink;
+  ctx.fill(symbols.get(d));
   ctx.restore();
 }
-
-function ellipse(ctx, x, y, a, b, color, angle = 0) {
+function dot(ctx, x, y, r, ink) {
   ctx.beginPath();
-  ctx.ellipse(x, y, a, b, angle, 0, TAU);
-  ctx.fillStyle = color;
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fillStyle = ink;
   ctx.fill();
 }
-
-function beads(ctx, count, reach, size, color, angle = 0) {
+function seedRing(ctx, count, radius, size, ink, angle = 0) {
   for (let i = 0; i < count; i++) {
-    const a = angle + i * TAU / count;
-    ellipse(ctx, reach * Math.cos(a), reach * Math.sin(a), size, size, color);
+    const a = angle + TAU * i / count;
+    glyph(ctx, seed, radius * Math.cos(a), radius * Math.sin(a), size * .65, size, a + Math.PI / 2, ink);
   }
-}
-
-function stamens(ctx, form, count, reach, angle, size) {
-  ctx.save();
-  ctx.rotate(angle);
-  ctx.lineWidth = .009;
-  ctx.strokeStyle = form.heart + "d6";
-  for (let i = 0; i < count; i++) {
-    ctx.beginPath();
-    ctx.moveTo(.024, 0);
-    ctx.quadraticCurveTo(reach * .58, -.022, reach, 0);
-    ctx.stroke();
-    ellipse(ctx, reach, 0, size * 1.30, size * .70, form.heart, .36);
-    ctx.rotate(TAU / count);
-  }
-  ctx.restore();
 }
 
 function paintCentre(ctx, form) {
-  const cream = "#fff3c5";
+  const ink = form.heart;
   switch (form.centre) {
+    case "pod":
+      glyph(ctx, bud, 0, 0, .144, .144, .23, ink);
+      seedRing(ctx, 6, .067, .020, cream);
+      dot(ctx, 0, 0, .019, cream);
+      break;
+    case "disc":
+      dot(ctx, 0, 0, .155, ink);
+      seedRing(ctx, 9, .093, .024, "#ffe7a6");
+      glyph(ctx, eye, 0, 0, .052, .052, .2, "#fff0bb");
+      break;
     case "coil":
-      ctx.fillStyle = form.tip;
-      ctx.fill(path(
-          "M-.11 .045Q-.14 -.061 -.040 -.094Q.070 -.125 .105 -.026Q.033 -.089 -.043 -.051Q-.088 -.029 -.062 .019Q-.014 .049 .044 .008Q-.014 .091 -.11 .045Z"));
+      glyph(ctx, bud, -.012, .008, .114, .072, -.59, ink);
+      glyph(ctx, sepal, .01, -.003, .084, .049, -.62, form.mid);
+      break;
+    case "throat":
+      glyph(ctx, bud, -.026, .011, .19, .112, -.63, form.hem + "c2");
+      glyph(ctx, seed, .012, .04, .048, .104, .96, cream);
+      break;
+    case "column":
+      glyph(ctx, seed, .018, -.09, .047, .18, .23, "#fff0bd");
+      glyph(ctx, eye, .054, -.215, .079, .072, .23, ink);
       break;
     case "base":
-      ellipse(ctx, 0, 0, .095, .061, form.root, -.45);
+      glyph(ctx, sepal, 0, 0, .135, .12, -.6, "#9ccbb4");
       break;
     case "bracts":
       for (let i = 0; i < 3; i++) {
+        const a = i * TAU / 3 - Math.PI / 2, x = .11 * Math.cos(a), y = .11 * Math.sin(a);
         ctx.save();
-        ctx.rotate(-Math.PI / 2 + i * TAU / 3);
-        ctx.translate(.105, 0);
-        beads(ctx, 5, .035, .027, "#fff8df");
-        ellipse(ctx, 0, 0, .023, .023, form.heart);
+        ctx.translate(x, y);
+        seedRing(ctx, 5, .041, .059, cream, a);
+        glyph(ctx, eye, 0, 0, .041, .044, a, ink);
         ctx.restore();
       }
       break;
     case "eye":
-      ellipse(ctx, 0, 0, .084, .084, form.root);
-      beads(ctx, 4, .030, .024, form.heart, Math.PI / 4);
+      glyph(ctx, eye, 0, 0, .17, .17, 0, cream);
+      glyph(ctx, bud, 0, 0, .058, .058, 0, ink);
       break;
-    case "throat": {
-      ctx.save();
-      ctx.translate(-.06, .015);
-      ctx.rotate(-.55);
-      ctx.scale(1.25, .72);
-      const throat = ctx.createRadialGradient(-.09, 0, .02, 0, 0, .33);
-      throat.addColorStop(0, form.root);
-      throat.addColorStop(.45, form.root + "c4");
-      throat.addColorStop(1, form.root + "00");
-      ellipse(ctx, 0, 0, .33, .33, throat);
-      ctx.fillStyle = form.heart;
-      ctx.fill(path("M-.13 .07Q.02 .025 .19 .085Q.10 .11 -.02 .11Q-.10 .11 -.13 .07Z"));
-      ctx.restore();
+    case "cross":
+      glyph(ctx, eye, 0, 0, .16, .16, 0, cream);
+      seedRing(ctx, 4, .071, .035, ink, Math.PI / 4);
       break;
-    }
-    case "column":
-      ctx.beginPath();
-      ctx.moveTo(0, .06);
-      ctx.quadraticCurveTo(-.02, -.01, .048, -.14);
-      ctx.strokeStyle = "#ffe9ba";
-      ctx.lineWidth = .041;
-      ctx.lineCap = "round";
-      ctx.stroke();
-      ctx.save();
-      ctx.translate(.048, -.14);
-      beads(ctx, 5, .053, .030, form.heart, -Math.PI / 2);
-      ctx.restore();
+    case "six":
+      seedRing(ctx, 6, .142, .061, ink, Math.PI / 6);
+      glyph(ctx, bud, 0, 0, .068, .068, 0, cream);
+      break;
+    case "brush":
+      seedRing(ctx, 12, .155, .047, ink, .12);
+      seedRing(ctx, 6, .073, .033, "#e8ba72");
+      glyph(ctx, eye, 0, 0, .042, .042, 0, cream);
       break;
     case "bundles":
       for (let i = 0; i < 5; i++) {
         ctx.save();
         ctx.rotate(i * TAU / 5);
-        ctx.lineWidth = .014;
-        ctx.strokeStyle = "#ffdfae";
-        for (const [x, y] of [[.16, -.062], [.213, -.021], [.190, .036], [.136, .066]]) {
-          ctx.beginPath();
-          ctx.moveTo(.04, 0);
-          ctx.quadraticCurveTo(.10, y * .27, x, y);
-          ctx.stroke();
-          ellipse(ctx, x, y, .028, .015, form.heart, .26 + y * 4);
-        }
+        glyph(ctx, seed, .145, -.032, .029, .083, 1.04, ink);
+        glyph(ctx, seed, .164, .029, .029, .067, 1.82, ink);
         ctx.restore();
       }
-      ellipse(ctx, 0, 0, .030, .030, cream);
-      break;
-    case "disc":
-      ellipse(ctx, 0, 0, .154, .154, form.heart);
-      beads(ctx, 15, .116, .018, "#ffe39b");
-      beads(ctx, 8, .067, .017, "#ffe9a4", Math.PI / 8);
-      ellipse(ctx, 0, 0, .036, .036, "#ffda70");
-      break;
-    case "pod":
-      stamens(ctx, form, 18, .194, 0, .018);
-      ellipse(ctx, 0, 0, .140, .140, "#acbe87");
-      ellipse(ctx, -.008, -.008, .123, .123, "#ccda9d");
-      beads(ctx, 6, .072, .018, "#9eaf70", Math.PI / 6);
-      ellipse(ctx, 0, 0, .016, .016, "#a2b578");
-      break;
-    case "cross":
-      stamens(ctx, form, 4, .113, Math.PI / 4, .026);
-      stamens(ctx, form, 2, .071, 0, .021);
-      ellipse(ctx, 0, 0, .032, .032, "#f2edaf");
-      break;
-    case "six":
-      stamens(ctx, form, 6, .173, Math.PI / 6, .030);
-      beads(ctx, 3, .032, .024, cream, -Math.PI / 2);
+      glyph(ctx, eye, 0, 0, .068, .068, 0, cream);
       break;
     case "threads":
-      stamens(ctx, form, 12, .21, Math.PI / 12, .019);
-      stamens(ctx, form, 6, .126, 0, .019);
-      ellipse(ctx, 0, 0, .029, .029, cream);
+      seedRing(ctx, 10, .144, .033, ink);
+      glyph(ctx, eye, 0, 0, .071, .071, Math.PI / 4, ink);
       break;
-    case "brush":
-      stamens(ctx, form, 19, .245, 0, .022);
-      stamens(ctx, form, 13, .167, Math.PI / 13, .023);
-      beads(ctx, 7, .083, .022, cream);
-      break;
-    case "pollen":
-    case "button": {
-      const reach = form.centre === "button" ? .118 : .172;
-      stamens(ctx, form, 12, reach, Math.PI / 12, .022);
-      beads(ctx, 6, reach * .52, .022, cream);
-      break;
-    }
+    default:
+      glyph(ctx, bud, 0, 0, .134, .134, Math.PI / 4, cream);
+      glyph(ctx, eye, 0, 0, .108, .108, form.centre === "button" ? .78 : 0, ink);
   }
 }
 
-export function drawCorolla(ctx, form) {
+export function drawCorolla(ctx, size, form, focusX = 0, focusY = 0) {
+  const unit = size * .416;
+  ctx.save();
+  ctx.setTransform(unit, 0, 0, unit, size / 2, size / 2);
   if (form.centre === "base") {
     ctx.beginPath();
-    ctx.moveTo(-.30, .73);
-    ctx.quadraticCurveTo(.06, .06, .20, -.56);
-    ctx.lineWidth = .025;
+    ctx.moveTo(-.31, .78);
+    ctx.quadraticCurveTo(.06, .06, .20, -.59);
+    ctx.lineWidth = .033;
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#b7a68b";
+    ctx.strokeStyle = "#9dcfb8";
     ctx.stroke();
   }
   for (const [x, y, scale, angle] of form.florets ?? [[0, 0, 1, 0]]) {
+    const a = angle * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    const dx = (focusX * c + focusY * s) / Math.sqrt(scale);
+    const dy = (focusY * c - focusX * s) / Math.sqrt(scale);
+    const gain = 1 / Math.max(1, Math.hypot(dx, dy));
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle * Math.PI / 180);
+    ctx.rotate(a);
     ctx.scale(scale, form.centre === "throat" ? scale * .87 : scale);
-    for (const layer of form.whorls) paintWhorl(ctx, form, layer);
+    for (const layer of form.whorls) paintWhorl(ctx, form, layer, dx * gain, dy * gain);
     paintCentre(ctx, form);
     ctx.restore();
   }
+  ctx.restore();
 }

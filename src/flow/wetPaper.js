@@ -40,7 +40,7 @@ function footprint(bloom, paper, plate) {
       bins.push(bin);
     }
   }
-  const hex = forms[bloom.type].mid.slice(1);
+  const hex = forms[bloom.type].tip.slice(1);
   const color = [0, 2, 4].map(i => toLinear(parseInt(hex.slice(i, i + 2), 16)));
   return {
     cells: Uint32Array.from(cells),

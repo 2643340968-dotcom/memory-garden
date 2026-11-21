@@ -39,11 +39,10 @@ function distanceToRim(data, size) {
 }
 
 export function makePlates(form, surface) {
-  const size = specimenSize, half = size / 2, unit = size * .416;
+  const size = specimenSize, half = size / 2;
   const body = surface(size), ring = surface(waveSize), light = surface(waveSize);
   const paint = body.getContext("2d", {willReadFrequently: true});
-  paint.setTransform(unit, 0, 0, unit, half, half);
-  drawCorolla(paint, form);
+  drawCorolla(paint, size, form);
   const original = paint.getImageData(0, 0, size, size).data;
   const {distance, nearest} = distanceToRim(original, size);
   const dye = paint.createImageData(size, size);
@@ -55,8 +54,8 @@ export function makePlates(form, surface) {
     const d = (inside ? -distance[p] : distance[p]) / half;
     if (d > .14) continue;
     const k = inside ? j : nearest[p] * 4;
-    const alpha = .88 * (1 - ease((d + .034) / .094)) + .12 * (1 - ease((d + .071) / .20));
-    const feather = .88 * ease((d + .034) / .052);
+    const alpha = .96 * (1 - ease((d + .009) / .031)) + .04 * (1 - ease((d + .028) / .125));
+    const feather = .30 * ease((d + .008) / .038);
     for (let ch = 0; ch < 3; ch++)
       dye.data[j + ch] = original[k + ch] + (tip[ch] - original[k + ch]) * feather;
     dye.data[j + 3] = 255 * alpha;

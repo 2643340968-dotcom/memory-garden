@@ -23,7 +23,7 @@ export class AtlasLanding {
     this.atlas = atlas;
     this.onEnter = onEnter;
     this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
-    this.flowers = new CoverFlowers(section.querySelector("#landing-flowers"), this.quiet);
+    this.flowers = new CoverFlowers(section.querySelector("#landing-flowers"), this.quiet, this.scroll);
     this.quiet.addEventListener("change", () => {
       if (this.active)
         this.paint();

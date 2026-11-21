@@ -1,8 +1,6 @@
-// Length and half-width are in units of specimen radius. Within a whorl
-// every petal has the same silhouette and occupies one equal angular step.
+// Positions and petal lengths are expressed in units of a whole flower's radius.
 const whorl = (petals, length, width, shape, rotation = 0) => ({petals, length, width, shape, rotation});
 
-// Each floret has a centre, relative size and orientation in the spray.
 const florets = {
   lilac: [
     [0, -.68, .24, 0], [-.20, -.42, .32, 15], [.21, -.40, .34, 45],
@@ -16,45 +14,48 @@ const florets = {
     [.20, -.54, .38, -82],
   ],
 };
-const form = (root, mid, tip, heart, whorls, centre, cluster) =>
-  ({root, mid, tip, heart, whorls, centre, florets: florets[cluster]});
+
+// From the luminous petal base through its shoulder to its coloured lip.
+// The lower lip and the small botanical centre have independent inks.
+const form = (root, mid, tip, hem, heart, whorls, centre, cluster) =>
+  ({root, mid, tip, hem, heart, whorls, centre, florets: florets[cluster]});
 
 export const forms = {
-  nanjing: form("#8d6fdd", "#a590f8", "#bbcdff", "#ffed8a",
-    [whorl(4, 1, .35, "spoon", 45)], "cross"),
-  beijing: form("#e1699d", "#fd96bf", "#ffdfda", "#ffd690",
-    [whorl(9, .98, .39, "ruffle", -90), whorl(9, .74, .31, "ruffle", -70), whorl(6, .48, .26, "fold", -90)], "pollen"),
-  dunhuang: form("#65b1ad", "#8ed4c1", "#dfe9c0", "#edcf71",
-    [whorl(8, 1, .245, "point", -90), whorl(8, .70, .21, "point", -67.5)], "pod"),
-  chengdu: form("#df82b0", "#f8b9d8", "#ffece3", "#ffdf8c",
-    [whorl(5, 1, .53, "fan", -90)], "column"),
-  quanzhou: form("#e5484c", "#ff6649", "#ffa97b", "#f58648",
-    [whorl(1, 1, .265, "keel"), whorl(1, .61, .13, "point", 18)], "base", "coral"),
-  kashgar: form("#f09792", "#ffcbba", "#fef0d7", "#f7ba5d",
-    [whorl(5, .95, .42, "oval", -54)], "threads"),
-  urumqi: form("#dc6fb0", "#f77dc4", "#ffc4dc", "#ffdb9f",
-    [whorl(10, .96, .29, "ruffle", -90), whorl(10, .71, .23, "oval", -72), whorl(6, .43, .19, "ruffle", -90)], "button"),
-  lhasa: form("#bb6ac3", "#ef91d0", "#facde8", "#f6be2d",
-    [whorl(8, .99, .254, "notch", -67.5)], "disc"),
-  xining: form("#f2a640", "#ffc75b", "#ffe9a0", "#e99a2a",
-    [whorl(3, 1, .49, "lance", -90), whorl(3, .85, .49, "cup", -30)], "six"),
-  hohhot: form("#a2bda3", "#dbe4bd", "#ffefd3", "#f6b54e",
-    [whorl(5, .99, .44, "ruffle", -90), whorl(5, .80, .40, "fan", -54)], "brush"),
-  harbin: form("#a07cd8", "#ba98ef", "#ddcbfa", "#ffecc1",
-    [whorl(4, .98, .38, "floret", 45)], "eye", "lilac"),
-  shenyang: form("#d7679d", "#f778a9", "#ffbfcc", "#ef8aaa",
-    [whorl(5, .98, .57, "fold", -90), whorl(5, .76, .45, "fold", -54), whorl(4, .53, .32, "fold", -18),
-     whorl(3, .35, .24, "fold", 18), whorl(3, .20, .15, "fold", 78)], "coil"),
-  xian: form("#e66750", "#ff7c56", "#ffb68a", "#fab647",
-    [whorl(6, .98, .17, "calyx", -90), whorl(6, .84, .37, "ruffle", -60)], "pollen"),
-  wuhan: form("#dc84a8", "#f7a0d0", "#ffd6eb", "#fabb55",
-    [whorl(5, .93, .43, "round", -90)], "threads"),
-  qingdao: form("#cd5576", "#f56c86", "#ffb1ae", "#faca5d",
-    [whorl(5, .98, .49, "cup", -90), whorl(5, .76, .37, "oval", -54)], "brush"),
-  kunming: form("#8078d4", "#9f98fb", "#c7d4ff", "#f7e3a9",
+  nanjing: form("#fff4cd", "#ebd7db", "#c7acd4", "#a78bbf", "#e0b65d",
+    [whorl(4, 1, .42, "spoon", 45)], "cross"),
+  beijing: form("#fff3c9", "#f9d6bd", "#ef9bb4", "#ce75a4", "#91bfa5",
+    [whorl(8, .99, .44, "round", -90), whorl(6, .77, .44, "oval", -60), whorl(4, .50, .34, "cup", -45)], "pollen"),
+  dunhuang: form("#fff4c7", "#e6e7c6", "#afd4bc", "#a3b6b7", "#77b49f",
+    [whorl(8, 1, .33, "point", -90), whorl(8, .71, .27, "point", -67.5)], "pod"),
+  chengdu: form("#fff3c8", "#f7d9ca", "#eea9bc", "#d685aa", "#d5879b",
+    [whorl(5, 1, .62, "fan", -90)], "column"),
+  quanzhou: form("#fff0c3", "#f9c19d", "#f28e94", "#df7389", "#eeb5a2",
+    [whorl(1, 1, .32, "keel"), whorl(1, .65, .18, "cup", 17)], "base", "coral"),
+  kashgar: form("#fff6d5", "#f9dfcd", "#f2bdb8", "#dfa0b3", "#d79877",
+    [whorl(5, .96, .46, "oval", -54)], "threads"),
+  urumqi: form("#fff0cd", "#f5c6d2", "#e999b9", "#cb75a3", "#b887ac",
+    [whorl(10, .97, .30, "ruffle", -90), whorl(8, .70, .29, "cup", -67.5), whorl(5, .42, .26, "round", -90)], "button"),
+  lhasa: form("#fff0bd", "#f3d2d6", "#dea7c9", "#bd8cbb", "#e8b657",
+    [whorl(8, 1, .32, "notch", -67.5)], "disc"),
+  xining: form("#fff4c7", "#ffdfaa", "#efba86", "#e7a2a0", "#ba8d9c",
+    [whorl(3, 1, .56, "lance", -90), whorl(3, .84, .55, "cup", -30)], "six"),
+  hohhot: form("#fff3c6", "#f1e2cf", "#e3c6cd", "#c8a9bf", "#d9a753",
+    [whorl(5, .99, .55, "ruffle", -90)], "brush"),
+  harbin: form("#fff5cc", "#e8d8df", "#c7afd3", "#ac8dbc", "#e1c282",
+    [whorl(4, .98, .45, "floret", 45)], "eye", "lilac"),
+  shenyang: form("#fff0c0", "#f7d1c1", "#e899b3", "#c775a0", "#c87c99",
+    [whorl(5, .98, .63, "fold", -90), whorl(5, .75, .51, "fold", -54), whorl(4, .53, .38, "fold", -19),
+     whorl(3, .31, .24, "fold", 17)], "coil"),
+  xian: form("#fff1c4", "#f8c9a3", "#ed9a99", "#dc7e90", "#c98577",
+    [whorl(6, 1, .21, "calyx", -90), whorl(6, .86, .44, "ruffle", -60)], "pollen"),
+  wuhan: form("#fff5cd", "#f7dece", "#eeb6cd", "#d78fae", "#d99c79",
+    [whorl(5, .96, .49, "round", -90)], "threads"),
+  qingdao: form("#fff0c3", "#f7ccb7", "#e896a5", "#ce7e98", "#d6a356",
+    [whorl(5, .99, .59, "cup", -90), whorl(5, .72, .41, "oval", -54)], "brush"),
+  kunming: form("#fff1cf", "#e4dae0", "#c1b3d6", "#9b96c1", "#f3d492",
     [whorl(5, 1, .54, "mouth", -90)], "throat", "jacaranda"),
-  guangzhou: form("#ee6845", "#ff9056", "#ffbb77", "#c97451",
-    [whorl(5, 1, .36, "curl", -54)], "bundles"),
-  haikou: form("#d66ab7", "#f47acd", "#ffb6e1", "#feeea3",
-    [whorl(3, 1, .52, "bract", -90)], "bracts"),
+  guangzhou: form("#fff1bf", "#fbd2a7", "#f0a28d", "#de869b", "#c58880",
+    [whorl(5, 1, .46, "curl", -54)], "bundles"),
+  haikou: form("#fff1c9", "#f2cbd4", "#e9a0be", "#cc80ad", "#a4c5a8",
+    [whorl(3, 1, .59, "bract", -90)], "bracts"),
 };

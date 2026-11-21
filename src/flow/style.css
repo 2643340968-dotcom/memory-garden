@@ -415,6 +415,8 @@ a {
   overscroll-behavior: contain; touch-action: pan-y; scrollbar-width:none;
 }
 #landing-scroll::-webkit-scrollbar { display:none; }
+#landing-scroll.over-petals {cursor:grab;}
+#landing-scroll.stirring {cursor:grabbing;}
 #landing-scroll:focus-visible { outline-offset:-5px; }
 .scroll-distance { height:calc(100% + clamp(70px,10svh,100px)); pointer-events:none; }
 .stage.show-opening #pins {visibility:hidden;}

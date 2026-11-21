@@ -6,6 +6,7 @@ import {AFTERGLOW, envelope, releaseWave, RippleField} from "../src/flow/ripples
 import {openingPose} from "../src/flow/landing.js";
 import {flowerFront, frontsAt, openingFlowers} from "../src/flow/coverFlowers.js";
 import {WetPaper} from "../src/flow/wetPaper.js";
+import {PetalCurrent} from "../src/flow/petalCurrent.js";
 import {nationalMarks} from "../src/flow/overview.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
 import {forms} from "../src/flow/flowerForms.js";
@@ -64,6 +65,45 @@ test("all eighteen national marks have their own sourced bilingual flower, disti
     assert.deepEqual(forms[city].whorls.map(layer => layer.petals), counts, city);
   }
   for (const city of ["quanzhou", "harbin", "kunming"]) assert.ok(forms[city].florets.length > 1, city);
+});
+
+test("a drag displaces pigment in petal coordinates and adds stronger waves near its path", () => {
+  const blooms = [0, 90, 400].map(x => ({x, y: 0, radius: 85, angle: Math.PI / 2, delay: 0}));
+  const fast = new PetalCurrent(blooms), slow = new PetalCurrent(blooms);
+  assert.ok(fast.hover({x: 29, y: 0}, 1));
+  assert.ok(fast.states[0].targetY < 0 && fast.states[0].energy === 0);
+  assert.deepEqual(fast.fronts(0, 1), []);
+  for (const [current, seconds] of [[fast, .06], [slow, .8]]) {
+    current.pull({x: -25, y: 8}, {x: 42, y: 8}, seconds, 1);
+    current.advance(.12, 1.12);
+  }
+  const [near, beside, far] = fast.states;
+  assert.ok(near.y < -.25, "a rightward pull moves along the rotated flower's negative local y axis");
+  assert.ok(near.energy > beside.energy && beside.energy > 0 && far.energy === 0);
+  assert.ok(fast.fronts(0, 1.4)[0].opacity > slow.fronts(0, 1.4)[0].opacity);
+  assert.ok(fast.fronts(1, 1.4)[0].radius < fast.fronts(0, 1.4)[0].radius);
+  assert.deepEqual(fast.fronts(2, 1.4), []);
+  const crossing = new PetalCurrent(blooms);
+  crossing.pull({x: -250, y: 0}, {x: 250, y: 0}, .05, 2);
+  assert.ok(crossing.fronts(0, 2.4).length && crossing.states[0].targetX === 0);
+});
+
+test("a released gradient and its travelling fronts settle independently before a new stroke", () => {
+  const current = new PetalCurrent([{x: 0, y: 0, radius: 85, angle: 0}]);
+  const state = current.states[0];
+  current.pull({x: -12, y: 6}, {x: 38, y: 6}, .08, 1);
+  current.advance(.25, 1.25);
+  const held = state.x;
+  current.release();
+  current.advance(.2, 1.45);
+  assert.ok(held > state.x && state.x > 0);
+  assert.ok(current.fronts(0, 1.65)[0].radius > current.fronts(0, 1.45)[0].radius);
+  for (let i = 0; i < 120; i++) current.advance(.05, 1.5 + .05 * i);
+  assert.ok(Math.hypot(state.x, state.y) < .001 && state.energy < .001);
+  assert.deepEqual(state.waves, []);
+  current.pull({x: 12, y: 0}, {x: -38, y: 0}, .08, 8);
+  current.advance(.2, 8.2);
+  assert.ok(state.x < 0 && current.fronts(0, 8.3).length === 1);
 });
 
 // Synthetic circular plates keep the water solver test independent of Canvas.
