@@ -1,5 +1,6 @@
 import {CITIES as originalCities, PLACES as originalPlaces} from "../atlas/places.js";
 import {cityFlowers} from "./cityFlowers.js";
+import {writingPrompts} from "./writingPrompts.js";
 import catalogue from "./extraPlaces.json" with {type:"json"};
 export {CHINA, atlasHash} from "../atlas/places.js";
 
@@ -31,10 +32,13 @@ for (const [id, zh, en, lon, lat] of cities) {
   for (const [site, data] of entries) {
     addedPlaces[site] = {...data, context:name, span:.043, latitudeSpan:.024,
       flower:cityFlowers[id].name,
-      prompt:[`关于${data.name[0]}，你还记得哪一个细节？`, `What detail stays with you from ${data.name[1]}?`],
       sourceUrl:"https://zh.wikipedia.org/w/index.php?oldid="+data.revision,
       loadCollection:() => import("./siteCollections.js").then(module => module.gardenFor(site))};
   }
 }
 export const CITIES = Object.freeze({...originalCities,...addedCities});
-export const PLACES = Object.freeze({...originalPlaces,...addedPlaces});
+const places = {...originalPlaces,...addedPlaces};
+for (const [id,prompt] of Object.entries(writingPrompts)) {
+  places[id] = {...places[id], prompt};
+}
+export const PLACES = Object.freeze(places);

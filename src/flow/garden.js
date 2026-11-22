@@ -7,6 +7,7 @@ import {forms, profileURL} from "./flowerForms.js";
 import {drawUnderstory, gardenDefs, gardenPositions, gardenStands, plantArtwork, plantStand} from "./standingGarden.js";
 
 import {GardenBreeze} from "./gardenBreeze.js";
+import {GardenSelection} from "./gardenSelection.js";
 import {setPetalRhythm} from "./petalLight.js";
 
 const el = id => document.getElementById(id);
@@ -28,7 +29,8 @@ export class FlowGarden {
     this.stalks = el("stalks");
     this.ctx = this.canvas.getContext("2d");
     this.visits = new Map();
-    this.page = 0;
+    this.refreshButton = el("refresh-memories");
+    this.refreshButton.onclick = () => this.refresh();
     this.invitation = el("garden-invitation");
     el("invitation-write").onclick = () => this.openEditor();
     el("invitation-browse").onclick = () => {
@@ -93,8 +95,6 @@ export class FlowGarden {
     });
     this.seedLayer.addEventListener("focusin", e => this.seedHint(e.target.closest("button")));
     this.seedLayer.addEventListener("focusout", () => this.seedHint(null));
-    el("earlier").onclick = () => this.turn(-1);
-    el("later").onclick = () => this.turn(1);
     this.resize = new ResizeObserver(() => this.paint());
     this.resize.observe(this.root);
     this.resize.observe(el("toolbar-panel").parentElement);
@@ -105,7 +105,6 @@ export class FlowGarden {
     this.root.inert = false;
     this.root.classList.remove("departing");
     this.born = new Map();
-    this.slots = [];
     this.entryTime = performance.now() + revealDelay;
     this.id = id;
     this.site = PLACES[id];
@@ -117,24 +116,32 @@ export class FlowGarden {
     if (!this.visits.has(id))
       this.visits.set(id, {
         pool : createMemoryPool({prototypeMemories : collection.memories}),
+        selection : new GardenSelection(events, collection),
         draft : "",
         attachment : null
       });
     this.visit = this.visits.get(id);
+    this.slots = this.visit.slots ?? [];
+    this.featuredCount = this.visit.featuredCount ?? 0;
     this.text.value = this.visit.draft;
     this.card.attachment = this.visit.attachment;
-    this.page = 0;
+    const ns = "http://www.w3.org/2000/svg";
+    this.standLayer = document.createElementNS(ns, "g");
+    this.stemLayer = document.createElementNS(ns, "g");
+    this.stalks.replaceChildren(gardenDefs(forms[this.flower],this.flower), this.standLayer, this.stemLayer);
     this.root.hidden = false;
     this.updateActions();
     this.paint();
   }
   updateActions() {
-    const present = Boolean(this.visit && !this.root.inert && !this.sheet.open);
+    const present = Boolean(this.visit && !this.root.closest("[inert]") && !this.sheet.open);
     this.invitation.hidden = !present || this.visit.exploring === true;
     el("garden-actions").hidden = !present || this.visit.exploring !== true;
+    this.refreshButton.hidden = !this.visit?.selection.hasMore;
   }
   leave(linger = false) {
     this.invitation.hidden = true;
+    this.stopRefresh();
     this.breeze.clear();
     this.departure?.cancel();
     this.departure = null;
@@ -145,6 +152,8 @@ export class FlowGarden {
     if (this.visit) {
       this.visit.draft = this.text.value;
       this.visit.attachment = this.card.attachment;
+      this.visit.slots = this.slots;
+      this.visit.featuredCount = this.featuredCount;
     }
     this.id = null;
     this.visit = null;
@@ -164,8 +173,9 @@ export class FlowGarden {
         {duration:490,easing:"cubic-bezier(.3,.08,.3,1)"});
       this.departure.onfinish = finish;
     } else finish();
-    el("pages").hidden = true;
-    this.layoutKey = null;
+    this.layoutKey = this.paperKey = this.standKey = null;
+    this.labelsLanguage = null;
+    el("batch-status").textContent = "";
   }
   recordById(id) {
     return this.events.get(id) ?? this.visit.pool.getById(id);
@@ -187,13 +197,37 @@ export class FlowGarden {
   seedHint(mark) {
     this.readout(mark ? say("点花阅读", "Select to read") : null);
   }
-  turn(n) {
-    this.page += n;
-    this.layoutKey = null;
-    this.paint();
-    const target = n > 0 ? el("later") : el("earlier");
-    if (target.disabled)
-      this.seedLayer.querySelector("button")?.focus();
+  stopRefresh() {
+    for (const motion of this.refreshMotion ?? []) motion.cancel();
+    this.refreshMotion = null;
+    this.refreshButton.removeAttribute("aria-disabled");
+  }
+  async refresh() {
+    const selection = this.visit?.selection;
+    if (!selection?.hasMore || this.refreshMotion || !this.visit.exploring || this.sheet.open) return;
+    const motion = this.refreshMotion = [];
+    this.refreshButton.setAttribute("aria-disabled", "true");
+    const layers = [this.stemLayer, this.seedLayer];
+    const fade = async (from, to, duration) => {
+      if (this.breeze.quiet.matches) return;
+      for (const old of motion.splice(0)) old.cancel();
+      for (const layer of layers) motion.push(layer.animate([{opacity:from}, {opacity:to}],
+        {duration, easing:"cubic-bezier(.25,.62,.35,1)", fill:"forwards"}));
+      await Promise.all(motion.map(animation => animation.finished));
+    };
+    try {
+      await fade(1, .22, 165);
+      if (this.refreshMotion !== motion) return;
+      selection.advance();
+      this.paint();
+      const first = this.recordById(selection.featured[0] ?? selection.regular[0]);
+      el("batch-status").replaceChildren(say("已换一批记忆。", "Another selection is in bloom. ") + this.label(first));
+      await fade(.22, 1, 315);
+    } catch (error) {
+      if (error.name !== "AbortError") throw error;
+    } finally {
+      if (this.refreshMotion === motion) this.stopRefresh();
+    }
   }
   paint() {
     if (!this.id || this.root.hidden)
@@ -210,44 +244,46 @@ export class FlowGarden {
       w : w * (compact ? .83 : .854),
       h : Math.max(95, h - top - Math.max(24, h * .04))
     };
-    const events = [...this.events.values()];
-    const regular = [...this.visit.pool.sessionMemories].reverse().concat(this.collection.memories.filter(m =>
-      m.label !== "writing-prompt" && (!this.collection.featuredLabels[m.id] || m.id.endsWith("-record") || m.id.endsWith("-position"))));
-    const eventCap = area.h<310 ? 3 : 6;
-    const cap = Math.max(3, Math.min(30, Math.floor(area.w*area.h/(compact ? 18800 : 24500))-Math.min(4,events.length-2)));
-    const eventPages = Math.max(1,Math.ceil(events.length/eventCap));
-    const pages = Math.max(eventPages, Math.ceil(regular.length/cap));
-    this.page = clamp(this.page, 0, pages-1);
-    const start = (this.page%eventPages)*eventCap;
-    const featured = events.slice(start,start+eventCap);
-    const records = featured.concat(regular.slice(this.page*cap,(this.page+1)*cap));
-    const key = [
-      this.id, this.page, w, h, top, dpr, getLanguage(), this.visit.pool.sessionMemories.length
-    ].join("|");
-    if (key === this.layoutKey)
-      return;
+    const featured = this.visit.selection.featured;
+    const regular = this.visit.selection.regular;
+    const records = [...featured, ...regular].map(id => this.recordById(id));
+    const paperKey = [this.id, w, h, dpr].join("|");
+    const standKey = [paperKey, top, featured.length, regular.length].join("|");
+    const key = [standKey, ...featured, ...regular].join("|");
+    if (key === this.layoutKey) return;
     this.layoutKey = key;
-    // Publishing puts the newest memory first in reading order. Give it a vacant
-    // physical spot so the flowers that are already growing keep their roots.
-    const ids = new Set(records.slice(featured.length).map(memory => memory.id));
-    const nextSlots = Array.from({length:records.length-featured.length}, (_, i) => {
-      const id = this.slots[i+featured.length];
-      return ids.delete(id) ? id : null;
-    });
-    const arriving = ids.values();
-    this.slots = featured.map(m=>m.id).concat(nextSlots.map(id => id ?? arriving.next().value));
-    const pts = gardenPositions(records.length, area, featured.length);
-    const positions = new Map(this.slots.map((id, i) => [id, pts[i]]));
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const seed = Array.from(this.id).reduce((n, c) => n + c.charCodeAt(0), 0) % 97 / 17;
-    drawUnderstory(this.ctx,w,h,Math.round(seed*17),forms[this.flower]);
-    this.stalks.setAttribute("viewBox","0 0 "+w+" "+h);
+
+    // A new memory takes an empty root. Flowers shared with the previous
+    // selection keep their position, including the larger historical flowers.
+    const retain = (previous, ids) => {
+      const waiting = new Set(ids);
+      const slots = ids.map((_, i) => waiting.delete(previous[i]) ? previous[i] : null);
+      const arrivals = waiting.values();
+      return slots.map(id => id ?? arrivals.next().value);
+    };
+    this.slots = retain(this.slots.slice(0,this.featuredCount),featured)
+      .concat(retain(this.slots.slice(this.featuredCount),regular));
+    this.featuredCount = featured.length;
     const now = performance.now();
-    const anchors = records.map(({id}) => ({id, x:positions.get(id)[0], y:positions.get(id)[1]}));
-    const stands = gardenStands(w,h,top,Math.round(seed*17),anchors)
-      .map(stand => plantStand(stand,h,now-this.entryTime));
+    const seed = Array.from(this.id).reduce((n, c) => n + c.charCodeAt(0), 0) % 97;
+    if (paperKey !== this.paperKey) {
+      this.paperKey = paperKey;
+      this.canvas.width = Math.round(w * dpr);
+      this.canvas.height = Math.round(h * dpr);
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawUnderstory(this.ctx,w,h,seed,forms[this.flower]);
+    }
+    if (standKey !== this.standKey) {
+      this.standKey = standKey;
+      this.points = gardenPositions(records.length,area,featured.length);
+      this.stalks.setAttribute("viewBox","0 0 "+w+" "+h);
+      const anchors = this.points.map(([x,y], slot) => ({id:slot,x,y}));
+      this.stands = gardenStands(w,h,top,seed,anchors).map(stand =>
+        ({...plantStand(stand,h,now-this.entryTime), slot:stand.id}));
+      this.standLayer.replaceChildren(...this.stands.map(stand => stand.stem));
+    }
+    for (const stand of this.stands) stand.stem.dataset.memory = this.slots[stand.slot];
+    const positions = new Map(this.slots.map((id, i) => [id, this.points[i]]));
     const stems = [];
     const nodes = records.map((memory, i) => {
       const b = document.createElement("button");
@@ -285,7 +321,8 @@ export class FlowGarden {
       body.append(m);
       if (!this.born.has(memory.id)) {
         const personal = memory.label === "YOUR MEMORY";
-        this.born.set(memory.id, personal ? now : Math.max(now, this.entryTime) + Math.min(i, 18) * 55);
+        const birth = personal ? now : Math.max(now, this.entryTime) + i * 55;
+        this.born.set(memory.id, this.refreshMotion ? now - 3000 : birth);
       }
       const delay = this.born.get(memory.id) - now;
       stems.push(plantArtwork({x,y,size,phase,featured:i<featured.length,city:this.flower,view,bottom:h,width:w,birth:delay}));
@@ -303,23 +340,19 @@ export class FlowGarden {
     });
     const focusId =
         this.seedLayer.contains(document.activeElement) ? document.activeElement.dataset.id : null;
-    this.stalks.replaceChildren(gardenDefs(forms[this.flower],this.flower),...stands.map(s=>s.stem),...stems);
+    this.stemLayer.replaceChildren(...stems);
     this.seedLayer.replaceChildren(...nodes);
-    this.breeze.bind(stems,nodes,stands);
+    this.breeze.bind(stems,nodes,this.stands);
+    this.labelsLanguage = getLanguage();
     if (focusId)
       nodes.find(b => b.dataset.id === focusId)?.focus({preventScroll : true});
-    el("pages").hidden = pages === 1;
-    el("pages").querySelector("span").textContent = (this.page + 1) + " / " + pages;
-    el("earlier").disabled = this.page === 0;
-    el("later").disabled = this.page === pages - 1;
-    el("earlier").setAttribute("aria-label", say("上一组记忆", "Previous memories"));
-    el("later").setAttribute("aria-label", say("下一组记忆", "Next memories"));
   }
   updateSave() {
     el("save").disabled = !this.visit || !this.card?.editable || !!this.card.pending ||
         !(this.text.value.trim() || this.card.attachment);
   }
   showSheet(titleId) {
+    this.stopRefresh();
     if (!this.sheet.open) {
       const seedId = this.currentRecord?.id ?? document.activeElement.closest?.(".seed")?.dataset.id;
       this.focusAfterSheet = seedId ? '#seeds [data-id="'+CSS.escape(seedId)+'"]' :
@@ -356,7 +389,8 @@ export class FlowGarden {
     this.text.value = this.visit.draft = "";
     this.visit.contributed = true;
     this.sheet.close();
-    this.page = 0;
+    this.visit.selection.includeVisitor(m.id);
+    this.updateActions();
     this.updateLanguage();
     this.saved();
     this.seedLayer.querySelector("[data-id=\"" + m.id + "\"]")?.focus({preventScroll : true});
@@ -403,6 +437,16 @@ export class FlowGarden {
     this.paint();
     if (!this.id)
       return;
+    if (this.labelsLanguage !== getLanguage()) {
+      this.labelsLanguage = getLanguage();
+      el("batch-status").textContent = "";
+      for (const button of this.seedLayer.children) {
+        button.setAttribute("aria-label", this.label(this.recordById(button.dataset.id)));
+        button.querySelector(".seed-caption").textContent = say("点花阅读", "Select to read");
+      }
+    }
+    el("garden-actions").setAttribute("aria-label", say("花园操作", "Garden actions"));
+    this.refreshButton.querySelector("span").textContent = say("换一批记忆", "Refresh memories");
     el("sheet-place").textContent = placeText(this.site.name);
     el("sheet-title").textContent = say("留下你的记忆", "Leave a memory");
     el("invitation-title").textContent = this.visit.contributed ? say("你的记忆已在这里生长", "Your memory is growing here") : say("关于这里，你记得什么？", "What do you remember here?");

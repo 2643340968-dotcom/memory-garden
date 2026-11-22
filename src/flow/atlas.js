@@ -615,7 +615,8 @@ export class FlowAtlas {
     });
     screen.sort(
         (a, b) => Number(b.hot) - Number(a.hot) || b.pin.mark.members.length - a.pin.mark.members.length);
-    this.ctx.font = (this.w < 620 ? "13" : "15") + "px system-ui";
+    const labelFont = (this.w < 620 ? "13" : "15") + "px system-ui";
+    this.ctx.font = labelFont;
     for (const {pin, x, y, hot} of screen) {
       const label = pin.lastElementChild, national = pin.mark.national;
       if (!national && pin.mark.members.length === 1) {
@@ -629,7 +630,12 @@ export class FlowAtlas {
         const text = hot ? name + " · " + placeText(cityFlowers[pin.mark.id].name) : name;
         if (label.textContent !== text) label.textContent = text;
       }
-      const width = Math.min(this.w * .42, Math.ceil(this.ctx.measureText(label.textContent).width +
+      // A camera flight moves labels every frame. Their glyph widths only
+      // change when the words or type size change.
+      const words = label.textContent;
+      if (pin.measurement?.words !== words || pin.measurement.font !== labelFont)
+        pin.measurement = {words, font:labelFont, width:this.ctx.measureText(words).width};
+      const width = Math.min(this.w * .42, Math.ceil(pin.measurement.width +
                                                     (national && this.w < 620 ? 6 : 14)));
       const height = national && this.w <= 560 ? 20 : 24;
       const expanded = pin.dataset.id === this.hot;

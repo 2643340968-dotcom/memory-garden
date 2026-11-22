@@ -13,6 +13,7 @@ import {arrivalScore, nationalMarks} from "../src/flow/overview.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
 import {allForms, forms, plateURL, profileURL} from "../src/flow/flowerForms.js";
 import {meadowFlowers} from "../src/flow/memoryBeds.js";
+import {GardenSelection} from "../src/flow/gardenSelection.js";
 import {gardenPositions, gardenStands} from "../src/flow/standingGarden.js";
 import {eventsForPlace} from "../src/flow/gardenEvents.js";
 import {windImpulse, settleStem, displacedCrown} from "../src/flow/gardenBreeze.js";
@@ -559,4 +560,46 @@ test("the garden grows dense responsive stands tied to existing records, stable 
     assert.ok(added.some(s=>s.id==="new"));
   }
   assert.deepEqual(gardenStands(400,700,80,3,[]),[]);
+});
+
+test("a garden refresh cycles through its entire collection and keeps new contributions in reach", async () => {
+  const collection = await PLACES.jiangdongmen.loadCollection();
+  const events = eventsForPlace("jiangdongmen");
+  const selection = new GardenSelection(events,collection);
+  const originals = [...selection.regular];
+  assert.equal(selection.hasMore,true);
+  assert.ok(originals.some(id => collection.memories.find(m => m.id === id)?.image));
+  assert.ok(originals.some(id => collection.memories.find(m => m.id === id)?.audio));
+  const stillReading = new Set([...selection.featured,...selection.regular]);
+  selection.advance();
+  assert.ok([...selection.featured,...selection.regular].every(id => !stillReading.has(id)));
+  const available = new Set([...events.map(e=>e.id), ...collection.memories
+    .filter(m=>!collection.featuredLabels[m.id]).map(m=>m.id)]);
+  selection.includeVisitor("visitor");
+  assert.equal(selection.regular[0],"visitor");
+  available.add("visitor");
+  const seen = new Set();
+  for (let i=0; i<=available.size; i++) {
+    const batch = [...selection.featured,...selection.regular];
+    assert.equal(new Set(batch).size,batch.length);
+    batch.forEach(id=>seen.add(id));
+    selection.advance();
+  }
+  assert.deepEqual(seen,available);
+  const small = new GardenSelection(eventsForPlace("zhanqiao"),await PLACES.zhanqiao.loadCollection());
+  assert.equal(small.hasMore,false);
+  const first = [...small.featured,...small.regular];
+  small.advance();
+  assert.deepEqual([...small.featured,...small.regular],first);
+  for(let i=0;i<5;i++) small.includeVisitor("local-"+i);
+  assert.equal(small.hasMore,true);
+  assert.ok(!selection.regular.includes("local-4"));
+});
+
+test("each garden offers a distinct writing prompt in both languages", () => {
+  for (const side of [0,1]) {
+    const prompts = Object.values(PLACES).map(s=>Array.isArray(s.prompt) ? s.prompt[side] : s.prompt);
+    assert.ok(prompts.every(Boolean));
+    assert.equal(new Set(prompts).size,prompts.length);
+  }
 });

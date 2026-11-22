@@ -644,13 +644,13 @@ a {
   box-shadow:none;
 }
 .legend .featured::before {width:24px; height:24px; filter:drop-shadow(0 0 3px #d5afbd);}
-.map-tools,#pages {
+.map-tools {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.map-tools button,#pages button {
+.map-tools button {
   display: grid;
   place-items: center;
   width: 34px;
@@ -669,11 +669,11 @@ a {
 }
 .map-tools button { background: transparent; }
 
-.map-tools button:disabled,#pages button:disabled {
+.map-tools button:disabled {
   opacity: .38;
 }
 
-.map-tools button:not(:disabled):hover,#pages button:not(:disabled):hover {
+.map-tools button:not(:disabled):hover {
   background: #eaeaf3;
 }
 
@@ -683,12 +683,6 @@ a {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
-}
-
-#pages span {
-  min-width: 36px;
-  text-align: center;
-  font: 11px var(--mono);
 }
 
 .pin {
@@ -1021,11 +1015,9 @@ a {
   gap: 13px; padding:clamp(62px,12vh,112px) 0 0; touch-action:none;
   overflow: hidden;
   background: #faf8f3;
-  transition: opacity .62s cubic-bezier(.34,0,.28,1);
 }
 
 #arrival.fading {
-  opacity: 0;
   pointer-events: none;
 }
 
@@ -1525,11 +1517,11 @@ figcaption button,#memory-reader-back {
     height: 7px;
   }
 
-  .map-tools,#pages {
+  .map-tools {
     gap: 1px;
   }
 
-  .map-tools button,#pages button {
+  .map-tools button {
     width: 29px;
     height: 29px;
     font-size: 17px;
@@ -1582,23 +1574,34 @@ figcaption button,#memory-reader-back {
 /* The navigation and the garden's own actions have independent room to reflow. */
 #edition[data-tools="garden"] .toolbar-shell {padding-bottom:48px;}
 #garden-actions {
-  position:absolute; bottom:0; left:50%; transform:translateX(-50%); min-height:40px;
-  width:min(960px,calc(100% - 24px)); padding-inline:3px;
-  display:flex; align-items:center; justify-content:flex-end; gap:8px;
+  position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+  width:max-content; max-width:calc(100% - 16px); min-height:40px;
+  display:flex; align-items:center; justify-content:center; gap:7px;
 }
-#garden-actions > * {pointer-events:auto;}
-#garden-actions #pages {
-  min-height:38px; padding-inline:4px; border:1px solid #adbcae8c; border-radius:24px;
-  background:#fbfaf5f5; box-shadow:0 2px 8px #334a3c0d;
+#garden-actions button {
+  pointer-events:auto; display:inline-flex; align-items:center; justify-content:center;
+  gap:7px; min-height:40px; padding:8px clamp(10px,2vw,18px); border-radius:24px;
+  font:600 14px/1.3 var(--display); white-space:nowrap;
+  transition:background-color .2s,border-color .2s;
 }
-#garden-actions #pages button {width:34px;height:34px;}
+:lang(zh-CN) #garden-actions button {font-family:var(--song);}
 #write {
-  min-height:39px; padding:8px 18px; border:1px solid #405f50; border-radius:24px;
-  background:#355446; color:#fffdf3; font:600 14px/1.3 var(--display);
-  white-space:nowrap; box-shadow:inset 0 1px 0 #ffffff24,0 3px 12px #304a3a20;
+  border:1px solid #405f50; background:#355446; color:#fffdf3;
+  box-shadow:inset 0 1px 0 #ffffff24,0 3px 12px #304a3a20;
 }
-:lang(zh-CN) #write {font-family:var(--song);}
 #write:hover {background:#284536;}
+#refresh-memories {
+  border:1px solid #a4b2a8; background:#fafaf2f5; color:#365346;
+  box-shadow:inset 0 1px 0 #fff,0 2px 8px #334a3c0d;
+}
+#refresh-memories:hover {background:#f0f3e9; border-color:#7c9485;}
+#refresh-memories svg {
+  width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round;
+}
+@media (prefers-reduced-motion:no-preference) {
+  #refresh-memories[aria-disabled="true"] svg {animation:turn-memory .48s cubic-bezier(.2,.68,.3,1);}
+  @keyframes turn-memory {to {transform:rotate(1turn);}}
+}
 #edition:is([data-tools="garden"],[data-tools="map"]) #trail {flex-wrap:wrap;}
 #edition:is([data-tools="garden"],[data-tools="map"]) #trail a {
   white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; padding-block:3px;

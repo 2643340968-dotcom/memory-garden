@@ -65,7 +65,7 @@ function mapGesture() {
   el("guide").open = false;
 }
 const atlas = new FlowAtlas(el("map"), {
-  navigate : r => navigate(r),
+  navigate : r => navigate(r, {chapter:false}),
   step : (inward, mark) => advance(inward, mark),
   gesture : mapGesture,
   read : mark => {
@@ -134,7 +134,7 @@ function chooseSite(id) {
     return;
   }
   void PLACES[id].loadCollection().catch(() => {});
-  navigate(place);
+  navigate(place, {chapter:false});
 }
 function navigate(next, opts = {}) {
   if (route && flowHash(route) === flowHash(next)) {
@@ -266,7 +266,7 @@ function chrome() {
   el("stage").dataset.surface = isGarden ? "garden" : "atlas";
   el("stage").dataset.level = route.level;
   el("enter").hidden = route.level !== "place";
-  el("enter").textContent = local("进入花园 ↓", "Enter garden ↓");
+  el("enter").textContent = local("花园题页 ↓", "Garden prelude ↓");
   el("write").textContent = local("＋  留下记忆", "＋  Leave a memory");
   const back = el("back");
   back.hidden = !(isGarden || arrival);
@@ -333,14 +333,16 @@ function closeTitle() {
   el("stage").inert = false;
 }
 function presentTitle(origin = null) {
+  const page = el("arrival");
+  const opacity = page.hidden ? 0 : Number(getComputedStyle(page).opacity);
   passage?.cancel();
   paperFade?.cancel();
   el("stage").inert = true;
-  el("arrival").hidden = false;
-  el("arrival").classList.remove("fading");
-  if (!quiet.matches)
-    paperFade = el("arrival").animate(
-        [ {opacity : 0}, {opacity : 1} ], {duration : 560, easing : "cubic-bezier(.3,0,.28,1)"});
+  page.hidden = false;
+  page.classList.remove("fading");
+  if (!quiet.matches && opacity < 1)
+    paperFade = page.animate([{opacity}, {opacity:1}],
+      {duration:560*(1-opacity), easing:"cubic-bezier(.3,0,.28,1)"});
   paintPassage(origin);
   el("arrival-title").focus({preventScroll : true});
 }
@@ -348,11 +350,17 @@ async function finishTitle(turn) {
   if (turn !== version)
     return;
   if (!quiet.matches) {
-    el("arrival").classList.add("fading");
-    await new Promise(resolve => setTimeout(resolve, 630));
+    const page = el("arrival");
+    const opacity = Number(getComputedStyle(page).opacity);
+    paperFade?.cancel();
+    page.classList.add("fading");
+    paperFade = page.animate([{opacity}, {opacity:0}],
+      {duration:530*opacity, easing:"cubic-bezier(.34,0,.28,1)", fill:"forwards"});
+    try { await paperFade.finished; } catch (error) { if (error.name !== "AbortError") throw error; }
   }
   if (turn === version) {
     closeTitle();
+    garden.updateActions();
     el("garden").focus({preventScroll : true});
   }
 }
@@ -374,11 +382,11 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
     visits.set(flowHash(route), atlas.snapshot());
   closeChapter();
   el("guide").open = false;
-  if (!enteringField || !wasTitle) closeTitle();
+  if (!(wasTitle && (enteringField || atTitle))) closeTitle();
   clearTimeout(noticeTimer);
   el("notice").textContent = "";
   if (route?.level === "garden")
-    garden.leave(!atTitle && !opening && !quiet.matches);
+    garden.leave(!opening && !quiet.matches);
   route = next;
   flowerBook.destination(next.city, next.level === "city" && (!previous || previous === "country"));
   hovered = null;

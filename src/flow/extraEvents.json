@@ -293,6 +293,18 @@
   ],
   "dongguan": [
     {
+      "date": "1913",
+      "title": [
+        "为重建大寺捐资",
+        "A community raises funds to rebuild"
+      ],
+      "body": [
+        "青海各地居民捐资，在东关重建清真寺。工程于次年完工，记录重建经过的碑刻后来在院内留存下来。",
+        "Residents across Qinghai contributed to rebuilding the mosque at Dongguan. Work finished the following year. An inscription in the courtyard preserved an account of the rebuilding."
+      ],
+      "source": "dongguan-rebuilding"
+    },
+    {
       "date": "1986",
       "title": [
         "省级保护",
@@ -891,6 +903,18 @@
         "栈桥改建时在桥头增建两层的回澜阁。",
         "Reconstruction added the two-storey Huilan Pavilion at the end of the pier."
       ]
+    },
+    {
+      "date": "2014-04-25",
+      "title": [
+        "风暴过后，栈桥重新迎客",
+        "A walk out to sea again"
+      ],
+      "body": [
+        "前一年的风暴损坏了桥体。经过近十一个月的加固维修，围挡撤去，人们又可以从岸边沿栈桥走向海中。",
+        "A storm the previous year had damaged the pier. After nearly eleven months of repairs, the barriers came down and people could walk out from the shore again."
+      ],
+      "source": "zhanqiao-reopening"
     }
   ],
   "st-michaels": [
@@ -1230,6 +1254,18 @@
     }
   ],
   "xiuying": [
+    {
+      "date": "1891",
+      "title": [
+        "海边山丘上的五座炮台",
+        "Five batteries above the shore"
+      ],
+      "body": [
+        "秀英村后的小丘上建成海防炮台。民国《琼山县志》记下了五座炮台各自的名字，其中三座较大，两座较小。",
+        "A coastal fort was completed on the hill behind Xiuying village. A later Qiongshan county gazetteer records five named batteries there, three large and two small."
+      ],
+      "source": "xiuying-chronicle"
+    },
     {
       "date": "1985",
       "title": [

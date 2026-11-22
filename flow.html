@@ -44,9 +44,12 @@
       </details>
       <button class="language" id="flow-language" type="button">英文</button>
     </header>
-    <div id="garden-actions" hidden>
+    <div id="garden-actions" role="group" hidden>
       <button type="button" id="write"></button>
-      <div id="pages" hidden><button type="button" id="earlier">←</button><span></span><button type="button" id="later">→</button></div>
+      <button type="button" id="refresh-memories" aria-controls="seeds" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.6 10.1a7.8 7.8 0 1 0-.7 6.3M19.8 4.9l-.2 5.5-5.4-.5"/></svg>
+        <span></span>
+      </button>
     </div>
     </div>
     <section id="stage" class="stage" data-surface="atlas">
@@ -56,6 +59,7 @@
       </div>
       <div id="garden" class="garden" hidden role="group" aria-label="记忆花园" tabindex="-1">
         <canvas id="waterbed" aria-hidden="true"></canvas><svg id="stalks" aria-hidden="true" preserveAspectRatio="none"></svg><div id="seeds"></div>
+        <span id="batch-status" role="status" class="sr"></span>
         <aside id="garden-invitation" aria-labelledby="invitation-title" hidden>
           <h2 id="invitation-title"></h2><p id="invitation-note"></p>
           <div class="invitation-actions"><button type="button" id="invitation-write"></button><button type="button" id="invitation-browse"></button></div>

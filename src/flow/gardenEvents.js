@@ -4,6 +4,9 @@ import extraPlaces from "./extraPlaces.json" with {type:"json"};
 // Editorial summaries for the standing garden. Every blossom has its own event and citation.
 // Numeric sources are permanent revisions of the place articles in the atlas catalogue.
 const sources = {
+  "xiuying-chronicle":{name:["《海南日报》引《琼山县志》","Hainan Daily, citing the Qiongshan County Gazetteer"],url:"https://news.hndaily.cn/html/2022-06/20/content_58483_14951665.htm"},
+  "dongguan-rebuilding":{name:["中国天气网青海站","China Weather, Qinghai"],url:"https://qh.weather.com.cn/bdly/lyjdjs/06/540803.shtml"},
+  "zhanqiao-reopening":{name:["《青岛日报》","Qingdao Daily"],url:"https://www.dailyqd.com/2014-04/25/content_53126.htm"},
   "kashgar-rail":{name:["中国中铁","China Railway Group"],url:"https://www.crecg.com/web/xwzx61/zfgsdt39/2025021110090629756/index.html"},
   "lhasa-ensemble":{name:["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"],url:"https://whc.unesco.org/en/list/707/"},
   "silk-roads":{name:["联合国教科文组织世界遗产中心","UNESCO World Heritage Centre"],url:"https://whc.unesco.org/en/list/1442/"},
