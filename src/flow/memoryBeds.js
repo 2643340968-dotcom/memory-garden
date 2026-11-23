@@ -1,7 +1,8 @@
 import {CITIES, PLACES} from "./places.js";
 import {clamp, hash, mercator, project, smooth, TAU} from "./geometry.js";
 import {forms} from "./flowerForms.js";
-import {loadPlates} from "./coverPlates.js";
+import {pixelRatio, releaseCanvas} from "./renderBudget.js";
+import {loadFlowerPlate} from "./coverPlates.js";
 import {drawInnerFronts, drawOuterFronts, focusedBody, frontsAt, stamp} from "./coverFlowers.js";
 import {petalBreath, rhythmFor} from "./petalLight.js";
 import {PetalCurrent} from "./petalCurrent.js";
@@ -131,10 +132,8 @@ export class MemoryBeds {
   resize(w,h,dpr) {
     this.w = w; this.h = h;
     this.projection = null;
-    const scale = Math.min(dpr,1.6);
-    this.canvas.width = Math.round(w*scale);
-    this.canvas.height = Math.round(h*scale);
-    this.ink.setTransform(this.canvas.width/w,0,0,this.canvas.height/h,0,0);
+    this.scale = pixelRatio(w, h, Math.min(dpr,1.35), 1650000);
+    if (!this.visible.length) releaseCanvas(this.canvas);
   }
   clear(hold = false) {
     cancelAnimationFrame(this.frame);
@@ -144,7 +143,11 @@ export class MemoryBeds {
     this.projection = null;
     this.visible = [];
     this.heldFrame = hold;
-    if (!hold) this.ink.clearRect(0,0,this.w,this.h);
+    this.cache.clear();
+    this.tints.clear();
+    this.loadingCity = null;
+    this.plates = null;
+    if (!hold) releaseCanvas(this.canvas);
     this.canvas.dataset.flowers = "0";
   }
   bodies(city) {
@@ -164,12 +167,17 @@ export class MemoryBeds {
   }
   place(city, view, moving) {
     if (!city) { if (this.city || this.heldFrame) this.clear(); return; }
+    if (this.city && this.city !== city) this.clear();
     this.city = city; this.view = view; this.moving = moving;
     if (!this.plates) {
-      this.loading ??= loadPlates().then(plates => {
-        this.plates = plates;
-        if (this.city) this.place(this.city,this.view,this.moving);
-      });
+      if (this.loadingCity !== city) {
+        this.loadingCity = city;
+        loadFlowerPlate(city).then(plate => {
+          if (this.city !== city) return;
+          this.plates = {[city]:plate};
+          this.place(city,this.view,this.moving);
+        }).catch(() => { if (this.city === city) this.loadingCity = null; });
+      }
       return;
     }
     const previous = this.projection;
@@ -190,7 +198,7 @@ export class MemoryBeds {
       entries.push({id,x,y,scale,depth,bed:this.cache.get(id)});
     }
     this.visible = entries;
-    if (this.cache.size > Math.max(8,entries.length)) {
+    if (this.cache.size > Math.max(3,entries.length)) {
       const onPage = new Set(entries.map(e=>e.id));
       for (const id of this.cache.keys()) if (!onPage.has(id)) this.cache.delete(id);
     }
@@ -235,13 +243,22 @@ export class MemoryBeds {
     cancelAnimationFrame(this.frame); this.frame = 0;
     if (!this.city || document.hidden) return;
     this.heldFrame = false;
+    if (!this.visible.length) {
+      releaseCanvas(this.canvas);
+      this.canvas.dataset.flowers = "0";
+      return;
+    }
+    const pw = Math.round(this.w*this.scale), ph = Math.round(this.h*this.scale);
+    if (this.canvas.width !== pw) this.canvas.width = pw;
+    if (this.canvas.height !== ph) this.canvas.height = ph;
+    this.ink.setTransform(pw/this.w,0,0,ph/this.h,0,0);
     const ctx = this.ink, dt = clamp((now-(this.last??now))/1000,0,.13);
     this.clock += dt; this.last = now;
     ctx.clearRect(0,0,this.w,this.h);
     const wetUntil = e => Math.max(0, (e.bed.lastTouched ?? -Infinity) + 3.6 - this.clock);
     const live = this.moving || this.motion.matches ? [] : this.visible.filter(e=>e.depth>.84)
       .sort((a,b)=>Number(b.id===this.attended)-Number(a.id===this.attended) || wetUntil(b)-wetUntil(a) ||
-        Math.hypot(a.x-this.w/2,a.y-this.h/2)-Math.hypot(b.x-this.w/2,b.y-this.h/2)).slice(0,4);
+        Math.hypot(a.x-this.w/2,a.y-this.h/2)-Math.hypot(b.x-this.w/2,b.y-this.h/2)).slice(0,2);
     const breathe = !this.moving && !this.motion.matches && this.visible.some(e=>e.depth>.48);
     let count = 0;
     for (const e of this.visible) {

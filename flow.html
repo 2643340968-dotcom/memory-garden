@@ -20,7 +20,7 @@
         <div class="actions"><button type="button" id="open-map" hidden></button><button type="button" id="dismiss-chapter" hidden></button><button type="button" id="enter" hidden></button><a id="back" href="#atlas" hidden></a></div>
         <div class="map-tools" id="map-tools">
           <select id="level-target" aria-label="选择城市"></select>
-          <button type="button" id="zoom-out" aria-label="返回上一级">↶</button>
+          <button type="button" id="zoom-out" aria-label="返回上一级"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 10.5c3.9-.2 5.7-2.9 6.8-6.4 1 3.6 3.3 6.1 6.8 6.4M11.8 5.5v8.2c0 3 2.2 4.8 5.9 5.7"/></svg></button>
           <button type="button" id="fit" aria-label="回到当前范围"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5m6 0h5v5m0 6v5h-5m-6 0H4v-5"/><circle cx="12" cy="12" r="2.2"/></svg></button>
         </div>
       </div>
@@ -35,9 +35,9 @@
           <div class="guide-meta">
             <div class="reading"><i aria-hidden="true"></i><span id="readout"></span><span id="coordinates" dir="ltr"></span></div>
             <details class="credits"><summary id="credit-title"></summary><div>
-              <a id="natural-credit" href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">自然地球地图数据 ↗</a>
-              <a id="free-credit" href="https://openfreemap.org/" target="_blank" rel="noreferrer">开放自由地图 ↗</a>
-              <a id="street-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© 开放街图贡献者 ↗</a>
+              <a id="natural-credit" href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">自然地球地图数据</a>
+              <a id="free-credit" href="https://openfreemap.org/" target="_blank" rel="noreferrer">开放自由地图</a>
+              <a id="street-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© 开放街图贡献者</a>
             </div></details>
           </div>
         </div>
@@ -47,7 +47,6 @@
     <div id="garden-actions" role="group" hidden>
       <button type="button" id="write"></button>
       <button type="button" id="refresh-memories" aria-controls="seeds" hidden>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.6 10.1a7.8 7.8 0 1 0-.7 6.3M19.8 4.9l-.2 5.5-5.4-.5"/></svg>
         <span></span>
       </button>
     </div>
@@ -60,10 +59,11 @@
       <div id="garden" class="garden" hidden role="group" aria-label="记忆花园" tabindex="-1">
         <canvas id="waterbed" aria-hidden="true"></canvas><svg id="stalks" aria-hidden="true" preserveAspectRatio="none"></svg><div id="seeds"></div>
         <span id="batch-status" role="status" class="sr"></span>
-        <aside id="garden-invitation" aria-labelledby="invitation-title" hidden>
-          <h2 id="invitation-title"></h2><p id="invitation-note"></p>
-          <div class="invitation-actions"><button type="button" id="invitation-write"></button><button type="button" id="invitation-browse"></button></div>
-        </aside>
+        <dialog id="garden-invitation" aria-labelledby="invitation-title" aria-describedby="invitation-note">
+          <div class="invitation-heading"><h2 id="invitation-title"></h2><button class="language" type="button" id="invitation-language"></button></div>
+          <p id="invitation-note"></p>
+          <div class="invitation-actions"><button type="button" id="invitation-write"></button><button type="button" id="invitation-browse" autofocus></button></div>
+        </dialog>
       </div>
       <aside id="city-leaf" aria-labelledby="leaf-title" hidden>
         <img id="leaf-plate" width="88" height="88" alt="">
@@ -74,19 +74,19 @@
       <div id="nearby" role="group" aria-label="附近地点" hidden></div>
       <section id="landing" hidden aria-labelledby="landing-title">
         <div class="landing-wash" aria-hidden="true"></div>
+        <div id="landing-specimens" aria-hidden="true"></div>
         <canvas id="landing-flowers" aria-hidden="true"></canvas>
         <div id="landing-scroll" role="region" tabindex="0" aria-describedby="landing-hint">
           <div class="scroll-distance"><div class="landing-type">
             <h1 id="landing-title">记忆之场</h1>
             <p id="landing-intro">沿着地图走进记忆花园，读一段往事，也可以留下自己的记忆。</p>
-            <button type="button" class="landing-cue" id="landing-cue">
-              <span id="landing-hint">下滑进入地图</span>
-              <svg viewBox="0 0 48 30" width="46" height="29" aria-hidden="true">
-                <defs><linearGradient id="petal-tip" x2=".8" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#ba93b5"/><stop offset=".55" stop-color="#e9b4b7"/><stop offset="1" stop-color="#d8a66d"/></linearGradient></defs>
-                <path d="M6 4C16 3 23 8 24 19C16 17 9 12 6 4Z" fill="url(#petal-tip)"/>
-                <path d="M42 4C32 3 25 8 24 19C32 17 39 12 42 4Z" fill="#a9c9b5"/>
-                <path d="M12 8Q21 13 24 22Q27 14 36 8" fill="none" stroke="#686952" stroke-width="1.1" stroke-linecap="round"/>
-                <path d="M24 21Q24.7 24 27 24.5Q24.7 25.3 24 28Q23.3 25.3 21 24.5Q23.3 24 24 21Z" fill="#cb9a6c"/>
+            <p id="landing-hint">下滑进入地图</p>
+            <button type="button" class="landing-cue" id="landing-cue" aria-label="进入全国地图" aria-describedby="landing-hint">
+              <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden="true">
+                <path d="M18 5c-.4 5.7-.4 11.9 0 22.1" fill="none" stroke="currentColor"/>
+                <path d="M6.2 12.5c5.6.6 10.2 4.9 11.8 13.4-7-.9-11.3-6.2-11.8-13.4Z" fill="#b6cbb6"/>
+                <path d="M29.8 12.5c-5.6.6-10.2 4.9-11.8 13.4 7-.9 11.3-6.2 11.8-13.4Z" fill="#cdb3c4"/>
+                <path d="M10.7 17.3Q15.5 22 18 29q2.7-7 7.3-11.7" fill="none" stroke="currentColor"/>
               </svg>
             </button>
           </div></div>

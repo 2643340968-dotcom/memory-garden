@@ -1,7 +1,8 @@
 import {clamp, smooth} from "./geometry.js";
-import {allForms, forms} from "./flowerForms.js";
+import {allForms} from "./flowerForms.js";
 import {drawCorolla} from "./drawCorolla.js";
-import {loadPlates} from "./coverPlates.js";
+import {releaseCanvas} from "./renderBudget.js";
+import {loadFlowerPlate} from "./coverPlates.js";
 import {drawInnerFronts, drawOuterFronts, focusedBody, frontsAt, stamp} from "./coverFlowers.js";
 import {PetalCurrent} from "./petalCurrent.js";
 
@@ -51,8 +52,7 @@ export class RippleField {
     this.width = w;
     this.height = h;
     this.dpr = dpr;
-    this.canvas.width = Math.round(w * dpr);
-    this.canvas.height = Math.round(h * dpr);
+    if (!this.waves.length) releaseCanvas(this.canvas);
     for (const wave of this.waves) wave.bloom.radius = this.openRadius();
     this.schedule();
   }
@@ -73,10 +73,10 @@ export class RippleField {
       wave = {key, pin, bloom, center:pin.mark.center, start:now, current:new PetalCurrent([bloom])};
       this.waves.push(wave);
       if (this.waves.length > RIPPLE_LIMIT) this.retire(this.waves.shift());
-      loadPlates(!forms[type]).then(plates => {
-        wave.plate = plates[type];
+      loadFlowerPlate(type).then(plate => {
+        wave.plate = plate;
         if (this.waves.includes(wave)) this.schedule();
-      });
+      }).catch(() => { /* The resting printed flower remains selectable. */ });
     }
     wave.left = click && !held ? now + 350 : null;
     this.schedule();
@@ -111,7 +111,7 @@ export class RippleField {
     this.waves.length = 0;
     cancelAnimationFrame(this.frame);
     this.frame = 0;
-    if (!holdLastFrame) this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    if (!holdLastFrame) releaseCanvas(this.canvas);
     this.canvas.dataset.waves = "0";
   }
   schedule() {
@@ -129,6 +129,9 @@ export class RippleField {
   }
   draw(now, cameraMoving = false) {
     const {ctx, dpr} = this;
+    const w = Math.round(this.width*dpr), h = Math.round(this.height*dpr);
+    if (this.canvas.width !== w) this.canvas.width = w;
+    if (this.canvas.height !== h) this.canvas.height = h;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
     for (const wave of [...this.waves]) {
@@ -160,6 +163,7 @@ export class RippleField {
       ink.restore();
     }
     this.canvas.dataset.waves = String(this.waves.length);
-    if (!cameraMoving) this.schedule();
+    if (!this.waves.length) releaseCanvas(this.canvas);
+    else if (!cameraMoving) this.schedule();
   }
 }

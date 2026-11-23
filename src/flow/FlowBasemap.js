@@ -2,6 +2,7 @@ import {VectorBasemap, indexedTile, paintChart} from "../atlas/VectorBasemap.js"
 import index from "../atlas/maps/vector-index.json" with {type : "json"};
 import {clamp, coversView, framePlacement, mercator} from "./geometry.js";
 
+import {pixelRatio, releaseCanvas} from "./renderBudget.js";
 import streetPacks from "./place-packs.json" with {type:"json"};
 
 const north = mercator(index.bounds[3]);
@@ -38,9 +39,13 @@ export class FlowBasemap extends VectorBasemap {
   constructor(redraw, root, generalizeNational = false) {
     super(redraw, root);
     this.generalizeNational = generalizeNational;
+    this.cacheLimit = generalizeNational ? 12 : 28;
     this.tilePaper = paper.land;
   }
-  tileAt(z, x, y) { return super.tileAt(z, x, y) ?? indexedTile(z, x, y, streetPacks); }
+  tileAt(z, x, y) {
+    if (this.generalizeNational && z > 11) return null;
+    return super.tileAt(z, x, y) ?? indexedTile(z, x, y, streetPacks);
+  }
   drawNational(ctx, camera, w, h, k, detailed) {
     detailed = detailed && !this.generalizeNational;
     const item = this.resource(index.national, detailed);
@@ -92,13 +97,21 @@ export class NavigationChart {
   constructor(canvas, assetRoot, redraw) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d", {alpha : false, willReadFrequently : true});
-    this.map = new FlowBasemap(() => {
-      this.dirty = true;
-      if (this.needed)
-        redraw();
-    }, assetRoot, true);
+    this.assetRoot = assetRoot;
+    this.redraw = redraw;
+  }
+  release() {
+    this.map?.dispose();
+    this.map = this.frame = null;
+    this.needed = this.dirty = false;
+    releaseCanvas(this.canvas);
   }
   select(detail, view, w, h, language, dpr = 1) {
+    this.map ??= new FlowBasemap(() => {
+      this.dirty = true;
+      if (this.needed)
+        this.redraw();
+    }, this.assetRoot, true);
     const extent = detail && {s : detail.scale, x : detail.x, y : detail.y};
     const valid = detail && coversView(detail.frame, extent, w, h) &&
         detail.scale > (this.needed ? .71 : .55) && detail.scale < (this.needed ? 1.43 : 1.72);
@@ -113,7 +126,7 @@ export class NavigationChart {
       const k = w / view.span * density, camera = {x : view.x, y : view.y, span : width / k};
       // Use coarser vector features for navigation, but rasterize their edges
       // at the display scale. The overscan remains in geographic coordinates.
-      const ratio = Math.min(dpr / density, Math.sqrt(4000000 / (width * height)));
+      const ratio = pixelRatio(width, height, dpr / density, 1500000);
       const pixelsWide = Math.round(width * ratio), pixelsHigh = Math.round(height * ratio);
       if (this.canvas.width !== pixelsWide)
         this.canvas.width = pixelsWide;

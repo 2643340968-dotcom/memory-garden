@@ -1,7 +1,8 @@
 import {clamp, smooth} from "./geometry.js";
 import {loadPlates} from "./coverPlates.js";
 import {WetPaper} from "./wetPaper.js";
-import {allForms} from "./flowerForms.js";
+import {pixelRatio, releaseCanvas} from "./renderBudget.js";
+import {allForms, plateURL} from "./flowerForms.js";
 import {drawCorolla} from "./drawCorolla.js";
 import {PetalCurrent} from "./petalCurrent.js";
 
@@ -150,6 +151,22 @@ export class CoverFlowers {
   constructor(canvas, motion, surface) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
+    this.fallback = canvas.previousElementSibling;
+    this.section = canvas.parentElement;
+    canvas.addEventListener("contextlost", event => {
+      event.preventDefault();
+      this.lost = true;
+      this.section.dataset.paint = "specimens";
+      this.wake();
+    });
+    canvas.addEventListener("contextrestored", () => {
+      this.lost = false;
+      this.w = 0;
+      if (this.active) { this.size(); this.wake(); }
+    });
+    window.addEventListener("pageshow", () => {
+      if (this.active) { this.size(); this.wake(); }
+    });
     this.scratch = newCanvas(208, 208).getContext("2d");
     this.motion = motion;
     this.surface = surface;
@@ -169,7 +186,10 @@ export class CoverFlowers {
       if (this.active && !motion.matches) this.time = stillTime;
       this.wake();
     });
-    document.addEventListener("visibilitychange", () => this.wake());
+    document.addEventListener("visibilitychange", () => {
+      if (this.active && !document.hidden) this.size();
+      this.wake();
+    });
   }
   bindDrag() {
     const surface = this.surface;
@@ -225,23 +245,29 @@ export class CoverFlowers {
   size() {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (!w || !h) return;
-    const dpr = Math.min(devicePixelRatio || 1, 1.5, Math.sqrt(1900000 / (w * h)));
+    const dpr = pixelRatio(w, h, Math.min(devicePixelRatio || 1, 1.5), 1900000);
     const width = Math.round(w * dpr), height = Math.round(h * dpr);
     const resized = this.canvas.width !== width || this.canvas.height !== height || this.w !== w || this.h !== h;
     if (!resized && (!this.plates || this.paper)) return;
     if (resized) {
       this.canvas.width = width;
       this.canvas.height = height;
-      this.ctx.setTransform(width / w, 0, 0, height / h, 0, 0);
+      this.ctx?.setTransform(width / w, 0, 0, height / h, 0, 0);
       this.w = w;
       this.h = h;
       this.pixels = width / w;
       this.endDrag();
       this.blooms = openingFlowers(w, h);
+      this.positionSpecimens();
       this.current = new PetalCurrent(this.blooms);
     }
-    if (!this.plates) return;
-    this.proofs = null;
+    if (!this.plates || !this.ctx || this.lost) return;
+    try { this.prepareInk(w,h,width,height); }
+    catch { this.releaseInk(); }
+  }
+  prepareInk(w,h,width,height) {
+    this.scratch ??= newCanvas(208,208).getContext("2d");
+    if (!this.scratch) throw new Error("No cover drawing surface");
     this.paper = new WetPaper(w, h, this.blooms, this.plates);
     this.crowns = newCanvas(width, height).getContext("2d");
     this.crowns.setTransform(width / w, 0, 0, height / h, 0, 0);
@@ -249,29 +275,57 @@ export class CoverFlowers {
     this.washCanvas.width = this.paper.width;
     this.washCanvas.height = this.paper.height;
     this.washCtx = this.washCanvas.getContext("2d");
+    if (!this.washCtx) throw new Error("No cover wash surface");
     this.washImage = new ImageData(this.paper.pixels, this.paper.width, this.paper.height);
     this.rimCtx = newCanvas(this.paper.width, this.paper.height).getContext("2d");
+    if (!this.rimCtx) throw new Error("No cover rim surface");
     this.rimImage = new ImageData(this.paper.erosion, this.paper.width, this.paper.height);
     this.washTime = null;
   }
+  positionSpecimens() {
+    this.blooms.forEach((bloom, i) => {
+      let img = this.fallback.children[i];
+      if (!img) {
+        img = new Image();
+        img.alt = "";
+        img.src = plateURL(bloom.type);
+        this.fallback.append(img);
+      }
+      Object.assign(img.style, {
+        left: bloom.x + "px", top: bloom.y + "px", width: 2*bloom.radius + "px",
+        rotate: bloom.angle + "rad", animationDelay: bloom.delay + "s"
+      });
+    });
+  }
   open() {
-    this.active = true;
-    this.onPaper = true;
+    this.active = this.onPaper = true;
+    this.section.dataset.paint = "specimens";
     this.time = 0;
     this.size();
-    if (this.blooms) this.current = new PetalCurrent(this.blooms);
-    this.paper?.clear();
-    this.washTime = null;
-    this.loading ??= loadPlates().then(plates => {
-      this.plates = plates;
-      this.size();
-      this.wake();
-    });
+    if (!this.plates && !this.loading) {
+      this.loading = loadPlates().then(plates => {
+        if (!this.active) return;
+        this.plates = plates;
+        this.size(); this.wake();
+      }).catch(() => { this.section.dataset.paint = "specimens"; })
+        .finally(() => { this.loading = null; });
+    }
     this.wake();
   }
   close() {
     this.active = false;
     this.wake();
+    this.releaseInk();
+    releaseCanvas(this.canvas);
+    this.current = this.blooms = this.washTime = this.plates = null;
+    this.w = this.h = 0;
+    this.fallback.replaceChildren();
+    this.section.dataset.paint = "specimens";
+  }
+  releaseInk() {
+    this.section.dataset.paint = "specimens";
+    for (const canvas of [this.crowns?.canvas, this.washCanvas, this.rimCtx?.canvas]) releaseCanvas(canvas);
+    this.crowns = this.paper = this.rimCtx = this.rimImage = this.washImage = this.washCtx = this.washCanvas = null;
   }
   revealMap(progress) {
     const visible = progress < .72;
@@ -283,7 +337,7 @@ export class CoverFlowers {
     cancelAnimationFrame(this.frame);
     this.previous = null;
     if (!this.active || !this.onPaper || this.obscured || document.hidden || this.motion.matches) this.endDrag();
-    if (!this.active || !this.onPaper || this.obscured || document.hidden || !this.blooms)
+    if (!this.active || !this.onPaper || this.obscured || document.hidden || this.lost || !this.ctx || !this.blooms)
       return;
     this.frame = requestAnimationFrame(now => this.tick(now));
   }
@@ -293,7 +347,16 @@ export class CoverFlowers {
       this.time += dt;
       this.current.advance(dt, this.time);
       this.previous = now;
-      this.draw(this.motion.matches ? stillTime : this.time);
+      const age = this.motion.matches ? stillTime : this.time;
+      if (this.paper && age > .16) {
+        try {
+          this.draw(age);
+          this.section.dataset.paint = "canvas";
+        } catch {
+          this.releaseInk();
+          return;
+        }
+      }
     }
     if (!this.motion.matches) this.frame = requestAnimationFrame(next => this.tick(next));
   }
@@ -316,26 +379,6 @@ export class CoverFlowers {
   }
   draw(time) {
     const ctx = this.ctx;
-    if (!this.plates) {
-      // Start unfolding on the first frame while the worker measures the wet rims.
-      this.proofs ??= new Map();
-      ctx.clearRect(0, 0, this.w, this.h);
-      for (const bloom of this.blooms) {
-        const age = (time - bloom.delay) * bloom.pace;
-        if (age <= 0) continue;
-        if (!this.proofs.has(bloom.type)) {
-          const proof = newCanvas(176, 176);
-          drawCorolla(proof.getContext("2d"), proof.width, allForms[bloom.type]);
-          this.proofs.set(bloom.type, proof);
-        }
-        ctx.save();
-        ctx.translate(bloom.x, bloom.y);
-        ctx.rotate(bloom.angle);
-        corolla(ctx, this.scratch, this.proofs.get(bloom.type), bloom, age);
-        ctx.restore();
-      }
-      return;
-    }
     const fronts = this.blooms.map((bloom, i) => {
       const train = frontsAt(bloom, time);
       if (!this.motion.matches && this.current.states[i].waves.length)

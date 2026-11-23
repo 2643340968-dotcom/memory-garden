@@ -139,7 +139,12 @@ function draw(city,side) {
 for(const [city,form] of Object.entries(forms)) {
   for(const view of ["front","side"]) {
     const name=cityFlowers[city].name.join(" / ");
-    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="160" height="144" viewBox="0 0 160 144" role="img"><title>'+name+'</title>\n<defs>'+defsFor(form)+svgPaperFilter(.39)+'</defs>\n<g filter="url(#paper)">'+draw(city,view==="side")+'</g>\n</svg>\n';
+    // These layered lateral petals extend past the left edge. Scale the two
+    // views around their common stem socket to preserve their registration.
+    const art = draw(city,view==="side");
+    const crown = ["beijing","qingdao","shenyang"].includes(city) ?
+      '<g transform="translate(80 126) scale(.88) translate(-80 -126)">'+art+'</g>' : art;
+    const svg='<svg xmlns="http://www.w3.org/2000/svg" width="160" height="144" viewBox="0 0 160 144" role="img"><title>'+name+'</title>\n<defs>'+defsFor(form)+svgPaperFilter(.39)+'</defs>\n<g filter="url(#paper)">'+crown+'</g>\n</svg>\n';
     await writeFile(new URL(city+"-"+view+".svg",out),svg);
   }
 }

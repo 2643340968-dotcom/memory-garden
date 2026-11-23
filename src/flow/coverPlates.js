@@ -4,7 +4,9 @@ import {makePlates} from "./coverPigments.js";
 function workerPlates(keys) {
   return new Promise(resolve => {
     let worker;
+    const timeout = setTimeout(() => finish(null), 10000);
     const finish = value => {
+      clearTimeout(timeout);
       worker?.terminate();
       resolve(value);
     };
@@ -41,11 +43,31 @@ async function bake(keys) {
   return plates;
 }
 
-let cities, sites;
-export function loadPlates(includeSites = false) {
-  cities ??= bake(Object.keys(forms));
-  if (!includeSites) return cities;
-  sites ??= Promise.all([cities, bake(Object.keys(allForms).filter(key => !forms[key]))])
-    .then(([a, b]) => ({...a, ...b}));
-  return sites;
+// Deep links request just their own flower. A cover request batches the
+// remaining species in one job and shares in-flight work with the atlas.
+const pending = new Map();
+function request(keys) {
+  const missing = keys.filter(key => !pending.has(key));
+  if (missing.length) {
+    const batch = bake(missing);
+    for (const key of missing) {
+      pending.set(key, batch.then(plates => plates[key]).catch(error => {
+        pending.delete(key);
+        throw error;
+      }));
+    }
+  }
+  return Promise.all(keys.map(key => pending.get(key)));
+}
+
+export function retainFlowerPlate(city) {
+  for (const key of pending.keys()) if (key !== city) pending.delete(key);
+}
+
+export function loadFlowerPlate(key) {
+  return request([key]).then(([plate]) => plate);
+}
+export function loadPlates() {
+  const keys = Object.keys(forms);
+  return request(keys).then(plates => Object.fromEntries(keys.map((key,i) => [key,plates[i]])));
 }

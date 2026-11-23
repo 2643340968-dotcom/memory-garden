@@ -1,6 +1,8 @@
 import test from "node:test";
 import {readFileSync} from "node:fs";
-import {markFlower} from "../src/flow/atlas.js";
+import {pixelRatio, releaseCanvas} from "../src/flow/renderBudget.js";
+import {GardenInvitation} from "../src/flow/gardenInvitation.js";
+import {FlowAtlas, markFlower} from "../src/flow/atlas.js";
 import assert from "node:assert/strict";
 import {project, under, mercator, latitude, blend, cameraProgress, coversView, framePlacement} from "../src/flow/geometry.js";
 import {FlowBasemap, NavigationChart} from "../src/flow/FlowBasemap.js";
@@ -601,5 +603,86 @@ test("each garden offers a distinct writing prompt in both languages", () => {
     const prompts = Object.values(PLACES).map(s=>Array.isArray(s.prompt) ? s.prompt[side] : s.prompt);
     assert.ok(prompts.every(Boolean));
     assert.equal(new Set(prompts).size,prompts.length);
+  }
+});
+
+test("every fitted city and place covers the full chart on portrait, landscape and wide screens", () => {
+  const map = Object.create(FlowBasemap.prototype);
+  map.resource = () => ({});
+  const stops = [
+    ...Object.keys(CITIES).map(city => ({level:"city",city})),
+    ...Object.entries(PLACES).map(([place,site]) => ({level:"place",city:site.city,place}))
+  ];
+  for (const [w,h] of [[390,740],[844,390],[1440,900],[2560,1080]]) {
+    for (const stop of stops) {
+      const view = FlowAtlas.prototype.fit.call({w,h}, stop);
+      const k = w/view.span, level = Math.max(6,Math.min(14,Math.round(Math.log2(360*k/320))));
+      assert.ok(map.visibleTiles(level,view,w,h,k).complete, JSON.stringify({w,h,stop}));
+    }
+  }
+});
+
+test("raster budgets cap area and the longest edge and allow backing stores to be released", () => {
+  for (const [w,h] of [[390,844],[1920,1080],[7680,2160],[8192,480]]) {
+    const dpr = pixelRatio(w,h,3,1900000);
+    assert.ok(w*h*dpr*dpr <= 1900000.01 && Math.max(w,h)*dpr <= 4096);
+    assert.ok(dpr <= 3 && dpr > 0);
+  }
+  const canvas = {width:2560,height:1600};
+  releaseCanvas(canvas);
+  assert.deepEqual(canvas,{width:1,height:1});
+});
+
+test("the garden waits for real growth and remembers a displayed invitation across places and reloads", async t => {
+  const frames = [], preferences = new Map();
+  for (const [key,value] of Object.entries({
+    window:new EventTarget(), document:new EventTarget(),
+    localStorage:{getItem:k=>preferences.get(k),setItem:(k,v)=>preferences.set(k,v)},
+    requestAnimationFrame:fn=>frames.push(fn)
+  })) {
+    const old = Object.getOwnPropertyDescriptor(globalThis,key);
+    Object.defineProperty(globalThis,key,{value,configurable:true});
+    t.after(() => old ? Object.defineProperty(globalThis,key,old) : delete globalThis[key]);
+  }
+  let shown = 0, available = true;
+  const dialog = Object.assign(new EventTarget(),{
+    open:false, showModal(){ this.open=true; shown++; }, close(){ this.open=false; }
+  });
+  const visit = new GardenInvitation(dialog,()=>available,()=>{});
+  let finishGrowth;
+  const finished = new Promise(resolve => { finishGrowth = resolve; });
+  const animation = {animationName:"open-calyx",playState:"running",finished};
+  const field = {getAnimations:()=>[animation,{animationName:"petal-breath",playState:"running"}]};
+  visit.consider(field);
+  const interrupted = frames.shift()();
+  visit.leave();
+  finishGrowth();
+  await interrupted;
+  assert.equal(shown,0);
+  assert.equal(preferences.size,0);
+  animation.playState = "finished";
+  visit.consider(field);
+  available=false;
+  await frames.shift()();
+  assert.equal(shown,0);
+  available=true;
+  visit.consider(field);
+  await frames.shift()();
+  assert.equal(shown,1);
+  visit.leave();
+  visit.consider(field);
+  new GardenInvitation(dialog,()=>true,()=>{}).consider(field);
+  assert.equal(frames.length,0);
+});
+
+test("both upright prints for each city have transparency and share the 160 by 144 stem registration", () => {
+  for (const city of Object.keys(CITIES)) for (const view of ["front","side"]) {
+    const url = profileURL(city,view).replace(/\.svg$/, ".webp");
+    const bytes = readFileSync(new URL("../public/"+url,import.meta.url));
+    assert.equal(bytes.toString("ascii",8,12),"WEBP");
+    assert.equal(bytes.toString("ascii",12,16),"VP8X");
+    assert.ok(bytes[20] & 0x10, url);
+    assert.equal(bytes.readUIntLE(24,3)+1,480);
+    assert.equal(bytes.readUIntLE(27,3)+1,432);
   }
 });

@@ -3,10 +3,12 @@ import {getLanguage, getLocalizedMemoryText, placeText, t} from "../i18n/Languag
 import {createMemoryPool} from "../data/memoryPool.js";
 import {VisitorMemoryCard} from "../memory/VisitorMemoryCard.js";
 import {clamp, hash} from "./geometry.js";
-import {forms, profileURL} from "./flowerForms.js";
+import {forms} from "./flowerForms.js";
 import {drawUnderstory, gardenDefs, gardenPositions, gardenStands, plantArtwork, plantStand} from "./standingGarden.js";
 
 import {GardenBreeze} from "./gardenBreeze.js";
+import {GardenInvitation} from "./gardenInvitation.js";
+import {pixelRatio, releaseCanvas} from "./renderBudget.js";
 import {GardenSelection} from "./gardenSelection.js";
 import {setPetalRhythm} from "./petalLight.js";
 
@@ -28,13 +30,24 @@ export class FlowGarden {
     this.seedLayer = el("seeds");
     this.stalks = el("stalks");
     this.ctx = this.canvas.getContext("2d");
+    this.canvas.addEventListener("contextlost", event => event.preventDefault());
+    this.canvas.addEventListener("contextrestored", () => {
+      this.layoutKey = this.paperKey = null;
+      this.paint();
+    });
     this.visits = new Map();
     this.refreshButton = el("refresh-memories");
     this.refreshButton.onclick = () => this.refresh();
-    this.invitation = el("garden-invitation");
-    el("invitation-write").onclick = () => this.openEditor();
+    this.invitation = new GardenInvitation(el("garden-invitation"),
+      () => Boolean(this.visit && this.seedLayer.childElementCount && !this.root.closest("[inert]") &&
+        !this.root.hidden && !document.hidden && !this.sheet.open && !el("flower-book").open && !el("guide").open),
+      () => this.updateActions());
+    el("invitation-write").onclick = () => {
+      this.invitation.dismiss();
+      this.openEditor();
+    };
     el("invitation-browse").onclick = () => {
-      this.visit.exploring = true;
+      this.invitation.dismiss();
       this.updateActions();
       this.seedLayer.querySelector("button")?.focus({preventScroll:true});
     };
@@ -68,7 +81,7 @@ export class FlowGarden {
       this.updateActions();
       if (this.visit && !this.root.inert && this.focusAfterSheet && !this.seedLayer.contains(document.activeElement)) {
         const target=document.querySelector(this.focusAfterSheet);
-        (target?.getClientRects().length ? target : el("invitation-browse")).focus({preventScroll:true});
+        (target?.getClientRects().length ? target : this.root).focus({preventScroll:true});
       }
       this.focusAfterSheet = null;
     });
@@ -99,7 +112,8 @@ export class FlowGarden {
     this.resize.observe(this.root);
     this.resize.observe(el("toolbar-panel").parentElement);
   }
-  enter(id, collection, events, revealDelay = 0) {
+  enter(id, collection, events, prints, revealDelay = 0) {
+    this.prints = prints;
     this.departure?.cancel();
     this.departure = null;
     this.root.inert = false;
@@ -128,19 +142,19 @@ export class FlowGarden {
     const ns = "http://www.w3.org/2000/svg";
     this.standLayer = document.createElementNS(ns, "g");
     this.stemLayer = document.createElementNS(ns, "g");
-    this.stalks.replaceChildren(gardenDefs(forms[this.flower],this.flower), this.standLayer, this.stemLayer);
+    this.stalks.replaceChildren(gardenDefs(forms[this.flower],prints), this.standLayer, this.stemLayer);
     this.root.hidden = false;
     this.updateActions();
     this.paint();
   }
   updateActions() {
     const present = Boolean(this.visit && !this.root.closest("[inert]") && !this.sheet.open);
-    this.invitation.hidden = !present || this.visit.exploring === true;
-    el("garden-actions").hidden = !present || this.visit.exploring !== true;
+    el("garden-actions").hidden = !present || !this.invitation.seen || this.invitation.dialog.open;
+    if (present) this.invitation.consider(this.root);
     this.refreshButton.hidden = !this.visit?.selection.hasMore;
   }
   leave(linger = false) {
-    this.invitation.hidden = true;
+    this.invitation.leave();
     this.stopRefresh();
     this.breeze.clear();
     this.departure?.cancel();
@@ -165,6 +179,8 @@ export class FlowGarden {
       this.root.classList.remove("departing");
       this.seedLayer.replaceChildren();
       this.stalks.replaceChildren();
+      releaseCanvas(this.canvas);
+      this.stands = this.points = this.born = this.events = this.collection = this.standLayer = this.stemLayer = null;
       this.departure = null;
     };
     if (linger && !this.root.hidden) {
@@ -204,7 +220,7 @@ export class FlowGarden {
   }
   async refresh() {
     const selection = this.visit?.selection;
-    if (!selection?.hasMore || this.refreshMotion || !this.visit.exploring || this.sheet.open) return;
+    if (!selection?.hasMore || this.refreshMotion || !this.invitation.seen || this.invitation.dialog.open || this.sheet.open) return;
     const motion = this.refreshMotion = [];
     this.refreshButton.setAttribute("aria-disabled", "true");
     const layers = [this.stemLayer, this.seedLayer];
@@ -235,14 +251,14 @@ export class FlowGarden {
     const w = this.root.clientWidth, h = this.root.clientHeight;
     if (!w || !h)
       return;
-    const dpr = Math.min(devicePixelRatio || 1, 2, Math.sqrt(8000000 / (w * h)));
+    const dpr = pixelRatio(w, h, Math.min(devicePixelRatio || 1, 1.35), 1700000);
     const compact = w < 740;
     const top = Math.max(h * .10, el("toolbar-panel").parentElement.getBoundingClientRect().bottom + (compact ? 9 : 17));
     const area = {
       x : w * (compact ? .085 : .073),
       y : top,
       w : w * (compact ? .83 : .854),
-      h : Math.max(95, h - top - Math.max(24, h * .04))
+      h : Math.max(1, h - top - Math.max(18, h * .04))
     };
     const featured = this.visit.selection.featured;
     const regular = this.visit.selection.regular;
@@ -270,8 +286,10 @@ export class FlowGarden {
       this.paperKey = paperKey;
       this.canvas.width = Math.round(w * dpr);
       this.canvas.height = Math.round(h * dpr);
-      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      drawUnderstory(this.ctx,w,h,seed,forms[this.flower]);
+      if (this.ctx && !this.ctx.isContextLost?.()) {
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        drawUnderstory(this.ctx,w,h,seed,forms[this.flower]);
+      }
     }
     if (standKey !== this.standKey) {
       this.standKey = standKey;
@@ -301,9 +319,11 @@ export class FlowGarden {
       const grouped = featured.length>2;
       const featuredSize = clamp(Math.min(area.w,area.h)*(grouped?.235:.31), compact?(grouped?63:85):(grouped?91:133),
         compact?(grouped?107:125):(grouped?170:203));
-      const size = i < featured.length ? featuredSize * (.90 + phase*.15) :
+      const preferredSize = i < featured.length ? featuredSize * (.90 + phase*.15) :
           (compact ? 47 : 65) * (.82 + phase * .55);
-      b.style.setProperty("--seed-size", size + "px");
+      // Keep the entire turned corolla on the sheet, including in landscape.
+      const size = Math.min(preferredSize, 1.78*Math.min(x,w-x), 1.88*Math.min(y-top,h-y));
+      b.style.setProperty("--seed-size", Math.max(1,size) + "px");
       const label = this.label(memory);
       b.setAttribute("aria-label", label);
       const m = new Image();
@@ -311,7 +331,7 @@ export class FlowGarden {
       m.draggable = false;
       const slot = this.slots.indexOf(memory.id);
       const view = slot % 3 === 0 ? "front" : "side";
-      m.src = profileURL(this.flower,view);
+      m.src = this.prints[view];
       b.dataset.view = view;
       m.className = "garden-blossom";
       const body = document.createElement("span");
@@ -325,7 +345,7 @@ export class FlowGarden {
         this.born.set(memory.id, this.refreshMotion ? now - 3000 : birth);
       }
       const delay = this.born.get(memory.id) - now;
-      stems.push(plantArtwork({x,y,size,phase,featured:i<featured.length,city:this.flower,view,bottom:h,width:w,birth:delay}));
+      stems.push(plantArtwork({x,y,size,phase,featured:i<featured.length,city:this.flower,view,prints:this.prints,bottom:h,width:w,birth:delay}));
       if (delay > -2850) {
         body.classList.add("new-crown");
         m.classList.add("unfolding");
@@ -343,6 +363,7 @@ export class FlowGarden {
     this.stemLayer.replaceChildren(...stems);
     this.seedLayer.replaceChildren(...nodes);
     this.breeze.bind(stems,nodes,this.stands);
+    this.updateActions();
     this.labelsLanguage = getLanguage();
     if (focusId)
       nodes.find(b => b.dataset.id === focusId)?.focus({preventScroll : true});
@@ -356,7 +377,7 @@ export class FlowGarden {
     if (!this.sheet.open) {
       const seedId = this.currentRecord?.id ?? document.activeElement.closest?.(".seed")?.dataset.id;
       this.focusAfterSheet = seedId ? '#seeds [data-id="'+CSS.escape(seedId)+'"]' :
-        this.visit.exploring ? "#write" : "#invitation-write";
+        "#write";
     }
     this.breeze.rest();
     this.sheet.setAttribute("aria-labelledby", titleId);
@@ -387,7 +408,6 @@ export class FlowGarden {
     this.card.attachment = null;
     this.visit.attachment = null;
     this.text.value = this.visit.draft = "";
-    this.visit.contributed = true;
     this.sheet.close();
     this.visit.selection.includeVisitor(m.id);
     this.updateActions();
@@ -449,12 +469,11 @@ export class FlowGarden {
     this.refreshButton.querySelector("span").textContent = say("换一批记忆", "Refresh memories");
     el("sheet-place").textContent = placeText(this.site.name);
     el("sheet-title").textContent = say("留下你的记忆", "Leave a memory");
-    el("invitation-title").textContent = this.visit.contributed ? say("你的记忆已在这里生长", "Your memory is growing here") : say("关于这里，你记得什么？", "What do you remember here?");
-    el("invitation-write").hidden = Boolean(this.visit.contributed);
-    el("invitation-note").textContent = this.visit.contributed ? say("点花可回看自己的留言，也能读到这个地点的往事。","Pick a flower to revisit your memory or read another story from this place.") : say("点一朵花，读一段往事。你也可以留下文字、照片、一段声音或影像。",
+    el("invitation-title").textContent = say("关于这里，你记得什么？", "What do you remember here?");
+    el("invitation-note").textContent = say("点一朵花，读一段往事。你也可以留下文字、照片、一段声音或影像。",
       "Pick a flower to read its story. You can also leave a few words, a photo, audio or video.");
     el("invitation-write").textContent = say("留下记忆", "Leave a memory");
-    el("invitation-browse").textContent = this.visit.contributed ? say("探索花园","Explore the garden") : say("先逛花园", "Explore the garden");
+    el("invitation-browse").textContent = say("先逛花园", "Explore the garden");
     el("writing-prompt").textContent = placeText(this.site.prompt);
     el("save").textContent = say("在这里发布记忆", "Place this memory here");
     el("close-sheet").setAttribute("aria-label", say("关闭", "Close"));

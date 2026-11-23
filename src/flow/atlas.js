@@ -1,3 +1,5 @@
+import {retainFlowerPlate} from "./coverPlates.js";
+import {pixelRatio, releaseCanvas} from "./renderBudget.js";
 import {AtlasCharts} from "../atlas/AtlasCharts.js";
 import {CHINA, CITIES, PLACES} from "./places.js";
 import {groupMarkers, overlaps} from "../atlas/markerLayout.js";
@@ -73,12 +75,23 @@ export class FlowAtlas {
     this.observer.observe(root);
     this.bind();
     this.resize();
+    document.fonts.addEventListener("loadingdone", () => {
+      for (const pin of this.pins.values()) pin.measurement = null;
+      this.invalidate();
+    });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) this.invalidate(); });
+    root.addEventListener("contextrestored", () => {
+      if (!this.active) return;
+      this.releaseLayers();
+      this.invalidate();
+    }, true);
   }
   resize() {
     const w = this.root.clientWidth, h = this.root.clientHeight;
     if (!w || !h)
       return;
-    const dpr = Math.min(devicePixelRatio || 1, 2.5, Math.sqrt(9000000 / (w * h)));
+    const dpr = pixelRatio(w + 2*Math.min(140, Math.ceil(w*.12)), h + 2*Math.min(100, Math.ceil(h*.12)),
+      Math.min(devicePixelRatio || 1, 2), 3900000);
     if (this.w === w && this.h === h && dpr === this.dpr)
       return;
     this.w = w;
@@ -88,9 +101,8 @@ export class FlowAtlas {
     this.view = this.manual && this.view ? {...this.view, span : fit.span} : fit;
     if (this.cover) this.positionCover();
     this.flight = null;
-    this.notes.width = Math.round(w * dpr);
-    this.notes.height = Math.round(h * dpr);
-    this.ripples.resize(w, h, Math.min(1.65, dpr));
+    this.layersSized = false;
+    this.ripples.resize(w, h, pixelRatio(w, h, Math.min(1.4, dpr), 1500000));
     this.beds.resize(w, h, dpr);
     this.invalidate();
   }
@@ -126,6 +138,7 @@ export class FlowAtlas {
     this.invalidate();
   }
   show(route, {restore = null, immediate = false} = {}) {
+    clearTimeout(this.releaseTimer);
     this.closeNearby();
     this.unhover();
     if (route.level !== "country") this.overviewReveal.stop();
@@ -144,6 +157,7 @@ export class FlowAtlas {
     this.unhover();
     this.overviewReveal.stop();
     this.active = false;
+    retainFlowerPlate(this.route.city);
     this.pointers.clear();
     this.pinch = null;
     this.dragging = false;
@@ -153,8 +167,25 @@ export class FlowAtlas {
     this.glints.show(null);
     this.beds.clear(holdFrame);
     this.root.hidden = !holdFrame;
+    clearTimeout(this.releaseTimer);
+    if (holdFrame) this.releaseTimer = setTimeout(() => {
+      if (!this.active) { this.root.hidden = true; this.releaseLayers(); }
+    }, 610);
+    else this.releaseLayers();
     cancelAnimationFrame(this.frame);
     this.frame = 0;
+  }
+  releaseLayers() {
+    this.charts.suspend();
+    this.surround.release();
+    this.ripples.clear();
+    this.beds.clear();
+    releaseCanvas(this.notes);
+    this.markers.replaceChildren();
+    this.pins.clear();
+    this.visiblePins = [];
+    this.groupKey = "";
+    this.layersSized = false;
   }
   fly(to, duration = 0) {
     const now = performance.now(), prior = this.flight;
@@ -494,6 +525,15 @@ export class FlowAtlas {
   draw(now) {
     if (!this.active || !this.w)
       return;
+    if (this.cover?.wash === 1) {
+      if (this.layersSized) this.releaseLayers();
+      return;
+    }
+    if (!this.layersSized) {
+      this.notes.width = Math.round(this.w * this.dpr);
+      this.notes.height = Math.round(this.h * this.dpr);
+      this.layersSized = true;
+    }
     if (this.flight) {
       const f = this.flight, t = clamp((now - f.start) / f.duration, 0, 1);
       this.view = blend(f.from, f.to, cameraProgress(t, f.slope));
@@ -568,7 +608,7 @@ export class FlowAtlas {
         const note = cityFlowers[species].reason;
         pin.setAttribute("aria-description", placeText(note));
         const entrance = this.route.level === "place" && this.route.place === g.site;
-        pin.lastElementChild.textContent = entrance ? name + " ↓" : name;
+        pin.lastElementChild.textContent = name;
         const action = entrance ? (zh() ? " · 进入花园" : " · Enter the garden") : "";
         if (entrance) pin.title = name + action;
         else pin.removeAttribute("title");
@@ -615,14 +655,20 @@ export class FlowAtlas {
     });
     screen.sort(
         (a, b) => Number(b.hot) - Number(a.hot) || b.pin.mark.members.length - a.pin.mark.members.length);
-    const labelFont = (this.w < 620 ? "13" : "15") + "px system-ui";
+    const fontKey = [language,this.route.level,this.w].join("/");
+    if (this.fontKey !== fontKey && screen.length) {
+      const style = getComputedStyle(screen[0].pin.lastElementChild);
+      this.labelFont = style.fontWeight + " " + style.fontSize + " " + style.fontFamily;
+      this.mapFont = getComputedStyle(this.root).getPropertyValue("--sans").trim();
+      this.fontKey = fontKey;
+    }
+    const labelFont = this.labelFont ?? "14px system-ui";
     this.ctx.font = labelFont;
     for (const {pin, x, y, hot} of screen) {
       const label = pin.lastElementChild, national = pin.mark.national;
       if (!national && pin.mark.members.length === 1) {
         const site = PLACES[pin.mark.site], name = placeText(site.name);
-        const text = name + (pin.dataset.id === this.hot ? " · " + placeText(cityFlowers[site.city].name) : "") +
-            (this.route.place === pin.mark.site ? " ↓" : "");
+        const text = name + (pin.dataset.id === this.hot ? " · " + placeText(cityFlowers[site.city].name) : "");
         if (label.textContent !== text) label.textContent = text;
       }
       if (national) {
@@ -707,7 +753,8 @@ export class FlowAtlas {
             .filter(label => chartLabelInLanguage(label.name, getLanguage()))
             .map(
                 l => ({name : l.name, x : chart.x + l.x * chart.scale, y : chart.y + l.y * chart.scale}));
-    ctx.font = (view.span > 8 ? "italic 13px Georgia, serif" : "11px system-ui");
+    ctx.font = view.span > 8 && !zh() ? "italic 13px Georgia, serif" :
+      (view.span > 8 ? "13px " : "11px ") + (this.mapFont ?? "system-ui");
     ctx.textAlign = "center";
     ctx.lineWidth = 3;
     ctx.lineJoin = "round";

@@ -1,12 +1,24 @@
 // Diffuse the pigment first. The grain sits on the finished face at viewing scale.
 function surface(size) {
-  const c = typeof OffscreenCanvas === "undefined" ? document.createElement("canvas") : new OffscreenCanvas(size,size);
-  c.width = c.height = size;
-  return c.getContext("2d");
+  // Test the 2D context itself. Some browsers expose OffscreenCanvas without
+  // providing a usable 2D backend, even when their DOM canvas works.
+  if (typeof OffscreenCanvas !== "undefined") {
+    try {
+      const ctx = new OffscreenCanvas(size,size).getContext("2d");
+      if (ctx) return ctx;
+    } catch { /* Fall through to the browser's document-backed surface. */ }
+  }
+  if (typeof document === "undefined") throw new Error("No 2D printing surface");
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  return canvas.getContext("2d");
 }
 const plates = new Map();
 export function pigmentPlate(size) {
-  if (!plates.has(size)) plates.set(size, {ink:surface(size), wash:surface(size)});
+  if (!plates.has(size)) {
+    if (plates.size >= 4) plates.delete(plates.keys().next().value);
+    plates.set(size, {ink:surface(size), wash:surface(size)});
+  }
   const plate = plates.get(size);
   plate.ink.clearRect(0,0,size,size);
   return plate;

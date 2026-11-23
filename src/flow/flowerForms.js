@@ -93,3 +93,38 @@ export const flowerKey = study => studyCities[study] ?? study;
 export const plateURL = key => "./assets/flow-flowers/" + key + ".svg";
 
 export const profileURL = (city, view = "front") => "./assets/flow-flowers/upright/" + city + "-" + view + ".svg";
+
+// Gardens use small printed faces; the atlas book links to the full vectors.
+// Warm only the selected species before starting its stem-growth timeline.
+const gardenPrints = new Map();
+function decodePrint(url) {
+  return new Promise((resolve,reject) => {
+    const image = new Image();
+    const timer = setTimeout(() => finish(false), 9000);
+    function finish(ready) {
+      clearTimeout(timer);
+      image.onload = image.onerror = null;
+      if (ready) resolve(url);
+      else {
+        image.removeAttribute("src");
+        reject(new Error("Flower artwork unavailable: " + url));
+      }
+    }
+    image.onload = () => image.decode().then(() => finish(true), () => finish(false));
+    image.onerror = () => finish(false);
+    image.src = url;
+  });
+}
+function loadPrint(vector) {
+  if (!gardenPrints.has(vector)) {
+    const promise = decodePrint(vector.replace(/\.svg$/, ".webp"))
+      .catch(() => decodePrint(vector))
+      .catch(error => { gardenPrints.delete(vector); throw error; });
+    gardenPrints.set(vector,promise);
+  }
+  return gardenPrints.get(vector);
+}
+export async function prepareGardenPrints(city) {
+  const [front,side] = await Promise.all(["front","side"].map(view => loadPrint(profileURL(city,view))));
+  return {front,side};
+}

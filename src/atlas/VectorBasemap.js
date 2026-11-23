@@ -23,8 +23,8 @@ function chartPaths(chart) {
   return { paths, labels: chart.labels ?? [] };
 }
 
-async function loadChart(url) {
-  const response = await fetch(url);
+async function loadChart(url, signal) {
+  const response = await fetch(url, {signal});
   if (!response.ok) throw new Error("Map resource " + response.status);
   const bytes = new Uint8Array(await response.arrayBuffer());
   // Static hosts may either serve the gzip file as-is or decode it via Content-Encoding.
@@ -63,6 +63,13 @@ export class VectorBasemap {
     this.overview = chartPaths(index.overview);
     this.hatch = [buildingHatch(32), buildingHatch(16)];
     this.resources = new Map();
+    this.requests = new AbortController();
+    this.cacheLimit = 36;
+  }
+
+  dispose() {
+    this.requests.abort();
+    this.resources.clear();
   }
 
   resource(file, request = true) {
@@ -75,26 +82,35 @@ export class VectorBasemap {
     item ??= { charts: new Map() };
     this.resources.set(file, item);
     item.pending = true;
-    loadChart(new URL(file, this.assetRoot)).then(data => {
+    const {signal} = this.requests;
+    loadChart(new URL(file, this.assetRoot), signal).then(data => {
+      if (signal.aborted) return;
       item.data = data;
       item.used = performance.now();
       const ready = [...this.resources].filter(([name, entry]) => name !== index.national && entry.data);
-      if (ready.length > 36) {
+      if (ready.length > this.cacheLimit) {
         ready.sort((a, b) => a[1].used - b[1].used);
         this.resources.delete(ready[0][0]);
       }
       this.redraw();
     }).catch(() => {
+      if (signal.aborted) return;
       item.failures = (item.failures ?? 0) + 1;
       const delay = Math.min(60000, 1500 * 2 ** Math.min(item.failures - 1, 6));
       item.retryAt = performance.now() + delay;
-      setTimeout(this.redraw, delay + 20);
+      setTimeout(() => { if (!signal.aborted) this.redraw(); }, delay + 20);
     }).finally(() => { item.pending = false; });
     return null;
   }
 
   paths(item, slot) {
-    if (!item.charts.has(slot)) item.charts.set(slot, chartPaths(slot === "national" ? item.data : item.data[slot]));
+    if (!item.charts.has(slot)) {
+      const national = slot === "national";
+      item.charts.set(slot, chartPaths(national ? item.data : item.data[slot]));
+      // Path2D and the label list now own this tile. Other slots still decode lazily.
+      if (national) item.data = true;
+      else delete item.data[slot];
+    }
     return item.charts.get(slot);
   }
 

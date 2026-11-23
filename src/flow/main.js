@@ -8,7 +8,7 @@ import {AtlasLanding} from "./landing.js";
 import {nationalMarks} from "./overview.js";
 import {flowHash, readFlowRoute, nextMapLevel} from "./levels.js";
 import {FlowerBook} from "./flowerBook.js";
-import {plateURL, profileURL} from "./flowerForms.js";
+import {plateURL, prepareGardenPrints, profileURL} from "./flowerForms.js";
 
 const el = id => document.getElementById(id);
 const flowerBackground = key => 'url("' + new URL(plateURL(key), document.baseURI).href + '")';
@@ -85,6 +85,7 @@ const landing = new AtlasLanding(el("landing"), atlas, () => {
 const flowerBook = new FlowerBook(el("flower-book"), open => {
   landing.flowers.obscured = open;
   landing.flowers.wake();
+  if (!open) garden.updateActions();
 });
 
 function openLanding(reverse = false) {
@@ -229,9 +230,10 @@ function chrome() {
   el("trail").setAttribute("aria-label", local("当前位置", "Current location"));
   el("map").setAttribute("aria-label", local("可缩放的记忆地图", "Interactive memory atlas"));
   el("garden").setAttribute("aria-label", gardenName);
-  el("flow-language").textContent = el("sheet-language").textContent = local("英文", "Chinese");
-  for (const b of [el("flow-language"), el("sheet-language")])
-    b.setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
+  for (const id of ["flow-language","sheet-language","invitation-language"]) {
+    el(id).textContent = local("英文", "Chinese");
+    el(id).setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
+  }
   flowerBook.updateLanguage(getLanguage() === "zh-CN");
   el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
   document.querySelector(".north span").textContent = local("北", "N");
@@ -266,20 +268,20 @@ function chrome() {
   el("stage").dataset.surface = isGarden ? "garden" : "atlas";
   el("stage").dataset.level = route.level;
   el("enter").hidden = route.level !== "place";
-  el("enter").textContent = local("花园题页 ↓", "Garden prelude ↓");
-  el("write").textContent = local("＋  留下记忆", "＋  Leave a memory");
+  el("enter").textContent = local("花园题页", "Garden prelude");
+  el("write").textContent = local("留下记忆", "Leave a memory");
   const back = el("back");
   back.hidden = !(isGarden || arrival);
   if (!back.hidden) {
     back.href = flowHash(nextMapLevel(route, false));
-    back.textContent = isGarden ? local("↑ 花园题页", "↑ Prelude") : local("↑ 返回地点", "↑ Back to place");
+    back.textContent = isGarden ? local("回到题页", "Back to prelude") : local("返回地点", "Back to place");
   }
   el("map-tools").hidden = isGarden || arrival;
   document.querySelector(".north").hidden = isGarden || arrival;
   el("credit-title").textContent = local("地图来源", "Map sources");
-  el("natural-credit").textContent = local("自然地球地图数据", "Natural Earth") + " ↗";
-  el("free-credit").textContent = local("开放自由地图", "OpenFreeMap") + " ↗";
-  el("street-credit").textContent = local("© 开放街图贡献者", "© OpenStreetMap contributors") + " ↗";
+  el("natural-credit").textContent = local("自然地球地图数据", "Natural Earth");
+  el("free-credit").textContent = local("开放自由地图", "OpenFreeMap");
+  el("street-credit").textContent = local("© 开放街图贡献者", "© OpenStreetMap contributors");
   const target = el("level-target"), country = route.level === "country";
   target.hidden = !country && route.level !== "city";
   if (!target.hidden) {
@@ -295,11 +297,12 @@ function chrome() {
     el(id).title = label;
     el(id).setAttribute("aria-label", label);
   }
+  el("arrival").toggleAttribute("data-error",failed);
   el("arrival-title").textContent =
       failed ? local("花园载入未完成", "The garden could not load") : gardenName;
   el("arrival-place").textContent = site ? placeText(city.name) + "  /  " + placeText(site.name) : "";
   el("arrival-note").textContent = site && !failed ? placeText(site.introduction) : "";
-  el("skip").textContent = failed ? local("重试", "Retry") : local(touch.matches ? "上滑进入花园 ↓" : "下滚进入花园 ↓", touch.matches ? "Swipe up to enter ↓" : "Scroll to enter ↓");
+  el("skip").textContent = failed ? local("重试", "Retry") : local("进入花园", "Enter garden");
   el("arrival-back").hidden = !failed;
   el("arrival-back").textContent = local("返回地图", "Back to map");
   document.title = (site ? heading + " · " : "") + ((isGarden || arrival) ? gardenName : project) + " · " +
@@ -330,6 +333,8 @@ function closeTitle() {
   paperFade?.cancel();
   paperFade = null;
   el("arrival").hidden = true;
+  el("arrival").removeAttribute("aria-busy");
+  el("skip").hidden = false;
   el("stage").inert = false;
 }
 function presentTitle(origin = null) {
@@ -419,33 +424,47 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
   el("write").disabled = true;
   if (atTitle) {
     presentTitle(origin);
-    void Promise.all([PLACES[route.place].loadCollection(), import("./gardenEvents.js")]).catch(() => {});
+    void Promise.all([PLACES[route.place].loadCollection(), import("./gardenEvents.js"), prepareGardenPrints(route.city)]).catch(() => {});
     return;
   }
-  try {
-    const [collection, {eventsForPlace}] = await Promise.all([PLACES[next.place].loadCollection(), import("./gardenEvents.js")]);
+  // A cold deep link can wait on two flower files. Keep the place visible
+  // while loading; an explicit arrival route remains a separate, held step.
+  const loadingTitle = !wasTitle && setTimeout(() => {
     if (turn !== version) return;
+    presentTitle();
+    el("arrival").setAttribute("aria-busy","true");
+    el("skip").hidden = true;
+  }, 200);
+  try {
+    const [collection, {eventsForPlace}, prints] = await Promise.all([
+      PLACES[next.place].loadCollection(), import("./gardenEvents.js"), prepareGardenPrints(next.city)
+    ]);
+    if (turn !== version) return;
+    clearTimeout(loadingTitle);
+    const titleVisible = !el("arrival").hidden;
     atlas.root.hidden = true;
-    garden.enter(next.place, collection, eventsForPlace(next.place), wasTitle && !quiet.matches ? 240 : 0);
+    garden.enter(next.place, collection, eventsForPlace(next.place), prints, titleVisible && !quiet.matches ? 240 : 0);
     chrome();
-    if (wasTitle) await finishTitle(turn);
+    if (titleVisible) await finishTitle(turn);
     if (turn !== version) return;
     el("write").disabled = false;
-    if (!wasTitle) garden.root.focus({preventScroll:true});
+    if (!titleVisible) garden.root.focus({preventScroll:true});
   } catch {
     if (turn !== version) return;
     failed = true;
+    el("arrival").removeAttribute("aria-busy");
+    el("skip").hidden = false;
     chrome();
     presentTitle();
     el("skip").focus();
-  }
+  } finally { clearTimeout(loadingTitle); }
 }
 el("skip").onclick = () => failed ? void show(route) : advance(true);
 el("arrival-back").onclick = () => navigate({...route, level:"place"}, {restore:true});
 el("dismiss-chapter").onclick = closeChapter;
 el("guide").addEventListener("toggle", () => {
-  if (el("guide").open)
-    closeChapter();
+  if (el("guide").open) closeChapter();
+  else garden.updateActions();
 });
 el("replay").onclick = () => {
   el("guide").open = false;
@@ -458,7 +477,7 @@ document.addEventListener("pointerdown", e => {
     el("guide").open = false;
 });
 document.addEventListener("keydown", e => {
-  if (e.key !== "Escape" || e.defaultPrevented || garden.sheet.open || el("flower-book").open)
+  if (e.key !== "Escape" || e.defaultPrevented || garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open)
     return;
   if (el("guide").open) {
     el("guide").open = false;
@@ -501,7 +520,7 @@ function changeLanguage() {
   atlas.closeNearby();
   chrome();
 }
-el("flow-language").onclick = el("sheet-language").onclick = el("book-language").onclick = changeLanguage;
+for (const id of ["flow-language","sheet-language","invitation-language","book-language"]) el(id).onclick = changeLanguage;
 window.addEventListener("popstate", () => {
   void show(readFlowRoute(location.hash), {restore : true, opening : !location.hash});
 });
@@ -512,7 +531,7 @@ window.addEventListener("hashchange", () => {
 });
 // Navigation gestures stop at the field. A sheet owns its native scrolling.
 document.addEventListener("wheel", event => {
-  if (garden.sheet.open || el("flower-book").open || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
+  if (garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
   const target = event.target;
   if (target.closest("#flower-book,#nearby,select,.guide-page,input,audio,video")) return;
   if (landing.active && !target.closest(".toolbar-shell")) return;
@@ -532,7 +551,7 @@ document.addEventListener("wheel", event => {
 // can otherwise consume the next tap on a flower, a grouped place or the invitation.
 for (const id of ["map","arrival","garden","city-leaf"]) {
   el(id).addEventListener("touchmove", event => {
-    if (event.cancelable) event.preventDefault();
+    if (event.cancelable && !event.target.closest("dialog")) event.preventDefault();
   }, {passive:false});
 }
 
@@ -564,7 +583,7 @@ gardenSwipe(el("arrival"));
 gardenSwipe(el("city-leaf"));
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || landing.active ||
-      garden.sheet.open || e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
+      garden.invitation.dialog.open || garden.sheet.open || e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
   if (!["PageDown","PageUp","ArrowDown","ArrowUp"].includes(e.key)) return;
   e.preventDefault();
   const inward = e.key === "PageDown" || e.key === "ArrowDown";

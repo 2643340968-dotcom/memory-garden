@@ -1,6 +1,5 @@
 import {clamp, hash} from "./geometry.js";
 import {paperGrain, foliageSwatch} from "./petalPaper.js";
-import {profileURL} from "./flowerForms.js";
 
 const ns = "http://www.w3.org/2000/svg";
 function svg(tag, props={}) {
@@ -69,7 +68,7 @@ function line(d,width,twig=false) {
     svg("path",{...props,"stroke-width":width}));
   return group;
 }
-export function plantArtwork({x,y,size,phase,featured,city,view,bottom,width,birth}) {
+export function plantArtwork({x,y,size,phase,featured,city,view,prints,bottom,width,birth}) {
   const socket=y+size*54/160;
   const stem=stemCurve(x,socket,bottom+5,Math.min(width*.23,featured?195:110),phase);
   const plant=svg("g",{class:"plant"+(birth>-2850?" growing":""), "data-view":view});
@@ -101,8 +100,9 @@ export function plantArtwork({x,y,size,phase,featured,city,view,bottom,width,bir
     if (featured && i===0) {
       const mini=size*(city==="nanjing"?.46:.39);
       const off=svg("g",{transform:"translate("+tipX+" "+tipY+") rotate("+(dir*13)+")"});
-      off.append(svg("image",{href:profileURL(city,view==="front"?"side":"front"),x:-mini/2,y:-mini*126/160,
-        width:mini,height:mini*.9,class:"plant-floret"}));
+      const floret=svg("image",{x:-mini/2,y:-mini*126/160,width:mini,height:mini*.9,class:"plant-floret"});
+      floret.setAttribute("href",prints[view==="front"?"side":"front"]);
+      off.append(floret);
       plant.append(off);
     } else {
       const bud=svg("g",{transform:"translate("+tipX+" "+tipY+") rotate("+(dir*28)+")"});
@@ -175,22 +175,8 @@ export function plantStand(stand, bottom, age) {
   return {stem:group,x,y,rootX,rootY:bottom};
 }
 
-// Reuse one printed face per view across the distant stands. Bending a stem
-// then moves a small image without recalculating its SVG grain at every angle.
-const prints=new Map();
-function standPrint(source) {
-  if (!prints.has(source)) prints.set(source,(async()=>{
-    const img=new Image();
-    img.src=source;
-    await img.decode();
-    const tile=document.createElement("canvas");
-    tile.width=208; tile.height=187;
-    tile.getContext("2d").drawImage(img,0,0,tile.width,tile.height);
-    return tile.toDataURL("image/png");
-  })().catch(()=>source));
-  return prints.get(source);
-}
-export function gardenDefs(form, city) {
+// Every distant stem references one shared, preprinted face per view.
+export function gardenDefs(form, prints) {
   const defs=svg("defs");
   for (const [id,colours] of Object.entries({...foliage,"bud-colour":[form.tip,form.root]})) {
     const swatch=foliageSwatch(colours);
@@ -199,10 +185,9 @@ export function gardenDefs(form, city) {
     defs.append(pattern);
   }
   for (const view of ["front","side"]) {
-    const src=profileURL(city,view);
     const face=svg("image",{id:"stand-"+view,x:-50,y:-78.75,width:100,height:90});
+    face.setAttribute("href",prints[view]);
     defs.append(face);
-    standPrint(src).then(url=>face.setAttribute("href",url));
   }
   return defs;
 }

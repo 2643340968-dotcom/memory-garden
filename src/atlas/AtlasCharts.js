@@ -13,6 +13,7 @@ export class AtlasCharts {
   } = {}) {
     this.redraw = redraw;
     this.loadPainter = loadPainter;
+    this.makeWorker = makeWorker;
     this.assetRoot = new URL("./assets/atlas-vectors/", document.baseURI).href;
     this.revision = 0;
     this.layers = {};
@@ -21,25 +22,49 @@ export class AtlasCharts {
       this.layers[name] = { canvas, frame: null, wanted: null };
     }
     this.invalidate = () => { this.revision++; this.redraw(); };
-    if (typeof Worker === "function" && typeof OffscreenCanvas === "function") {
+  }
+
+  startPainter() {
+    if (this.worker || this.local) return;
+    if (!this.workerFailed && typeof Worker === "function" && typeof OffscreenCanvas === "function") {
       try {
-        this.worker = makeWorker();
-        this.worker.onmessage = ({ data }) => data.updated ? this.invalidate() : this.receive(data);
-        this.worker.onerror = event => { event.preventDefault(); this.useLocalPainter(); };
-      } catch { this.useLocalPainter(); }
-    } else this.useLocalPainter();
+        const worker = this.worker = this.makeWorker();
+        worker.onmessage = ({data}) => {
+          if (worker !== this.worker) { data.bitmap?.close(); return; }
+          if (data.updated) this.invalidate();
+          else this.receive(data);
+        };
+        worker.onerror = event => { event.preventDefault(); if (worker === this.worker) this.useLocalPainter(); };
+        worker.onmessageerror = () => { if (worker === this.worker) this.useLocalPainter(); };
+        return;
+      } catch { this.workerFailed = true; }
+    }
+    const local = this.local = this.loadPainter().then(({VectorBasemap, paintChart}) => {
+      if (this.local !== local) return null;
+      const map = this.localMap = new VectorBasemap(this.invalidate, this.assetRoot);
+      const surface = this.localSurface = document.createElement("canvas");
+      return job => ({...paintChart(map, surface, job), bitmap:surface});
+    });
   }
 
   useLocalPainter() {
+    clearTimeout(this.timeout);
     this.worker?.terminate();
-    this.worker = null;
-    this.busy = null;
-    this.local ??= this.loadPainter().then(({ VectorBasemap, paintChart }) => {
-      const map = new VectorBasemap(this.invalidate, this.assetRoot);
-      const surface = document.createElement("canvas");
-      return job => ({ ...paintChart(map, surface, job), bitmap: surface });
-    });
-    this.redraw();
+    this.worker = this.busy = null;
+    this.workerFailed = true;
+    this.invalidate();
+  }
+
+  suspend() {
+    clearTimeout(this.timeout);
+    this.worker?.terminate();
+    this.localMap?.dispose();
+    if (this.localSurface) this.localSurface.width = this.localSurface.height = 1;
+    this.worker = this.local = this.localMap = this.localSurface = this.busy = null;
+    for (const layer of Object.values(this.layers)) {
+      layer.frame = layer.wanted = null;
+      layer.canvas.width = layer.canvas.height = 1;
+    }
   }
 
   update(name, camera, w, h, dpr, language, moving = false, destination = camera) {
@@ -88,21 +113,44 @@ export class AtlasCharts {
     this.busy = job;
     this.lastLayer = job.layer;
     this.layers[job.layer].wanted = null;
-    if (this.worker) this.worker.postMessage(job);
-    else this.local.then(paint => setTimeout(async () => {
-      const result = paint(job);
-      if (this.layers[job.layer].context?.transferFromImageBitmap) result.bitmap = await createImageBitmap(result.bitmap);
-      this.receive(result);
-    }, 0));
+    this.startPainter();
+    if (this.worker) {
+      this.timeout = setTimeout(() => this.useLocalPainter(), 6000);
+      try { this.worker.postMessage(job); } catch { this.useLocalPainter(); }
+      return;
+    }
+    this.local.then(paint => {
+      if (this.busy !== job || !paint) return;
+      setTimeout(() => {
+        if (this.busy !== job) return;
+        try { this.receive(paint(job)); } catch { this.retryLocal(job); }
+      }, 0);
+    }).catch(() => {
+      if (this.busy !== job) return;
+      this.local = null;
+      this.retryLocal(job);
+    });
   }
 
-  receive({ level, labels, bitmap }) {
+  retryLocal(job) {
+    // The navigation chart still covers the viewport during a context outage.
+    clearTimeout(this.timeout);
+    this.timeout = setTimeout(() => {
+      if (this.busy !== job) return;
+      this.busy = null;
+      this.invalidate();
+    }, 800);
+  }
+
+  receive({level, labels, bitmap}) {
+    clearTimeout(this.timeout);
     const job = this.busy;
+    if (!job) { bitmap?.close?.(); return; }
     const layer = this.layers[job.layer], canvas = layer.canvas;
-    this.busy = null;
     // A fast reversal may have already brought a cached chart back on screen.
     if (layer.frame && containsCenter(layer.frame, layer.view) && !containsCenter(job, layer.view)) {
       bitmap.close?.();
+      this.busy = null;
       this.redraw();
       return;
     }
@@ -110,13 +158,16 @@ export class AtlasCharts {
     if (canvas.height !== bitmap.height) canvas.height = bitmap.height;
     canvas.style.width = job.width + "px";
     canvas.style.height = job.height + "px";
-    if (!layer.context) {
-      layer.context = this.worker && canvas.getContext("bitmaprenderer");
-      layer.context ||= canvas.getContext("2d", { alpha: false });
-    }
-    if (layer.context.transferFromImageBitmap) layer.context.transferFromImageBitmap(bitmap);
-    else layer.context.drawImage(bitmap, 0, 0);
-    bitmap.close?.();
+    try {
+      layer.context ??= canvas.getContext("2d", {alpha:false});
+      if (!layer.context || layer.context.isContextLost?.()) throw new Error("Chart context unavailable");
+      layer.context.drawImage(bitmap, 0, 0);
+    } catch {
+      if (this.worker) this.useLocalPainter();
+      else this.retryLocal(job);
+      return;
+    } finally { bitmap.close?.(); }
+    this.busy = null;
     layer.frame = { ...job, level, labels };
     this.redraw();
   }
