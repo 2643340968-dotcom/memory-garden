@@ -422,6 +422,43 @@ test("each city keeps one species across its sites, with distinct overhead, fron
   }
 });
 
+test("city maps and interrupted zooms keep neighbourhood beds closed until a place landing", () => {
+  const atlas = Object.assign(Object.create(FlowAtlas.prototype), {
+    w:390, h:740, root:{}, route:{level:"country"}, quiet:{matches:false},
+    overviewReveal:{stop(){}}, beds:{place(city) { this.city = city; }},
+    closeNearby(){}, unhover(){}, resize(){}, invalidate(){},
+  });
+  atlas.view = atlas.fit(atlas.route);
+  const land = () => {
+    atlas.view = atlas.flight.to;
+    atlas.flight = null;
+    atlas.updateMemoryBeds();
+  };
+  for (const [city, {places}] of Object.entries(CITIES)) {
+    const cityMap = {level:"city", city};
+    const place = {level:"place", city, place:places[0]};
+    atlas.show(cityMap, {immediate:true});
+    assert.equal(atlas.beds.city, null);
+    atlas.show(place);
+    assert.equal(atlas.beds.city, null);
+    atlas.show(cityMap);
+    land();
+    assert.equal(atlas.beds.city, null);
+    atlas.show(place);
+    land();
+    assert.equal(atlas.beds.city, city);
+    atlas.show({...place, place:places[1]});
+    assert.equal(atlas.beds.city, city);
+    atlas.show(cityMap);
+    assert.equal(atlas.beds.city, null);
+  }
+  const place = {level:"place", city:"qingdao", place:"zhanqiao"};
+  atlas.show(place, {immediate:true});
+  assert.equal(atlas.beds.city, place.city);
+  atlas.show({level:"country"});
+  assert.equal(atlas.beds.city, null);
+});
+
 test("each place has a stable, layered bed of overlapping flowers in its city's ink", () => {
   const patterns = new Set();
   for (const [id,{city}] of Object.entries(PLACES)) {

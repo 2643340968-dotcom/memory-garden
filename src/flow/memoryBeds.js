@@ -166,8 +166,8 @@ export class MemoryBeds {
     return this.tints.get(city);
   }
   place(city, view, moving) {
-    if (!city) { if (this.city || this.heldFrame) this.clear(); return; }
-    if (this.city && this.city !== city) this.clear();
+    if (this.heldFrame || (this.city && this.city !== city)) this.clear();
+    if (!city) return;
     this.city = city; this.view = view; this.moving = moving;
     if (!this.plates) {
       if (this.loadingCity !== city) {

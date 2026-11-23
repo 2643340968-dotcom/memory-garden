@@ -151,6 +151,7 @@ export class FlowAtlas {
     const fitted = this.fit(route);
     const dest = restore ? {...fitted, x: restore.x, y: restore.y} : fitted;
     this.fly(dest, immediate ? 0 : stops[route.level]);
+    this.updateMemoryBeds();
   }
   hide(holdFrame = false) {
     this.closeNearby();
@@ -522,6 +523,15 @@ export class FlowAtlas {
       ...(selected ? [ {...selected, members : [ selected.id ]} ] : []), ...groupMarkers(rest, radius)
     ];
   }
+  updateMemoryBeds() {
+    const {level, city} = this.route;
+    const flying = Boolean(this.flight);
+    // A compact city can already have street-scale geometry. Wait for the place
+    // landing, then keep its beds registered while moving between nearby sites.
+    const atPlace = !this.cover && level === "place" && (!flying || this.beds.city === city);
+    const panning = this.dragging && !this.root.classList.contains("stirring");
+    this.beds.place(atPlace ? city : null, this.view, flying || panning);
+  }
   draw(now) {
     if (!this.active || !this.w)
       return;
@@ -561,7 +571,7 @@ export class FlowAtlas {
     const reserved = this.cover ? [] : this.drawPins(this.groups());
     this.overviewReveal.update(this.route.level === "country" && !this.cover, !f && !!chart && !this.dragging);
     this.glints.show(this.cover || f ? null : this.route.level);
-    this.beds.place(this.cover ? null : this.route.city, this.view, !!this.flight || (this.dragging && !this.root.classList.contains("stirring")));
+    this.updateMemoryBeds();
     this.annotate(chart, reserved);
     this.positionNearby();
     this.charts.flush();
