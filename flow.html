@@ -25,12 +25,14 @@
         </div>
       </div>
       <button type="button" id="cover-book" aria-haspopup="dialog" aria-controls="flower-book"><span></span></button>
+      <button type="button" id="exchange-my" aria-haspopup="dialog" aria-controls="exchange-panel">我的互访</button>
       <details id="guide" class="guide">
         <summary id="guide-toggle" aria-label="地图导览">?</summary>
         <div class="guide-page"><p id="guide-tip"></p>
           <div class="legend-row"><div id="legend" class="legend" aria-label="图例"></div>
             <div class="north" aria-hidden="true"><span>北</span><i></i></div></div>
           <button type="button" id="open-flower-book"></button>
+          <button type="button" id="exchange-guide" aria-haspopup="dialog" aria-controls="exchange-panel">我的互访</button>
           <button type="button" id="replay"></button>
           <div class="guide-meta">
             <div class="reading"><i aria-hidden="true"></i><span id="readout"></span><span id="coordinates" dir="ltr"></span></div>
@@ -44,6 +46,7 @@
       </details>
       <button class="language" id="flow-language" type="button">英文</button>
     </header>
+    <div id="exchange-map-actions" hidden><button type="button" id="exchange-city" aria-haspopup="dialog"></button><button type="button" id="exchange-stop" aria-haspopup="dialog" hidden></button></div>
     <div id="garden-actions" role="group" hidden>
       <button type="button" id="write"></button>
       <button type="button" id="refresh-memories" aria-controls="seeds" hidden>
@@ -111,6 +114,11 @@
     </header>
     <div id="book-grid" class="book-grid"></div>
   </dialog>
+  <dialog id="exchange-panel" class="exchange-paper" aria-labelledby="exchange-title">
+    <header class="ex-head"><div class="ex-heading"></div><button type="button" class="ex-close close" aria-label="关闭">×</button></header>
+    <div class="ex-tools"></div><p class="ex-feedback" role="status"></p><div class="ex-body"></div>
+    <footer class="ex-storage"></footer>
+  </dialog>
   <dialog id="sheet" aria-labelledby="sheet-title">
     <div class="sheet-top"><span id="sheet-place"></span><button type="button" id="sheet-language" class="language">英文</button><button type="button" id="close-sheet" class="close" aria-label="关闭">×</button></div>
     <form id="memory-form">
@@ -128,12 +136,13 @@
       </div>
       <div id="memory-reader" hidden><h2 id="memory-reader-title" data-i18n="memory.your"></h2><p id="memory-reader-text" dir="auto"></p></div>
       <figure id="memory-attachment-preview" hidden><figcaption><span id="memory-file-name" dir="auto"></span><button type="button" id="memory-remove-file" data-i18n="attachment.remove"></button></figcaption><div id="memory-preview-stage"></div></figure>
-      <div id="memory-composer-footer"><p id="session-note" data-i18n="entry.descriptionLine2"></p>
+      <div id="memory-composer-footer"><div id="garden-sharing" hidden></div><p id="session-note"></p>
         <button id="save" class="primary" type="submit" disabled></button>
         <details id="memory-visit" hidden><summary id="memory-visit-label"></summary><ul id="memory-visit-list"></ul></details>
       </div><button type="button" id="memory-reader-back" data-i18n="attachment.back" hidden></button>
     </form>
     <article id="record" hidden><p id="record-date" hidden></p><h2 id="record-title"></h2><p id="record-text"></p><div id="record-media"></div><a id="record-source" target="_blank" rel="noreferrer" hidden></a></article>
+    <section id="garden-thread" hidden></section>
   </dialog>
   <script type="module" src="/src/flow/main.js"></script>
 </body>

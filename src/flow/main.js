@@ -1,4 +1,5 @@
 import "./style.css";
+import "./exchange.css";
 import {CITIES, PLACES} from "./places.js";
 import {getLanguage, placeText, setLanguage, LANGUAGE_STORAGE_KEY} from "../i18n/LanguageController.js";
 import {FlowAtlas} from "./atlas.js";
@@ -9,6 +10,8 @@ import {nationalMarks} from "./overview.js";
 import {flowHash, readFlowRoute, nextMapLevel} from "./levels.js";
 import {FlowerBook} from "./flowerBook.js";
 import {plateURL, prepareGardenPrints, profileURL} from "./flowerForms.js";
+import {ExchangeStore} from "./exchange/store.js";
+import {ExchangePanel} from "./exchange/panel.js";
 
 const el = id => document.getElementById(id);
 const flowerBackground = key => 'url("' + new URL(plateURL(key), document.baseURI).href + '")';
@@ -102,8 +105,11 @@ function openLanding(reverse = false) {
     landing.open(true, reverse);
   }
 }
-const savedMessage = () => local("已留在此处的花园，本次到访可回看。", "Saved in this garden for your visit.");
+const store = new ExchangeStore();
+const savedMessage = () => store.db ? local("记忆已保存在此浏览器，可在花园或「我的互访」回看。","Memory saved in this browser. Revisit it here or in My exchanges.") :
+  local("记忆已留在花园，本次访问可回看。","Memory saved for this visit.");
 const garden = new FlowGarden({
+  store,
   saved : () => {
     el("notice").textContent = savedMessage();
     clearTimeout(noticeTimer);
@@ -111,6 +117,36 @@ const garden = new FlowGarden({
   },
   readout : label => readout(label)
 });
+let requestedFlower = null;
+const exchange = new ExchangePanel(el("exchange-panel"),store,{
+  toggle(open) {
+    el("guide").open = false;
+    if (open) closeChapter();
+    landing.flowers.obscured = open;
+    landing.flowers.wake();
+    if (!open) garden.updateActions();
+  },
+  language:() => changeLanguage(),
+  visit(site,record,write) {
+    requestedFlower = {site,record,write};
+    if (garden.id === site && route.level === "garden") openRequestedFlower();
+    else navigate({level:"garden",city:PLACES[site].city,place:site});
+  }
+});
+function openRequestedFlower() {
+  if (!requestedFlower || requestedFlower.site !== garden.id) return;
+  const {record, write} = requestedFlower;
+  requestedFlower = null;
+  if (write || record) {
+    garden.directEntry = true;
+    garden.invitation.dismiss();
+  }
+  if (write) garden.openEditor(write);
+  else if (record) garden.openRecord(garden.recordById(record));
+}
+for (const id of ["exchange-my","exchange-guide"]) el(id).onclick = () => exchange.open({view:"mine",city:route.city});
+el("exchange-city").onclick = () => exchange.open({view:"hub",city:route.city});
+el("exchange-stop").onclick = () => exchange.open({view:"add",city:route.city,site:route.place});
 
 function advance(inward, mark) {
   if (landing.active) {
@@ -214,12 +250,12 @@ function chrome() {
   el("landing-title").textContent = project;
   const intro = el("landing-intro");
   if (getLanguage() === "zh-CN") {
-    intro.replaceChildren(...["沿着地图走进记忆花园，", "读一段往事，", "也可以留下自己的记忆。"].map(words => {
+    intro.replaceChildren(...["一座城，一处记忆花园。", "独自探访，或与另一座城市的同学同行。"].map(words => {
       const phrase = document.createElement("span");
       phrase.textContent = words;
       return phrase;
     }));
-  } else intro.textContent = "Follow the map into a memory garden to read a story or leave one of your own.";
+  } else intro.textContent = "Explore a city through its memory gardens, on your own or with a student from another city.";
   document.querySelector('meta[name="description"]').content = intro.textContent;
   updateLandingHint();
   el("landing-scroll")
@@ -235,6 +271,11 @@ function chrome() {
     el(id).setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
   }
   flowerBook.updateLanguage(getLanguage() === "zh-CN");
+  exchange.labels();
+  el("exchange-map-actions").hidden = !["city","place"].includes(route.level);
+  el("exchange-city").textContent = local("双城互访","City exchanges");
+  el("exchange-stop").textContent = local("加入共同行程","Add to itinerary");
+  el("exchange-stop").hidden = route.level !== "place";
   el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
   document.querySelector(".north span").textContent = local("北", "N");
   if (el("notice").textContent) el("notice").textContent = savedMessage();
@@ -370,6 +411,8 @@ async function finishTitle(turn) {
   }
 }
 async function show(next, {chapter = true, restore = false, focus = true, opening = false} = {}) {
+  if (exchange.dialog.open) exchange.dialog.close();
+  if (requestedFlower && (next.level !== "garden" || next.place !== requestedFlower.site)) requestedFlower = null;
   landing.close();
   const turn = ++version;
   const previous = route?.level;
@@ -437,18 +480,20 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
   }, 200);
   try {
     const [collection, {eventsForPlace}, prints] = await Promise.all([
-      PLACES[next.place].loadCollection(), import("./gardenEvents.js"), prepareGardenPrints(next.city)
+      PLACES[next.place].loadCollection(), import("./gardenEvents.js"), prepareGardenPrints(next.city), store.ready
     ]);
     if (turn !== version) return;
     clearTimeout(loadingTitle);
     const titleVisible = !el("arrival").hidden;
     atlas.root.hidden = true;
-    garden.enter(next.place, collection, eventsForPlace(next.place), prints, titleVisible && !quiet.matches ? 240 : 0);
+    const directEntry = Boolean(requestedFlower?.write || requestedFlower?.record);
+    garden.enter(next.place, collection, eventsForPlace(next.place), prints, titleVisible && !quiet.matches ? 240 : 0,directEntry);
     chrome();
     if (titleVisible) await finishTitle(turn);
     if (turn !== version) return;
     el("write").disabled = false;
     if (!titleVisible) garden.root.focus({preventScroll:true});
+    openRequestedFlower();
   } catch {
     if (turn !== version) return;
     failed = true;
@@ -477,7 +522,7 @@ document.addEventListener("pointerdown", e => {
     el("guide").open = false;
 });
 document.addEventListener("keydown", e => {
-  if (e.key !== "Escape" || e.defaultPrevented || garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open)
+  if (e.key !== "Escape" || e.defaultPrevented || garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open || exchange.dialog.open)
     return;
   if (el("guide").open) {
     el("guide").open = false;
@@ -519,6 +564,7 @@ function changeLanguage() {
   setLanguage(lang, {persist : false});
   atlas.closeNearby();
   chrome();
+  exchange.updateLanguage();
 }
 for (const id of ["flow-language","sheet-language","invitation-language","book-language"]) el(id).onclick = changeLanguage;
 window.addEventListener("popstate", () => {
@@ -531,7 +577,7 @@ window.addEventListener("hashchange", () => {
 });
 // Navigation gestures stop at the field. A sheet owns its native scrolling.
 document.addEventListener("wheel", event => {
-  if (garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
+  if (garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open || exchange.dialog.open || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
   const target = event.target;
   if (target.closest("#flower-book,#nearby,select,.guide-page,input,audio,video")) return;
   if (landing.active && !target.closest(".toolbar-shell")) return;

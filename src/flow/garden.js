@@ -11,6 +11,8 @@ import {GardenInvitation} from "./gardenInvitation.js";
 import {pixelRatio, releaseCanvas} from "./renderBudget.js";
 import {GardenSelection} from "./gardenSelection.js";
 import {setPetalRhythm} from "./petalLight.js";
+import {notesAt} from "./exchange/model.js";
+import {GardenJournal} from "./exchange/journal.js";
 
 const el = id => document.getElementById(id);
 const say = (cn, en) => getLanguage() === "zh-CN" ? cn : en;
@@ -22,9 +24,15 @@ const sources = {
   "Wikipedia · 维基百科": ["维基百科", "Wikipedia"],
 };
 export class FlowGarden {
-  constructor({saved, readout}) {
+  constructor({saved, readout, store}) {
     this.saved = saved;
     this.readout = readout;
+    this.store = store;
+    this.journal = new GardenJournal(store);
+    this.journal.onUpdate = id => {
+      const memory = this.recordById(id);
+      if (memory) this.openRecord(memory);
+    };
     this.root = el("garden");
     this.canvas = el("waterbed");
     this.seedLayer = el("seeds");
@@ -39,8 +47,8 @@ export class FlowGarden {
     this.refreshButton = el("refresh-memories");
     this.refreshButton.onclick = () => this.refresh();
     this.invitation = new GardenInvitation(el("garden-invitation"),
-      () => Boolean(this.visit && this.seedLayer.childElementCount && !this.root.closest("[inert]") &&
-        !this.root.hidden && !document.hidden && !this.sheet.open && !el("flower-book").open && !el("guide").open),
+      () => Boolean(!this.directEntry && this.visit && this.seedLayer.childElementCount && !this.root.closest("[inert]") &&
+        !this.root.hidden && !document.hidden && !this.sheet.open && !el("exchange-panel").open && !el("flower-book").open && !el("guide").open),
       () => this.updateActions());
     el("invitation-write").onclick = () => {
       this.invitation.dismiss();
@@ -62,7 +70,7 @@ export class FlowGarden {
     this.card = new VisitorMemoryCard(this.form, {
       audioManager : {connectVisitorPlayer : player => () => player.pause()},
       onChange : () => this.updateSave(),
-      onRead : memory => this.openEditor(memory),
+      onRead : memory => this.openRecord(memory),
       onWrite : () => this.openEditor(),
     });
     this.text.addEventListener("input", () => this.updateSave());
@@ -111,9 +119,11 @@ export class FlowGarden {
     this.resize = new ResizeObserver(() => this.paint());
     this.resize.observe(this.root);
     this.resize.observe(el("toolbar-panel").parentElement);
+    store.addEventListener("change",() => this.syncJournal());
   }
-  enter(id, collection, events, prints, revealDelay = 0) {
+  enter(id, collection, events, prints, revealDelay = 0, directEntry = false) {
     this.prints = prints;
+    this.directEntry = directEntry;
     this.departure?.cancel();
     this.departure = null;
     this.root.inert = false;
@@ -127,14 +137,8 @@ export class FlowGarden {
     this.collection = collection;
     this.events = new Map(events.map(m => [m.id,m]));
     this.root.style.setProperty("--flower-light", forms[this.flower].mid);
-    if (!this.visits.has(id))
-      this.visits.set(id, {
-        pool : createMemoryPool({prototypeMemories : collection.memories}),
-        selection : new GardenSelection(events, collection),
-        draft : "",
-        attachment : null
-      });
-    this.visit = this.visits.get(id);
+    this.selectVisit();
+    this.syncJournal(false);
     this.slots = this.visit.slots ?? [];
     this.featuredCount = this.visit.featuredCount ?? 0;
     this.text.value = this.visit.draft;
@@ -147,9 +151,48 @@ export class FlowGarden {
     this.updateActions();
     this.paint();
   }
+  selectVisit() {
+    const key = this.store.actor + "/" + this.id;
+    if (!this.visits.has(key)) this.visits.set(key,{
+      pool:createMemoryPool({prototypeMemories:this.collection.memories}),
+      selection:new GardenSelection([...this.events.values()],this.collection), draft:"",attachment:null
+    });
+    this.visit = this.visits.get(key);
+    this.readerIdentity = this.store.actor;
+  }
+  syncJournal(redraw = true) {
+    if (!this.visit || !this.id) return;
+    if (this.readerIdentity !== this.store.actor) {
+      this.visit.draft = this.text.value;
+      this.visit.attachment = this.card.attachment;
+      if (this.sheet.open) this.sheet.close();
+      this.selectVisit();
+      this.text.value = this.visit.draft;
+      this.card.attachment = this.visit.attachment;
+    }
+    const notes = notesAt(this.store.state,this.id,this.store.actor);
+    this.notes = new Map(notes.map(n => [n.id,n]));
+    const ring = this.visit.selection;
+    ring.memories = ring.memories.filter(id => !id.startsWith("field-note-") || this.notes.has(id));
+    const shown = new Set(ring.memories);
+    ring.memories.unshift(...notes.filter(n => !shown.has(n.id)).map(n => n.id));
+    if (!redraw) return;
+    if (this.currentRecord?.id.startsWith("field-note-")) {
+      const updated = this.notes.get(this.currentRecord.id);
+      if (!updated) this.sheet.close();
+      else {
+        if (this.currentRecord.media && !updated.media) this.clearMedia();
+        this.currentRecord = updated;
+        el("record-text").textContent = updated.text;
+      }
+    }
+    if (this.journal.record && this.sheet.open && !this.journal.pending && !this.journal.root.querySelector(":focus-within"))
+      this.journal.render();
+    this.paint();
+  }
   updateActions() {
     const present = Boolean(this.visit && !this.root.closest("[inert]") && !this.sheet.open);
-    el("garden-actions").hidden = !present || !this.invitation.seen || this.invitation.dialog.open;
+    el("garden-actions").hidden = !present || !(this.invitation.seen || this.directEntry) || this.invitation.dialog.open;
     if (present) this.invitation.consider(this.root);
     this.refreshButton.hidden = !this.visit?.selection.hasMore;
   }
@@ -194,9 +237,10 @@ export class FlowGarden {
     el("batch-status").textContent = "";
   }
   recordById(id) {
-    return this.events.get(id) ?? this.visit.pool.getById(id);
+    return this.notes?.get(id) ?? this.events.get(id) ?? this.visit.pool.getById(id);
   }
   label(memory) {
+    if (memory.owner) return memory.exchange ? say("互访札记","Exchange field note") : say("个人记忆","Personal memory");
     if (memory.title) return placeText(memory.title);
     if (memory.id.endsWith("-record")) return say("地点札记", "Place note");
     const key = this.collection.featuredLabels[memory.id];
@@ -220,7 +264,7 @@ export class FlowGarden {
   }
   async refresh() {
     const selection = this.visit?.selection;
-    if (!selection?.hasMore || this.refreshMotion || !this.invitation.seen || this.invitation.dialog.open || this.sheet.open) return;
+    if (!selection?.hasMore || this.refreshMotion || !(this.invitation.seen || this.directEntry) || this.invitation.dialog.open || this.sheet.open) return;
     const motion = this.refreshMotion = [];
     this.refreshButton.setAttribute("aria-disabled", "true");
     const layers = [this.stemLayer, this.seedLayer];
@@ -386,36 +430,54 @@ export class FlowGarden {
       this.sheet.showModal();
     this.updateActions();
   }
-  openEditor(memory = null) {
+  openEditor(exchange = "") {
     if (!this.visit)
       return;
     this.mode = "editor";
     this.clearRecord();
     el("record").hidden = true;
     this.form.hidden = false;
-    this.showSheet(memory ? "memory-reader-title" : "sheet-title");
-    this.card.show(memory, this.visit.pool.sessionMemories);
+    this.showSheet("sheet-title");
+    this.card.show(null,[...this.notes.values()].filter(n => n.owner === this.store.actor).reverse()
+      .map(n => ({...n,attachment:n.media})));
+    this.journal.write(this.id,exchange);
     this.updateLanguage();
-    (memory ? el("close-sheet") : this.text).focus({preventScroll : true});
+    this.text.focus({preventScroll : true});
   }
-  submit() {
+  async submit() {
     this.updateSave();
-    if (el("save").disabled)
-      return;
-    const m = this.visit.pool.addSessionMemory(this.text.value, this.card.attachment);
-    if (!m)
-      return;
-    this.card.attachment = null;
-    this.visit.attachment = null;
-    this.text.value = this.visit.draft = "";
-    this.sheet.close();
-    this.visit.selection.includeVisitor(m.id);
-    this.updateActions();
-    this.updateLanguage();
-    this.saved();
-    this.seedLayer.querySelector("[data-id=\"" + m.id + "\"]")?.focus({preventScroll : true});
+    if (el("save").disabled) return;
+    const visit = this.visit, actor = this.store.actor, attachment = this.card.attachment;
+    const data = {...this.journal.fields.read(),text:this.text.value,media:attachment && {kind:attachment.kind,name:attachment.name,size:attachment.size}};
+    this.form.dataset.submitting = "true";
+    this.form.inert = true;
+    this.updateSave();
+    try {
+      const blob = attachment ? await (await fetch(attachment.url)).blob() : null;
+      const id = await this.store.change("note",data,blob,actor);
+      visit.attachment = null;
+      visit.draft = "";
+      if (attachment) URL.revokeObjectURL(attachment.url);
+      if (this.visit !== visit) return;
+      this.card.attachment = null;
+      this.text.value = "";
+      this.sheet.close();
+      this.saved();
+      this.seedLayer.querySelector('[data-id="' + id + '"]')?.focus({preventScroll:true});
+    } catch {
+      el("session-note").textContent = say("未能保存。你的内容仍在卡片中，可以重试。","Could not save. Your entry is still here so you can try again.");
+    } finally {
+      delete this.form.dataset.submitting;
+      this.form.inert = false;
+      this.updateSave();
+    }
   }
   clearRecord() {
+    this.journal.reset();
+    this.clearMedia();
+    this.currentRecord = null;
+  }
+  clearMedia() {
     const stage = el("record-media");
     for (const player of stage.querySelectorAll("audio,video")) {
       player.pause();
@@ -423,13 +485,11 @@ export class FlowGarden {
       player.load();
     }
     stage.replaceChildren();
-    this.currentRecord = null;
+    if (this.mediaURL) URL.revokeObjectURL(this.mediaURL);
+    this.mediaURL = null;
   }
   openRecord(memory) {
-    if (memory.label === "YOUR MEMORY") {
-      this.openEditor(memory);
-      return;
-    }
+    if (!memory) return;
     this.card.hide();
     this.clearRecord();
     this.currentRecord = memory;
@@ -450,8 +510,27 @@ export class FlowGarden {
       audio.src = memory.audio;
       el("record-media").append(audio);
     }
+    if (memory.media) void this.showStoredMedia(memory);
+    this.journal.read(this.id,memory,() => this.sheet.close());
     this.updateLanguage();
     el("close-sheet").focus();
+  }
+  async showStoredMedia(memory) {
+    const stage = el("record-media");
+    try {
+      const blob = await this.store.attachment(memory.id);
+      if (this.currentRecord?.id !== memory.id || !this.currentRecord.media || !this.sheet.open) return;
+      if (!blob) throw new Error("missing-attachment");
+      if (this.mediaURL) URL.revokeObjectURL(this.mediaURL);
+      const media = document.createElement(memory.media.kind === "image" ? "img" : memory.media.kind);
+      this.mediaURL = URL.createObjectURL(blob);
+      media.src = this.mediaURL;
+      if (memory.media.kind === "image") media.alt = memory.media.name;
+      else {media.controls = true; media.preload = "metadata"; media.setAttribute("aria-label",memory.media.name);}
+      stage.replaceChildren(media);
+    } catch {
+      if (this.currentRecord?.id === memory.id) stage.textContent = say("附件暂时无法读取。","Attachment unavailable.");
+    }
   }
   updateLanguage() {
     this.paint();
@@ -478,13 +557,23 @@ export class FlowGarden {
     el("save").textContent = say("在这里发布记忆", "Place this memory here");
     el("close-sheet").setAttribute("aria-label", say("关闭", "Close"));
     this.card.refreshLanguage();
+    el("memory-visit-label").textContent = say("我在这里留下的记忆","My memories at this place") + " (" + this.card.memories.length + ")";
+    el("session-note").textContent = this.store.db ? say("记忆与附件保存在此浏览器。","Your memory and attachment are saved in this browser.") :
+      say("当前为临时体验，记录保留至本次访问结束。","This is a temporary session. Entries last for this visit.");
+    if (this.journalLanguage !== getLanguage()) {
+      this.journalLanguage = getLanguage();
+      if (this.mode === "editor" && this.journal.fields && this.sheet.open) {
+        const existing = this.journal.fields.read();
+        this.journal.write(this.id,existing.exchange,existing);
+      } else if (this.journal.record) this.journal.updateLanguage();
+    }
     const m = this.currentRecord;
     if (m) {
       el("record-title").textContent = this.label(m);
       const when = el("record-date");
       when.hidden = !m.dateLabel;
       when.textContent = m.dateLabel ? placeText(m.dateLabel) : "";
-      el("record-text").textContent = m.body ? placeText(m.body) : m.text ? getLocalizedMemoryText(m) : "";
+      el("record-text").textContent = m.owner ? m.text : m.body ? placeText(m.body) : m.text ? getLocalizedMemoryText(m) : "";
       const link = el("record-source");
       link.hidden = !m.sourceUrl;
       if (m.sourceUrl) {
@@ -492,7 +581,7 @@ export class FlowGarden {
         link.textContent = placeText(m.sourceNames ?? sources[m.source] ?? ["查看来源", "View source"]) + " ↗";
       }
       const image = el("record-media").querySelector("img");
-      if (image)
+      if (image && !m.owner)
         image.alt = t("memory.archiveImageAlt");
     }
   }

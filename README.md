@@ -4,6 +4,14 @@
 
 完整的项目交接、技术规则、配置值和下一步计划见 [`AGENTS.md`](./AGENTS.md)。
 
+## 双城互访原型
+
+`codex/flow-next` 从稳定存档 `archive/flow-2026-11-24`（`e0d942d`）开始独立开发。运行 `npm run dev` 后打开 `/memory-garden/flow.html`。进入城市地图可以选择「双城互访」，首页的「我的互访」可以回看自己的申请、行程、记忆和评论。
+
+以小安申请一条示例意向，然后通过面板上方的「体验身份」切换到意向发布者，回应申请。双方确认后可从地点地图添加行程站点，在行程中安排停留时间、补充研学问题，打开花园查阅有出处的历史资料。互访札记可关联多站，分别选择公开、仅双方或仅自己可见。
+
+这是本浏览器内的交互原型。IndexedDB 保存申请、通知、评论、札记和附件，体验身份只在当前标签页切换。禁用存储时使用临时会话。真实登录、跨设备通信与人工审核需要接入服务端。交互状态与权限在 `src/flow/exchange/model.js`，存储在 `store.js`，互访面板和花园卡片分别在 `panel.js` 与 `journal.js`。
+
 ## 新电脑 / 新会话启动
 
 需要 Node.js `20.19+` 或 `22.12+`。
@@ -34,7 +42,7 @@ pnpm run dev
 
 `.github/workflows/deploy.yml` 在 `main` 分支更新时运行 `npm ci`、`npm run build`，上传 `dist` 并通过 GitHub 官方 Pages Actions 发布；也支持手动触发。仓库创建后应在 **Settings → Pages** 中把 Source 设为 **GitHub Actions**。
 
-本项目约定每一轮修改完成后都必须：测试与浏览器验收、提交、推送 `main`、等待 Pages 工作流成功，并确认公开 `/memory-garden/png.html` 返回 HTTP 200 且包含最新版本。不要只停留在本地版本。
+互访原型在 `codex/flow-next` 上测试、验收并推送。公开稳定版由 `main` 发布。原型合并上线需单独确认。
 
 ## 新 Codex 账号接手步骤
 

@@ -292,7 +292,7 @@ npm run build
 
 For changes to the Flow Atlas, verify `/flow.html` locally and on Pages, including overlapping hover tails, semantic zoom in both directions, scroll and tap entry, voluntary writing, optional title cards, mobile controls and per-site writing. Also check the existing `/png.html` experience. Its regression targets cover map navigation and return, browse-before-writing, the optional form input lock, English/Chinese switching before and after submission, stored-language reload, visitor-text preservation, automatic first bloom, short/medium/long visual-card rhythms, six-card desktop maximum, responsive caps, collision/viewport bounds, reset, and console errors. Keep the legacy model files in the repository, but do not spend routine modification or QA time on `/model.html` unless the user explicitly brings it back into scope.
 
-After every completed modification round, commit the verified changes, push `main` to `origin`, wait for the GitHub Pages workflow to succeed, and verify the public `/memory-garden/png.html` URL still returns HTTP 200 with the new revision. The user expects the public URL to always show the newest completed version; do not stop after local verification.
+The exchange prototype is developed and tested on `codex/flow-next`, based on the archived stable tag `archive/flow-2026-11-24`. Commit verified prototype changes and push that branch. Production Pages continues to follow `main` and requires a separate release decision. On this branch, Flow's visitor contributions and exchange records are saved locally in IndexedDB. The original PNG entry retains its visit-scoped storage.
 
 ## KNOWN LIMITATIONS
 
