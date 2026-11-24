@@ -47,7 +47,7 @@ export function newBook() {
   const offers = Object.entries(residentsByCity).map(([home,owner]) => ({
     id:"exchange-with-" + home, owner, home, away:"", sample:true, method:"offline", theme:"", date:"", open:true
   }));
-  return {version:2, serial:0, offers, applications:[], notes:[], comments:[], reports:[], notices:[], defaults:{}};
+  return {version:3, serial:0, offers, applications:[], notes:[], comments:[], reports:[], notices:[], defaults:{}};
 }
 export function findApp(state, id, who) {
   return state.applications.find(a => a.id === id && participant(a,who) && (a.status !== "draft" || a.sender === who));
@@ -70,7 +70,6 @@ export function applyChange(s, who, action, p = {}) {
   requireValue(own(profiles,who));
   const app = findApp(s,p.app,who);
   const note = s.notes.find(n => n.id === p.id);
-  const comment = s.comments.find(c => c.id === p.id);
   switch (action) {
     case "publish": {
       const home = homeCity(who);
@@ -164,7 +163,7 @@ export function applyChange(s, who, action, p = {}) {
       return app.id;
     }
     case "note": {
-      requireValue(!p.id || note?.owner === who);
+      requireValue(!p.parent && !p.record && (!p.id || note?.owner === who));
       const sites = [...new Set(p.sites ?? [])];
       requireValue(sites.length && sites.every(site => own(PLACES,site)) && own(visibility,p.visibility));
       // Earlier notes may belong to more than one garden. Editing preserves their original audience and places.
@@ -182,33 +181,13 @@ export function applyChange(s, who, action, p = {}) {
     case "removeNote":
       requireValue(note?.owner === who);
       s.notes = s.notes.filter(n => n !== note);
-      s.comments = s.comments.filter(c => c.record !== note.id);
       s.reports = s.reports.filter(r => r.record !== note.id);
       return;
-    case "comment": {
-      requireValue(canReadRecord(s,p.site,p.record,who));
-      const body = string(p.text,600,true);
-      if (p.id) {
-        requireValue(comment?.owner === who && !comment.removed && comment.site === p.site && comment.record === p.record);
-        comment.text = body;
-        return comment.id;
-      }
-      const parent = p.parent && s.comments.find(c => c.id === p.parent);
-      requireValue(!p.parent || (parent && !parent.removed && parent.site === p.site && parent.record === p.record));
-      const id = nextId(s,"comment");
-      s.comments.push({id,owner:who,site:p.site,record:p.record,parent:p.parent || "",text:body});
-      return id;
-    }
-    case "removeComment":
-      requireValue(comment?.owner === who && !comment.removed);
-      comment.removed = true;
-      comment.text = "";
-      return;
     case "report": {
-      requireValue(canReadRecord(s,p.site,p.record,who));
-      if (p.comment) requireValue(s.comments.some(c => c.id === p.comment && c.record === p.record && c.site === p.site && !c.removed && c.owner !== who));
-      requireValue(!s.reports.some(r => r.by === who && r.site === p.site && r.record === p.record && r.comment === (p.comment || "")));
-      s.reports.push({by:who,site:p.site,record:p.record,comment:p.comment || "",reason:string(p.reason,220,true)});
+      const target = s.notes.find(n => n.id === p.record);
+      requireValue(!p.comment && target && target.owner !== who && canReadRecord(s,p.site,p.record,who));
+      requireValue(!s.reports.some(r => r.by === who && r.site === p.site && r.record === p.record && !r.comment));
+      s.reports.push({by:who,site:p.site,record:p.record,comment:"",reason:string(p.reason,220,true)});
       return;
     }
     case "read":

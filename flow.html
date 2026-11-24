@@ -25,14 +25,14 @@
         </div>
       </div>
       <button type="button" id="cover-book" aria-haspopup="dialog" aria-controls="flower-book"><span></span></button>
-      <button type="button" id="exchange-my" aria-haspopup="dialog" aria-controls="exchange-panel">我的互访</button>
+      <button type="button" id="exchange-my" aria-haspopup="dialog" aria-controls="exchange-panel" hidden>我的互访</button>
       <details id="guide" class="guide">
         <summary id="guide-toggle" aria-label="地图导览">?</summary>
         <div class="guide-page"><p id="guide-tip"></p>
           <div class="legend-row"><div id="legend" class="legend" aria-label="图例"></div>
             <div class="north" aria-hidden="true"><span>北</span><i></i></div></div>
           <button type="button" id="open-flower-book"></button>
-          <button type="button" id="exchange-guide" aria-haspopup="dialog" aria-controls="exchange-panel">我的互访</button>
+          <button type="button" id="exchange-guide" aria-haspopup="dialog" aria-controls="exchange-panel" hidden>我的互访</button>
           <button type="button" id="replay"></button>
           <div class="guide-meta">
             <div class="reading"><i aria-hidden="true"></i><span id="readout"></span><span id="coordinates" dir="ltr"></span></div>
@@ -47,8 +47,9 @@
       <button class="language" id="flow-language" type="button">英文</button>
     </header>
     <div id="exchange-map-actions" hidden>
-      <button type="button" class="ex-portal" id="exchange-city" aria-haspopup="dialog" aria-controls="exchange-panel">
-        <img id="exchange-city-flower" width="32" height="32" alt=""><span></span>
+      <button type="button" class="ex-portal" id="exchange-national" aria-haspopup="dialog" aria-controls="exchange-panel">
+        <span class="exchange-specimens" aria-hidden="true"><img src="./assets/flow-flowers/nanjing.svg" alt=""><img src="./assets/flow-flowers/qingdao.svg" alt=""></span>
+        <span id="exchange-national-label">双城互访计划</span>
       </button>
     </div>
     <div id="garden-actions" role="group" hidden>
@@ -66,7 +67,7 @@
       <div id="garden" class="garden" hidden role="group" aria-label="记忆花园" tabindex="-1">
         <canvas id="waterbed" aria-hidden="true"></canvas><svg id="stalks" aria-hidden="true" preserveAspectRatio="none"></svg><div id="seeds"></div>
         <span id="batch-status" role="status" class="sr"></span>
-        <dialog id="garden-invitation" aria-labelledby="invitation-title" aria-describedby="invitation-note">
+        <dialog id="garden-invitation" class="flower-invitation" aria-labelledby="invitation-title" aria-describedby="invitation-note">
           <div class="invitation-heading"><h2 id="invitation-title"></h2><button class="language" type="button" id="invitation-language"></button></div>
           <p id="invitation-note"></p>
           <div class="invitation-actions"><button type="button" id="invitation-write"></button><button type="button" id="invitation-browse" autofocus></button></div>
@@ -87,10 +88,6 @@
           <div class="scroll-distance"><div class="landing-type">
             <h1 id="landing-title">记忆之场</h1>
             <p id="landing-intro">沿着地图走进记忆花园，读一段往事，也可以留下自己的记忆。</p>
-            <button type="button" class="ex-portal" id="exchange-cover" aria-haspopup="dialog" aria-controls="exchange-panel">
-              <span class="ex-portal-flowers" aria-hidden="true"><img src="./assets/flow-flowers/nanjing.svg" alt="" width="32" height="32"><img src="./assets/flow-flowers/qingdao.svg" alt="" width="32" height="32"></span>
-              <span id="exchange-cover-label">双城互访计划</span>
-            </button>
             <p id="landing-hint">下滑进入地图</p>
             <button type="button" class="landing-cue" id="landing-cue" aria-label="进入全国地图" aria-describedby="landing-hint">
               <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden="true">
@@ -113,6 +110,14 @@
       <h2 id="arrival-title" tabindex="-1"></h2><p id="arrival-note"></p><button type="button" id="skip"></button><button type="button" id="arrival-back" hidden></button>
     </section>
   </main>
+  <dialog id="exchange-invitation" class="flower-invitation" aria-labelledby="exchange-invitation-title" aria-describedby="exchange-invitation-note">
+    <div class="invitation-heading">
+      <span class="exchange-specimens" aria-hidden="true"><img src="./assets/flow-flowers/nanjing.svg" alt=""><img src="./assets/flow-flowers/qingdao.svg" alt=""></span>
+      <button type="button" class="language" id="exchange-invitation-language"></button>
+    </div>
+    <h2 id="exchange-invitation-title" tabindex="-1" autofocus></h2><p id="exchange-invitation-note"></p>
+    <div class="invitation-actions"><button type="button" id="exchange-join"></button><button type="button" id="exchange-browse"></button></div>
+  </dialog>
   <dialog id="flower-book" aria-labelledby="flower-book-title">
     <header class="book-head">
       <h2 id="flower-book-title"></h2>
@@ -150,7 +155,7 @@
       </div><button type="button" id="memory-reader-back" data-i18n="attachment.back" hidden></button>
     </form>
     <article id="record" hidden><p id="record-date" hidden></p><h2 id="record-title"></h2><p id="record-text"></p><div id="record-media"></div><a id="record-source" target="_blank" rel="noreferrer" hidden></a></article>
-    <section id="garden-thread" hidden></section>
+    <section id="garden-note-tools" hidden></section>
   </dialog>
   <script type="module" src="/src/flow/main.js"></script>
 </body>

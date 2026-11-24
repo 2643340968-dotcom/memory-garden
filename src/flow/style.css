@@ -902,7 +902,7 @@ a {
   35% {opacity:.46;}
   to {transform:scale(1);}
 }
-#garden-invitation {
+.flower-invitation {
   position:fixed; inset:0; margin:auto; width:min(386px,calc(100% - 32px));
   max-height:calc(100dvh - 32px); padding:clamp(22px,3vw,32px); overflow:auto; overscroll-behavior:contain;
   border:1px solid #fffc; border-radius:15px; color:#293b38; isolation:isolate;
@@ -910,34 +910,34 @@ a {
     radial-gradient(ellipse at 100% 100%,#d9ccdfc9,transparent 57%),#fcf8eefa;
   box-shadow:inset 0 0 0 1px #c7d1c769,0 5px 29px #44574720;
 }
-#garden-invitation[open] {animation: invitation-open .38s ease-out;}
-#garden-invitation::backdrop {
+.flower-invitation[open] {animation: invitation-open .38s ease-out;}
+.flower-invitation::backdrop {
   background:#354c401a; backdrop-filter:none;
 }
-#garden-invitation::before {
+.flower-invitation::before {
   content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.21;
   background-image:url("data:image/svg+xml,%3Csvg width='124' height='124' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n' color-interpolation-filters='sRGB'%3E%3CfeTurbulence baseFrequency='.91' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   mix-blend-mode:multiply;
 }
 .invitation-heading {display:flex;align-items:start;justify-content:space-between;gap:12px;}
-#invitation-language {flex:none;min-height:30px; margin-top:2px;font-size:11px;}
-#invitation-title {margin:0;font:500 26px/1.14 var(--display);text-wrap:balance;}
-:lang(zh-CN) #invitation-title {font:500 23px/1.4 var(--sans);}
-#invitation-note {margin:11px 0 17px;font:400 13px/1.64 var(--sans);color:#435451;}
+.flower-invitation .language {flex:none;min-height:30px; margin-top:2px;font-size:11px;}
+.flower-invitation h2 {margin:0;font:500 26px/1.14 var(--display);text-wrap:balance;}
+.flower-invitation h2:lang(zh-CN) {font:500 23px/1.4 var(--sans);}
+.flower-invitation > p {margin:11px 0 17px;font:400 13px/1.64 var(--sans);color:#435451;}
 .invitation-actions {display:flex;align-items:center;gap:15px;flex-wrap:wrap;}
 .invitation-actions button {min-height:40px;border:0;background:none;font:600 13px/1.3 var(--sans);}
-#invitation-write {padding:0 16px;border-radius:24px;background:#334c43;color:#fffdf3;}
-#invitation-write:hover {background:#243f35;}
-#invitation-browse {padding:0 2px;color:#364c45;text-decoration:underline;text-underline-offset:4px;text-decoration-color:#71877d;}
+.invitation-actions button:first-child {padding:0 16px;border-radius:24px;background:#334c43;color:#fffdf3;}
+.invitation-actions button:first-child:hover {background:#243f35;}
+.invitation-actions button:last-child {padding:0 2px;color:#364c45;text-decoration:underline;text-underline-offset:4px;text-decoration-color:#71877d;}
 @keyframes invitation-open {from{opacity:0;translate:0 11px;}to{opacity:1;translate:0;}}
 @media(max-width:560px) {
-  #garden-invitation {padding:23px;}
-  #invitation-title {font-size:23px;} :lang(zh-CN) #invitation-title {font-size:24px;}
-  #invitation-note {margin:6px 0 10px;line-height:1.5;}
+  .flower-invitation {padding:23px;}
+  .flower-invitation h2 {font-size:23px;} .flower-invitation h2:lang(zh-CN) {font-size:24px;}
+  .flower-invitation > p {margin:6px 0 10px;line-height:1.5;}
 }
 @media(max-height:475px) and (min-width:561px) {
-  #garden-invitation {padding:17px 22px;}
-  #invitation-note {margin:4px 0 8px;}
+  .flower-invitation {padding:17px 22px;}
+  .flower-invitation > p {margin:4px 0 8px;}
 }
 #stalks {overflow:visible;}
 .seed {
@@ -1661,7 +1661,7 @@ figcaption button,#memory-reader-back {
   #edition[data-tools="map"] .heading {top:145px;}
 }
 @media(prefers-reduced-motion:reduce) {
-  #garden-invitation,.spray,.stamp canvas,.petal-body,.petal-body::before,.petal-body::after,.landing-cue svg,.garden-blossom.unfolding,.plant.growing * {animation:none!important;}
+  .flower-invitation,.spray,.stamp canvas,.petal-body,.petal-body::before,.petal-body::after,.landing-cue svg,.garden-blossom.unfolding,.plant.growing * {animation:none!important;}
   .seed[data-kind="featured"] .petal-body::before,.seed[data-kind="featured"] .petal-body::after {opacity:.30;}
   *,*::before,*::after {
     scroll-behavior: auto!important;

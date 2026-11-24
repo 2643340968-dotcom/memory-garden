@@ -107,21 +107,50 @@ test("existing linked notes retain their audience and media; new garden notes be
   assert.equal(canReadRecord(state,s3,note,host),false);
   const target = {site:s1,record:note};
   assert.throws(() => run(third,"comment",{...target,text:"outside"}));
-  const first = run(host,"comment",{...target,text:"First"});
-  const reply = run("an","comment",{...target,text:"Reply",parent:first});
-  assert.throws(() => run("an","comment",{...target,site:s2,text:"cross-site reply",parent:first}));
-  assert.throws(() => run("an","removeComment",{id:first}));
-  run("an","report",{...target,comment:first,reason:"Review this text"});
-  assert.throws(() => run("an","report",{...target,comment:first,reason:"Again"}));
-  run(host,"removeComment",{id:first});
-  assert.equal(state.comments.find(c => c.id === reply).parent,first);
+  assert.throws(() => run(host,"comment",{...target,text:"Nested entry"}));
+  assert.throws(() => run(host,"note",{parent:note,sites:[s1],text:"Nested",visibility:"public"}));
+  const otherFlower = run(host,"note",{sites:[s1],text:"My own words",visibility:"public"});
+  run(host,"report",{...target,reason:"Review this text"});
+  assert.throws(() => run(host,"report",{...target,reason:"Again"}));
+  assert.throws(() => run(third,"report",{...target,reason:"Hidden flower"}));
   run("an","note",{...props,id:note,media:undefined,text:"Revised",visibility:"private"});
-  assert.equal(notesAt(state,s1,"an")[0].media.name,media.name);
+  assert.equal(notesAt(state,s1,"an").find(n => n.id === note).media.name,media.name);
   assert.equal(canReadRecord(state,s1,note,host),false);
   assert.throws(() => run(host,"removeNote",{id:note}));
   run("an","removeNote",{id:note});
-  assert.equal(state.comments.length,0);
+  assert.deepEqual(notesAt(state,s1,third).map(n => n.id),[otherFlower]);
   assert.equal(state.reports.length,0);
+});
+test("old comments and replies become independent flowers at the same site with the original audience",() => {
+  const {state,host,third,id,confirm} = create();
+  confirm();
+  state.version = 2;
+  const [site,other] = CITIES.qingdao.places;
+  const restricted = {id:"field-note-10",owner:"an",text:"old note",visibility:"partners",exchange:id,sites:[site,other]};
+  state.notes.push(restricted);
+  const comment = (id,owner,text,record,parent="") => ({id,owner,text,record,parent,site});
+  state.comments.push(
+    comment("comment-15",host,"  海风  ","historic-event"),
+    comment("comment-16","an","独立的花",restricted.id),
+    comment("comment-17",host,"另一段回忆",restricted.id,"comment-16"),
+    {...comment("comment-18",host,"","historic-event"),removed:true},
+    comment("comment-19",host,"自己的文字","field-note-unavailable"));
+  state.reports.push({by:"an",site,record:restricted.id,comment:"comment-17",reason:"local report"});
+  const upgraded = upgradeBook(state);
+  assert.equal(upgraded.version,3);
+  assert.equal(upgraded.comments.length,0);
+  assert.equal(upgraded.notes.length,5);
+  assert.equal(notesAt(upgraded,site,third)[0].text,"  海风  ");
+  assert.equal(notesAt(upgraded,site,third).length,1);
+  assert.equal(notesAt(upgraded,other,host).length,1);
+  const reply = upgraded.notes.find(n => n.id === "field-note-comment-17");
+  assert.deepEqual([reply.owner,reply.sites,reply.visibility,reply.exchange],[host,[site],"partners",id]);
+  assert.equal(upgraded.reports[0].record,reply.id);
+  assert.equal(upgraded.notes.find(n => n.id === "field-note-comment-19").visibility,"private");
+  assert.ok(upgraded.notes.every(n => !n.parent && !n.record));
+  applyChange(upgraded,"an","removeNote",{id:restricted.id});
+  assert.ok(notesAt(upgraded,site,host).includes(reply));
+  assert.equal(upgradeBook(upgraded),upgraded);
 });
 test("pending withdrawals and accepted cancellations are terminal for both partners",() => {
   const {state,host,act,send,id} = create();

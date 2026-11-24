@@ -1,5 +1,4 @@
 import {applyChange, newBook, profiles} from "./model.js";
-import {PLACES} from "../places.js";
 import {upgradeBook} from "./migration.js";
 
 const database = "memory-garden-flow-exchange-v1";
@@ -77,13 +76,6 @@ export class ExchangeStore extends EventTarget {
   change(action, payload, blob, actor = this.actor) {
     return this.schedule(async () => {
       await this.ready;
-      if (["comment","report"].includes(action) && !payload.record?.startsWith("field-note-")) {
-        const site = PLACES[payload.site];
-        if (!site) throw new Error("unknown-place");
-        const [collection,{eventsForPlace}] = await Promise.all([site.loadCollection(),import("../gardenEvents.js")]);
-        if (![...collection.memories,...eventsForPlace(payload.site)].some(r => r.id === payload.record))
-          throw new Error("unknown-memory");
-      }
       let next, id;
       if (this.db) {
         const tx = this.db.transaction(["book","media"],"readwrite");

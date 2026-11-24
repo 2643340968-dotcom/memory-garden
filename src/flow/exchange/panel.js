@@ -1,5 +1,5 @@
 import {plateURL} from "../flowerForms.js";
-import {canApply, canReadRecord, counterpart, findApp, homeCity, methods, ongoing, profiles, states, visibility} from "./model.js";
+import {canApply, counterpart, findApp, homeCity, methods, ongoing, profiles, states, visibility} from "./model.js";
 import {area, btn, cityName, cityOptions, field, form, group, h, hint, input, offerMeta, offerTitle,
   options, para, person, relabelForm, row, safeDate, say, select, siteName, submit, tx} from "./ui.js";
 
@@ -287,7 +287,7 @@ export class ExchangePanel {
   }
   mine(v) {
     const s = this.store.state, who = this.store.actor, tab = v.tab ?? "visits";
-    const tabs = {visits:["我的申请","Applications"],notes:["我的记忆","Memories"],comments:["我的评论","Comments"],settings:["设置","Settings"]};
+    const tabs = {visits:["我的申请","Applications"],notes:["我的记忆","Memories"],settings:["设置","Settings"]};
     const content = [row(...Object.entries(tabs).map(([id,title]) => btn(tx(title),() => {
       this.state = {view:"mine",tab:id}; this.message=""; this.render();
     },"ex-tab",{"aria-pressed":id === tab})))];
@@ -311,13 +311,9 @@ export class ExchangePanel {
       content.push(row(btn(say("发现双城互访","Discover city exchanges"),() => this.go({view:"hub",city:v.city}),"ex-primary")));
     } else if (tab === "notes") {
       const notes = s.notes.filter(n => n.owner === who);
-      content.push(group(say("我留下的花束","Flowers I have left"),notes.length ? notes.map(n =>
+      content.push(group(say("我留下的花","Flowers I have left"),notes.length ? notes.map(n =>
         btn((n.text || n.media?.name || "") + " · " + n.sites.map(siteName).join(" / ") + " · " + tx(visibility[n.visibility]),
           () => this.jump(n.sites[0],n.id),"ex-entry")) : empty()));
-    } else if (tab === "comments") {
-      const comments = s.comments.filter(c => c.owner === who && !c.removed && canReadRecord(s,c.site,c.record,who)).reverse();
-      content.push(group(say("我的评论与回复","My comments and replies"),comments.length ? comments.map(c =>
-        btn(c.text + " · " + siteName(c.site),() => this.jump(c.site,c.record),"ex-entry")) : empty()));
     } else {
       const setting = select(options(visibility).filter(([id]) => id !== "partners"),s.defaults[who] ?? "public");
       content.push(group(say("发布偏好","Publishing preference"),form(() => this.act("defaultVisibility",{visibility:setting.value}),

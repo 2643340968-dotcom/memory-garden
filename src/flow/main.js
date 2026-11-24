@@ -9,6 +9,7 @@ import {AtlasLanding} from "./landing.js";
 import {nationalMarks} from "./overview.js";
 import {flowHash, readFlowRoute, nextMapLevel} from "./levels.js";
 import {FlowerBook} from "./flowerBook.js";
+import {FlowerInvitation} from "./flowerInvitation.js";
 import {plateURL, prepareGardenPrints, profileURL} from "./flowerForms.js";
 import {ExchangeStore} from "./exchange/store.js";
 import {ExchangePanel} from "./exchange/panel.js";
@@ -24,6 +25,7 @@ const counts = {
   places : Object.keys(PLACES).length
 };
 const visits = new Map();
+let countryReady = false;
 const languageKey = "memory-flow-language-v1";
 let initialLanguage = "zh-CN";
 try {
@@ -45,7 +47,12 @@ function updateLandingHint() {
 quiet.addEventListener("change", updateLandingHint);
 touch.addEventListener("change", updateLandingHint);
 function setMode(mode) {
+  countryReady = false;
+  countryInvitation.leave();
   el("edition").dataset.tools = mode;
+  el("exchange-map-actions").hidden = true;
+  el("exchange-my").hidden = mode === "cover" || route?.level === "country";
+  el("exchange-guide").hidden = mode === "cover" || (route?.level === "country" && !countryInvitation.seen);
 }
 
 function closeChapter() {
@@ -79,6 +86,12 @@ const atlas = new FlowAtlas(el("map"), {
   },
   choose : chooseSite,
   cityLanded : city => flowerBook.cityLanded(city),
+  countryLanded() {
+    if (!countryReady) {
+      countryReady = true;
+      updateCountryInvitation();
+    } else countryInvitation.consider();
+  },
 });
 const landing = new AtlasLanding(el("landing"), atlas, () => {
   setMode("map");
@@ -88,7 +101,7 @@ const landing = new AtlasLanding(el("landing"), atlas, () => {
 const flowerBook = new FlowerBook(el("flower-book"), open => {
   landing.flowers.obscured = open;
   landing.flowers.wake();
-  if (!open) garden.updateActions();
+  if (!open) { garden.updateActions(); updateCountryInvitation(); }
 });
 
 function openLanding(reverse = false) {
@@ -106,8 +119,7 @@ function openLanding(reverse = false) {
   }
 }
 const store = new ExchangeStore();
-const savedMessage = () => store.db ? local("记忆已保存在此浏览器，可在花园或「我的互访」回看。","Memory saved in this browser. Revisit it here or in My exchanges.") :
-  local("记忆已留在花园，本次访问可回看。","Memory saved for this visit.");
+const savedMessage = () => local("你的留言已在这里开成一朵花。","Your memory has blossomed here.");
 const garden = new FlowGarden({
   store,
   saved : () => {
@@ -124,7 +136,7 @@ const exchange = new ExchangePanel(el("exchange-panel"),store,{
     if (open) closeChapter();
     landing.flowers.obscured = open;
     landing.flowers.wake();
-    if (!open) garden.updateActions();
+    if (!open) { garden.updateActions(); updateCountryInvitation(); }
   },
   language:() => changeLanguage(),
   explore(city,place) {
@@ -140,6 +152,27 @@ const exchange = new ExchangePanel(el("exchange-panel"),store,{
     else navigate({level:"garden",city:PLACES[site].city,place:site});
   }
 });
+const countryInvitation = new FlowerInvitation(el("exchange-invitation"),"memory-flow-country-invitation-v1",
+  () => countryReady && route?.level === "country" && !landing.active && !document.hidden &&
+    atlas.root.dataset.overview === "marks" && atlas.visiblePins?.length === counts.cities &&
+    !atlas.pointers.size && !el("guide").open && !document.querySelector("dialog[open]"),
+  updateCountryInvitation);
+function updateCountryInvitation() {
+  if (!countryReady || route?.level !== "country" || landing.active) return;
+  el("exchange-map-actions").hidden = !countryInvitation.seen || countryInvitation.dialog.open;
+  el("exchange-guide").hidden = !countryInvitation.seen;
+  countryInvitation.consider();
+}
+function browseGardens() {
+  countryInvitation.dismiss();
+  atlas.root.focus({preventScroll:true});
+}
+countryInvitation.dialog.addEventListener("cancel", e => { e.preventDefault(); browseGardens(); });
+el("exchange-browse").onclick = browseGardens;
+el("exchange-join").onclick = () => {
+  countryInvitation.dismiss();
+  exchange.open({view:"hub"});
+};
 function openRequestedFlower() {
   if (!requestedFlower || requestedFlower.site !== garden.id) return;
   const {record} = requestedFlower;
@@ -151,10 +184,10 @@ function openRequestedFlower() {
   }
 }
 for (const id of ["exchange-my","exchange-guide"]) el(id).onclick = () => exchange.open({view:"mine",city:route.city});
-el("exchange-city").onclick = () => exchange.open({view:"hub",city:route.city});
-el("exchange-cover").onclick = () => exchange.open({view:"hub"});
+el("exchange-national").onclick = () => exchange.open({view:"hub"});
 
 function advance(inward, mark) {
+  if (countryInvitation.dialog.open) return;
   if (landing.active) {
     if (inward) el("landing-cue").click();
     return;
@@ -256,12 +289,12 @@ function chrome() {
   el("landing-title").textContent = project;
   const intro = el("landing-intro");
   if (getLanguage() === "zh-CN") {
-    intro.replaceChildren(...["沿着地图，读一座城的记忆。", "也可以和远方的同学互访彼此的城市。"].map(words => {
+    intro.replaceChildren(...["沿着地图走进记忆花园，", "读一段往事，", "也可以留下自己的记忆。"].map(words => {
       const phrase = document.createElement("span");
       phrase.textContent = words;
       return phrase;
     }));
-  } else intro.textContent = "Explore a city through its memory gardens, or arrange to visit each other’s cities.";
+  } else intro.textContent = "Follow the map into a memory garden to read a story or leave one of your own.";
   document.querySelector('meta[name="description"]').content = intro.textContent;
   updateLandingHint();
   el("landing-scroll")
@@ -272,18 +305,18 @@ function chrome() {
   el("trail").setAttribute("aria-label", local("当前位置", "Current location"));
   el("map").setAttribute("aria-label", local("可缩放的记忆地图", "Interactive memory atlas"));
   el("garden").setAttribute("aria-label", gardenName);
-  for (const id of ["flow-language","sheet-language","invitation-language"]) {
+  for (const id of ["flow-language","sheet-language","invitation-language","exchange-invitation-language"]) {
     el(id).textContent = local("英文", "Chinese");
     el(id).setAttribute("aria-label", local("切换为英文", "Switch to Chinese"));
   }
   flowerBook.updateLanguage(getLanguage() === "zh-CN");
   exchange.labels();
-  el("exchange-cover-label").textContent = local("双城互访计划","City exchange plans");
-  el("exchange-map-actions").hidden = route.level !== "city";
-  if (route.level === "city") {
-    el("exchange-city-flower").src = plateURL(route.city);
-    el("exchange-city").querySelector("span").textContent = local("双城互访计划 · ","City exchanges · ") + placeText(city.name);
-  }
+  const exchangeName = local("双城互访计划","City exchange plans");
+  el("exchange-national-label").textContent = el("exchange-invitation-title").textContent = exchangeName;
+  el("exchange-invitation-note").textContent = local("你去一位同学的城市，也邀请对方来你的城市。想参加这次互访吗？",
+    "Visit a student’s city and invite them to yours. Would you like to take part?");
+  el("exchange-join").textContent = local("参加双城互访","Join a city exchange");
+  el("exchange-browse").textContent = local("只逛记忆花园","Just explore the gardens");
   el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
   document.querySelector(".north span").textContent = local("北", "N");
   if (el("notice").textContent) el("notice").textContent = savedMessage();
@@ -517,7 +550,7 @@ el("arrival-back").onclick = () => navigate({...route, level:"place"}, {restore:
 el("dismiss-chapter").onclick = closeChapter;
 el("guide").addEventListener("toggle", () => {
   if (el("guide").open) closeChapter();
-  else garden.updateActions();
+  else { garden.updateActions(); updateCountryInvitation(); }
 });
 el("replay").onclick = () => {
   el("guide").open = false;
@@ -530,7 +563,7 @@ document.addEventListener("pointerdown", e => {
     el("guide").open = false;
 });
 document.addEventListener("keydown", e => {
-  if (e.key !== "Escape" || e.defaultPrevented || garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open || exchange.dialog.open)
+  if (e.key !== "Escape" || e.defaultPrevented || document.querySelector("dialog[open]"))
     return;
   if (el("guide").open) {
     el("guide").open = false;
@@ -574,7 +607,7 @@ function changeLanguage() {
   chrome();
   exchange.updateLanguage();
 }
-for (const id of ["flow-language","sheet-language","invitation-language","book-language"]) el(id).onclick = changeLanguage;
+for (const id of ["flow-language","sheet-language","invitation-language","book-language","exchange-invitation-language"]) el(id).onclick = changeLanguage;
 window.addEventListener("popstate", () => {
   void show(readFlowRoute(location.hash), {restore : true, opening : !location.hash});
 });
@@ -585,7 +618,7 @@ window.addEventListener("hashchange", () => {
 });
 // Navigation gestures stop at the field. A sheet owns its native scrolling.
 document.addEventListener("wheel", event => {
-  if (garden.invitation.dialog.open || garden.sheet.open || el("flower-book").open || exchange.dialog.open || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
+  if (document.querySelector("dialog[open]") || Math.abs(event.deltaX) > Math.abs(event.deltaY) || event.defaultPrevented) return;
   const target = event.target;
   if (target.closest("#flower-book,#nearby,select,.guide-page,input,audio,video")) return;
   if (landing.active && !target.closest(".toolbar-shell")) return;
@@ -637,7 +670,7 @@ gardenSwipe(el("arrival"));
 gardenSwipe(el("city-leaf"));
 document.addEventListener("keydown", e => {
   if (e.defaultPrevented || e.repeat || e.altKey || e.ctrlKey || e.metaKey || landing.active ||
-      garden.invitation.dialog.open || garden.sheet.open || e.target.closest("dialog,select,input,textarea,.guide-page") || el("flower-book").open) return;
+      document.querySelector("dialog[open]") || e.target.closest("select,input,textarea,.guide-page")) return;
   if (!["PageDown","PageUp","ArrowDown","ArrowUp"].includes(e.key)) return;
   e.preventDefault();
   const inward = e.key === "PageDown" || e.key === "ArrowDown";

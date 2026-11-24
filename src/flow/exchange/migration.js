@@ -1,11 +1,9 @@
 import {homeCity, makeVisits, newBook} from "./model.js";
 
 // Version 1 stored a single destination and one set of stops. Keep its records and media IDs intact.
-export function upgradeBook(book) {
-  if (!book) return newBook();
-  if (book.version !== 1 && book.version !== 2) throw new Error("unsupported-exchange-version");
+function upgradeVisits(book) {
   // A tab still running the earlier edition can add a legacy invitation after another tab upgraded.
-  if (book.version === 2 && book.offers.every(o => o.home) && book.applications.every(a => a.visits)) return book;
+  if (book.version !== 1 && book.offers.every(o => o.home) && book.applications.every(a => a.visits)) return book;
   const offers = book.offers.map(o => {
     if (o.home) return o;
     const {city,origin,role,...rest} = o;
@@ -33,5 +31,30 @@ export function upgradeBook(book) {
   const notices = book.notices.map(n => migrated.has(n.app) && ["route","completed"].includes(n.kind) ?
     {...n,kind:"planUpdated"} : n);
   const newOffers = newBook().offers.filter(o => !byId.has(o.id));
-  return {...book,version:2,offers:[...offers,...newOffers],applications,notices};
+  return {...book,offers:[...offers,...newOffers],applications,notices};
+}
+
+export function upgradeBook(previous) {
+  if (!previous) return newBook();
+  if (![1,2,3].includes(previous.version)) throw new Error("unsupported-exchange-version");
+  const book = upgradeVisits(previous);
+  if (book.version === 3 && !book.comments.length) return book;
+
+  // Each surviving entry keeps its author, exact words and original garden.
+  // A thread on a restricted flower must not become public when its entries separate.
+  const originalNotes = new Map(book.notes.map(n => [n.id,n]));
+  const newFlowers = [], migrated = new Map();
+  for (const comment of book.comments) {
+    if (comment.removed) continue;
+    const original = originalNotes.get(comment.record);
+    const audience = original?.visibility ?? (comment.record.startsWith("field-note-") ? "private" : "public");
+    const id = "field-note-" + comment.id;
+    migrated.set(comment.id,id);
+    if (originalNotes.has(id)) continue;
+    newFlowers.push({id,owner:comment.owner,text:comment.text,sites:[comment.site],media:null,
+      visibility:audience,exchange:audience === "partners" ? original.exchange : ""});
+  }
+  const reports = book.reports.map(r => migrated.has(r.comment) ?
+    {...r,record:migrated.get(r.comment),comment:""} : r);
+  return {...book,version:3,notes:[...newFlowers.reverse(),...book.notes],comments:[],reports};
 }

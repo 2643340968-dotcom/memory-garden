@@ -58,7 +58,7 @@ export class FlowAtlas {
     this.pins = new Map();
     this.quiet = matchMedia("(prefers-reduced-motion: reduce)");
     this.glints = new MapGlints(root, this.quiet);
-    this.overviewReveal = new OverviewReveal(root, this.markers, this.quiet);
+    this.overviewReveal = new OverviewReveal(root, this.markers, this.quiet, () => this.invalidate());
     this.charts = new AtlasCharts(root, () => this.invalidate(), {
       surfaces : {base : "#base"},
       makeWorker : () => new Worker(new URL("./chart.worker.js", import.meta.url), {type : "module"}),
@@ -569,7 +569,11 @@ export class FlowAtlas {
       this.root.dataset.vectorLevel = chart.frame.level;
     if (!f && chart && !this.surround.needed && this.route.level === "city") this.callbacks.cityLanded(this.route.city);
     const reserved = this.cover ? [] : this.drawPins(this.groups());
-    this.overviewReveal.update(this.route.level === "country" && !this.cover, !f && !!chart && !this.dragging);
+    const onCountry = this.route.level === "country" && !this.cover;
+    const settled = !f && !!chart && !this.dragging;
+    this.overviewReveal.update(onCountry, settled);
+    if (onCountry && settled && this.root.dataset.overview === "marks" && this.pins.size === nationalMarks.length)
+      this.callbacks.countryLanded();
     this.glints.show(this.cover || f ? null : this.route.level);
     this.updateMemoryBeds();
     this.annotate(chart, reserved);

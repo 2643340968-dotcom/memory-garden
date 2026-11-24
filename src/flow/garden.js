@@ -7,12 +7,13 @@ import {forms} from "./flowerForms.js";
 import {drawUnderstory, gardenDefs, gardenPositions, gardenStands, plantArtwork, plantStand} from "./standingGarden.js";
 
 import {GardenBreeze} from "./gardenBreeze.js";
-import {GardenInvitation} from "./gardenInvitation.js";
+import {FlowerInvitation} from "./flowerInvitation.js";
 import {pixelRatio, releaseCanvas} from "./renderBudget.js";
 import {GardenSelection} from "./gardenSelection.js";
 import {setPetalRhythm} from "./petalLight.js";
 import {notesAt} from "./exchange/model.js";
 import {GardenJournal} from "./exchange/journal.js";
+import {person} from "./exchange/ui.js";
 
 const el = id => document.getElementById(id);
 const say = (cn, en) => getLanguage() === "zh-CN" ? cn : en;
@@ -46,7 +47,7 @@ export class FlowGarden {
     this.visits = new Map();
     this.refreshButton = el("refresh-memories");
     this.refreshButton.onclick = () => this.refresh();
-    this.invitation = new GardenInvitation(el("garden-invitation"),
+    this.invitation = new FlowerInvitation(el("garden-invitation"),"memory-flow-garden-invitation-v1",
       () => Boolean(!this.directEntry && this.visit && this.seedLayer.childElementCount && !this.root.closest("[inert]") &&
         !this.root.hidden && !document.hidden && !this.sheet.open && !el("exchange-panel").open && !el("flower-book").open && !el("guide").open),
       () => this.updateActions());
@@ -240,7 +241,7 @@ export class FlowGarden {
     return this.notes?.get(id) ?? this.events.get(id) ?? this.visit.pool.getById(id);
   }
   label(memory) {
-    if (memory.owner) return say("个人记忆","Personal memory");
+    if (memory.owner) return say(person(memory.owner) + "的留言","Memory by " + person(memory.owner));
     if (memory.title) return placeText(memory.title);
     if (memory.id.endsWith("-record")) return say("地点札记", "Place note");
     const key = this.collection.featuredLabels[memory.id];
@@ -308,8 +309,8 @@ export class FlowGarden {
     const regular = this.visit.selection.regular;
     const records = [...featured, ...regular].map(id => this.recordById(id));
     const paperKey = [this.id, w, h, dpr].join("|");
-    const standKey = [paperKey, top, featured.length, regular.length].join("|");
-    const key = [standKey, ...featured, ...regular].join("|");
+    const geometryKey = [paperKey, top, featured.length, regular.length].join("|");
+    const key = [geometryKey, ...featured, ...regular].join("|");
     if (key === this.layoutKey) return;
     this.layoutKey = key;
 
@@ -335,11 +336,15 @@ export class FlowGarden {
         drawUnderstory(this.ctx,w,h,seed,forms[this.flower]);
       }
     }
+    // Visitor contributions have a single readable flower each. The background
+    // stands keep their original archive readings as individual flowers enter or leave.
+    const archiveSlots = this.slots.flatMap((id,slot) => this.notes.has(id) ? [] : [slot]);
+    const standKey = geometryKey + "|" + archiveSlots.join(",");
     if (standKey !== this.standKey) {
       this.standKey = standKey;
       this.points = gardenPositions(records.length,area,featured.length);
       this.stalks.setAttribute("viewBox","0 0 "+w+" "+h);
-      const anchors = this.points.map(([x,y], slot) => ({id:slot,x,y}));
+      const anchors = archiveSlots.map(slot => ({id:slot,x:this.points[slot][0],y:this.points[slot][1]}));
       this.stands = gardenStands(w,h,top,seed,anchors).map(stand =>
         ({...plantStand(stand,h,now-this.entryTime), slot:stand.id}));
       this.standLayer.replaceChildren(...this.stands.map(stand => stand.stem));
@@ -384,7 +389,7 @@ export class FlowGarden {
       setPetalRhythm(b,memory.id,i<featured.length);
       body.append(m);
       if (!this.born.has(memory.id)) {
-        const personal = memory.label === "YOUR MEMORY";
+        const personal = Boolean(memory.owner) || memory.label === "YOUR MEMORY";
         const birth = personal ? now : Math.max(now, this.entryTime) + i * 55;
         this.born.set(memory.id, this.refreshMotion ? now - 3000 : birth);
       }
@@ -413,7 +418,7 @@ export class FlowGarden {
       nodes.find(b => b.dataset.id === focusId)?.focus({preventScroll : true});
   }
   updateSave() {
-    el("save").disabled = !this.visit || !this.card?.editable || !!this.card.pending ||
+    el("save").disabled = !this.visit || this.form.dataset.submitting === "true" || !this.card?.editable || !!this.card.pending ||
         !(this.text.value.trim() || this.card.attachment);
   }
   showSheet(titleId) {
@@ -511,7 +516,7 @@ export class FlowGarden {
       el("record-media").append(audio);
     }
     if (memory.media) void this.showStoredMedia(memory);
-    this.journal.read(this.id,memory,() => this.sheet.close());
+    if (memory.owner) this.journal.read(this.id,memory,() => this.sheet.close());
     this.updateLanguage();
     el("close-sheet").focus();
   }

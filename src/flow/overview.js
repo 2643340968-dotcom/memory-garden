@@ -21,8 +21,9 @@ export function arrivalScore(count, random = Math.random) {
 }
 
 export class OverviewReveal {
-  constructor(root, pins, motion) {
-    Object.assign(this, {root, pins, motion});
+  constructor(root, pins, motion, onReveal) {
+    Object.assign(this, {root, pins, motion, onReveal});
+    this.generation = 0;
     motion.addEventListener("change", () => {
       if (motion.matches && root.dataset.overview) this.reveal();
     });
@@ -58,16 +59,26 @@ export class OverviewReveal {
     this.seen = true;
     this.pins.inert = false;
     this.root.dataset.overview = "rain";
-    this.timer = setTimeout(() => this.reveal(), end+1150);
+    const generation = this.generation;
+    const landings = this.pins.getAnimations({subtree:true}).filter(a =>
+      a.animationName === "city-rain" || a.animationName === "city-impact");
+    if (landings.length) {
+      Promise.allSettled(landings.map(a => a.finished)).then(() => {
+        if (generation === this.generation) this.reveal();
+      });
+    } else this.timer = setTimeout(() => this.reveal(), end+1150);
   }
   reveal() {
+    this.generation++;
     clearTimeout(this.timer);
     this.timer = 0;
     this.seen = true;
     this.root.dataset.overview = "marks";
     this.pins.inert = false;
+    this.onReveal();
   }
   stop(reset = false) {
+    this.generation++;
     clearTimeout(this.timer);
     this.timer = 0;
     if (reset) this.seen = false;

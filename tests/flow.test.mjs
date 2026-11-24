@@ -1,7 +1,7 @@
 import test from "node:test";
 import {readFileSync} from "node:fs";
 import {pixelRatio, releaseCanvas} from "../src/flow/renderBudget.js";
-import {GardenInvitation} from "../src/flow/gardenInvitation.js";
+import {FlowerInvitation} from "../src/flow/flowerInvitation.js";
 import {FlowAtlas, markFlower} from "../src/flow/atlas.js";
 import assert from "node:assert/strict";
 import {project, under, mercator, latitude, blend, cameraProgress, coversView, framePlacement} from "../src/flow/geometry.js";
@@ -11,7 +11,7 @@ import {openingPose} from "../src/flow/landing.js";
 import {flowerFront, frontsAt, openingFlowers} from "../src/flow/coverFlowers.js";
 import {WetPaper} from "../src/flow/wetPaper.js";
 import {PetalCurrent} from "../src/flow/petalCurrent.js";
-import {arrivalScore, nationalMarks} from "../src/flow/overview.js";
+import {arrivalScore, nationalMarks, OverviewReveal} from "../src/flow/overview.js";
 import {cityFlowers} from "../src/flow/cityFlowers.js";
 import {allForms, forms, plateURL, profileURL} from "../src/flow/flowerForms.js";
 import {meadowFlowers} from "../src/flow/memoryBeds.js";
@@ -583,6 +583,30 @@ test("each national city receives one staggered fall at its own marker", () => {
   }
 });
 
+test("the national invitation waits for the final impact and ignores an interrupted reveal", async () => {
+  const reveal = Object.create(OverviewReveal.prototype);
+  const pending = [], frame = () => new Promise(resolve => setImmediate(resolve));
+  let ready = 0;
+  Object.assign(reveal,{root:{dataset:{}},generation:0,onReveal:() => ready++,
+    pins:{querySelectorAll:() => nationalMarks.map(() => ({style:{setProperty(){}}})),
+      getAnimations:() => ["city-rain","city-impact","petal-breath"].map(animationName =>
+        ({animationName,finished:new Promise(resolve => pending.push(resolve))}))}});
+  reveal.rain();
+  const first = pending.splice(0);
+  reveal.stop();
+  reveal.rain();
+  first.forEach(resolve => resolve());
+  await frame();
+  assert.equal(ready,0);
+  pending[0]();
+  await frame();
+  assert.equal(reveal.root.dataset.overview,"rain");
+  pending[1]();
+  await frame();
+  assert.equal(ready,1);
+  assert.equal(reveal.root.dataset.overview,"marks");
+});
+
 test("the garden grows dense responsive stands tied to existing records, stable on a revisit", () => {
   for (const [w,h] of [[320,568],[390,844],[1440,900],[1920,1080]]) {
     const anchors=[{id:"first",x:w*.23,y:h*.44},{id:"second",x:w*.8,y:h*.60}];
@@ -685,7 +709,7 @@ test("the garden waits for real growth and remembers a displayed invitation acro
   const dialog = Object.assign(new EventTarget(),{
     open:false, showModal(){ this.open=true; shown++; }, close(){ this.open=false; }
   });
-  const visit = new GardenInvitation(dialog,()=>available,()=>{});
+  const visit = new FlowerInvitation(dialog,"garden",()=>available,()=>{});
   let finishGrowth;
   const finished = new Promise(resolve => { finishGrowth = resolve; });
   const animation = {animationName:"open-calyx",playState:"running",finished};
@@ -708,8 +732,17 @@ test("the garden waits for real growth and remembers a displayed invitation acro
   assert.equal(shown,1);
   visit.leave();
   visit.consider(field);
-  new GardenInvitation(dialog,()=>true,()=>{}).consider(field);
+  new FlowerInvitation(dialog,"garden",()=>true,()=>{}).consider(field);
   assert.equal(frames.length,0);
+  const country = new FlowerInvitation(dialog,"country",()=>available,()=>{});
+  country.consider();
+  country.leave();
+  await frames.shift()();
+  assert.equal(shown,1);
+  country.consider();
+  await frames.shift()();
+  assert.equal(shown,2);
+  assert.equal(preferences.size,2);
 });
 
 test("both upright prints for each city have transparency and share the 160 by 144 stem registration", () => {
