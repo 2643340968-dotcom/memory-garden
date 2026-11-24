@@ -1,5 +1,6 @@
 import {applyChange, newBook, profiles} from "./model.js";
 import {PLACES} from "../places.js";
+import {upgradeBook} from "./migration.js";
 
 const database = "memory-garden-flow-exchange-v1";
 const sessionKey = database + "-reader";
@@ -51,8 +52,14 @@ export class ExchangeStore extends EventTarget {
     this.changed();
   }
   async refresh() {
-    const book = await get(this.db.transaction("book").objectStore("book"),"current");
-    if (book) this.state = book;
+    const tx = this.db.transaction("book","readwrite");
+    const book = tx.objectStore("book");
+    const [current] = await Promise.all([get(book,"current").then(previous => {
+      const upgraded = upgradeBook(previous);
+      if (previous && previous !== upgraded) book.put(upgraded,"current");
+      return upgraded;
+    }),done(tx)]);
+    this.state = current;
     this.changed();
   }
   changed() { this.dispatchEvent(new Event("change")); }
@@ -70,10 +77,6 @@ export class ExchangeStore extends EventTarget {
   change(action, payload, blob, actor = this.actor) {
     return this.schedule(async () => {
       await this.ready;
-      if (action === "stop" && payload.event) {
-        const {eventsForPlace} = await import("../gardenEvents.js");
-        if (!eventsForPlace(payload.site).some(e => e.id === payload.event)) throw new Error("unknown-source");
-      }
       if (["comment","report"].includes(action) && !payload.record?.startsWith("field-note-")) {
         const site = PLACES[payload.site];
         if (!site) throw new Error("unknown-place");
@@ -87,7 +90,7 @@ export class ExchangeStore extends EventTarget {
         const finished = done(tx);
         try {
           const book = tx.objectStore("book");
-          next = await get(book,"current") ?? newBook();
+          next = upgradeBook(await get(book,"current"));
           id = applyChange(next,actor,action,payload);
           book.put(next,"current");
           if (blob) tx.objectStore("media").put(blob,id);

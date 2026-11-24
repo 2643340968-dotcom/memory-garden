@@ -1,20 +1,36 @@
 import {CITIES, PLACES} from "../places.js";
 
-export const profiles = {
-  an: ["小安", "An"], lin: ["林禾", "Lin He"], zhou: ["周宁", "Zhou Ning"]
-};
+const residents = {nanjing:"an", qingdao:"zhou", chengdu:"lin"};
+const names = {an:["小安","An"], lin:["林禾","Lin He"], zhou:["周宁","Zhou Ning"]};
+const residentsByCity = Object.fromEntries(Object.keys(CITIES).map(city => [city,residents[city] ?? "student-" + city]));
+const homeCities = Object.fromEntries(Object.entries(residentsByCity).map(([city,id]) => [id,city]));
+export const homeCity = who => homeCities[who];
+export const profiles = Object.fromEntries(Object.entries(homeCities).map(([id,city]) =>
+  [id,names[id] ?? [CITIES[city].name[0] + "同学", "Student in " + CITIES[city].name[1]]]));
 export const states = {
   draft:["草稿","Draft"], pending:["待回应","Awaiting reply"], confirmed:["已确认","Confirmed"],
-  rescheduling:["改期中","Rescheduling"], declined:["已拒绝","Declined"],
-  active:["进行中","In progress"], completed:["已完成","Completed"], cancelled:["已取消","Cancelled"]
+  rescheduling:["商量日期中","Changing dates"], declined:["已拒绝","Declined"],
+  active:["互访中","Underway"], completed:["双方已到访","Both visits complete"], cancelled:["已取消","Cancelled"]
 };
 export const visibility = {public:["公开","Public"], partners:["仅互访双方","Exchange partners"], private:["仅自己","Only me"]};
-export const methods = {online:["线上交流","Online"], offline:["实地走访","In person"]};
-export const roles = {visitor:["来访学生","Visiting student"], local:["在地学生","Local student"]};
-export const editableRoute = a => a && ["confirmed","active"].includes(a.status);
-export const canReflect = a => a && ["confirmed","active","completed"].includes(a.status);
+export const methods = {offline:["实地互访","In person"], online:["线上互访","Online"]};
 export const participant = (a, who) => a && (a.sender === who || a.recipient === who);
-export const belongs = (site, city) => Object.hasOwn(PLACES,site) && PLACES[site].city === city;
+export const counterpart = (a, who) => a.sender === who ? a.recipient : a.sender;
+export const ongoing = a => a && ["confirmed","rescheduling","active"].includes(a.status);
+export function canApply(offer, who) {
+  const home = homeCity(who);
+  return Boolean(offer?.open && home && offer.owner !== who && offer.home !== home && (!offer.away || offer.away === home));
+}
+export function makeVisits(sender,recipient,from,to) {
+  const leg = (from,to) => ({from,to,date:"",proposedDate:"",visited:false,review:null});
+  return {[sender]:leg(from,to), [recipient]:leg(to,from)};
+}
+function updateProgress(app) {
+  const visits = Object.values(app.visits);
+  if (visits.every(visit => visit.visited)) app.status = "completed";
+  else if (visits.some(visit => visit.proposedDate)) app.status = "rescheduling";
+  else app.status = visits.some(visit => visit.visited) ? "active" : "confirmed";
+}
 const own = (object, key) => Object.hasOwn(object, key);
 function requireValue(condition) { if (!condition) throw new Error("invalid-action"); }
 function string(value, limit, required = false) {
@@ -28,17 +44,10 @@ function date(value) {
 }
 function nextId(state, kind) { return kind + "-" + (++state.serial); }
 export function newBook() {
-  const offers = [];
-  for (const [index, city] of Object.keys(CITIES).entries()) {
-    const other = city === "nanjing" ? "qingdao" : "nanjing";
-    for (const role of ["local","visitor"]) {
-      const localAuthor = index % 2 ? "lin" : "zhou";
-      offers.push({id:"sample-" + city + "-" + role, city, origin:other, role,
-        owner:role === "local" ? localAuthor : localAuthor === "lin" ? "zhou" : "lin", sample:true,
-        method:role === "local" ? "offline" : "online", theme:"", date:"", open:true});
-    }
-  }
-  return {version:1, serial:0, offers, applications:[], notes:[], comments:[], reports:[], notices:[], defaults:{}};
+  const offers = Object.entries(residentsByCity).map(([home,owner]) => ({
+    id:"exchange-with-" + home, owner, home, away:"", sample:true, method:"offline", theme:"", date:"", open:true
+  }));
+  return {version:2, serial:0, offers, applications:[], notes:[], comments:[], reports:[], notices:[], defaults:{}};
 }
 export function findApp(state, id, who) {
   return state.applications.find(a => a.id === id && participant(a,who) && (a.status !== "draft" || a.sender === who));
@@ -64,10 +73,11 @@ export function applyChange(s, who, action, p = {}) {
   const comment = s.comments.find(c => c.id === p.id);
   switch (action) {
     case "publish": {
-      requireValue(own(CITIES,p.city) && own(CITIES,p.origin) && p.city !== p.origin && own(roles,p.role) && own(methods,p.method));
+      const home = homeCity(who);
+      requireValue(own(CITIES,p.away) && p.away !== home && own(methods,p.method));
+      const theme = string(p.theme,160,true), when = p.date ? date(p.date) : "";
       const id = nextId(s,"offer");
-      s.offers.unshift({id,owner:who,city:p.city,origin:p.origin,role:p.role,method:p.method,theme:string(p.theme,160,true),
-        date:p.date ? date(p.date) : "",open:true});
+      s.offers.unshift({id,owner:who,home,away:p.away,method:p.method,theme,date:when,open:true});
       return id;
     }
     case "closeOffer": {
@@ -78,22 +88,24 @@ export function applyChange(s, who, action, p = {}) {
     }
     case "draft": {
       const offer = s.offers.find(o => o.id === p.offer);
-      requireValue(offer?.open && offer.owner !== who);
+      requireValue(canApply(offer,who));
       const current = s.applications.find(a => a.offer === offer.id && a.sender === who &&
         !["cancelled","declined","completed"].includes(a.status));
       if (current) return current.id;
       const id = nextId(s,"visit");
-      s.applications.unshift({id,offer:offer.id,city:offer.city,sender:who,recipient:offer.owner,
-        status:"draft",message:"",date:offer.date,method:offer.method,stops:[],proposal:null});
+      const visits = makeVisits(who,offer.owner,homeCity(who),offer.home);
+      visits[offer.owner].date = offer.date;
+      s.applications.unshift({id,offer:offer.id,sender:who,recipient:offer.owner,
+        status:"draft",message:"",method:offer.method,visits});
       return id;
     }
     case "saveDraft":
     case "send": {
-      requireValue(app?.status === "draft" && app.sender === who);
+      requireValue(app?.status === "draft" && app.sender === who && own(methods,p.method));
       if (action === "send") requireValue(s.offers.find(o => o.id === app.offer)?.open);
-      app.message = string(p.message,500,action === "send");
-      app.date = p.date ? date(p.date) : "";
-      requireValue(own(methods,p.method));
+      const message = string(p.message,500), when = p.date ? date(p.date) : "";
+      app.message = message;
+      app.visits[who].date = when;
       app.method = p.method;
       if (action === "send") {
         app.status = "pending";
@@ -107,70 +119,58 @@ export function applyChange(s, who, action, p = {}) {
       return;
     case "respond":
       requireValue(app?.status === "pending" && app.recipient === who && ["confirmed","declined"].includes(p.status));
+      if (p.status === "confirmed" && p.date !== undefined) app.visits[who].date = p.date ? date(p.date) : "";
       app.status = p.status;
       break;
     case "cancel":
-      requireValue(app && ((app.status === "pending" && who === app.sender) ||
-        ["confirmed","rescheduling","active"].includes(app.status)));
+      requireValue(app && ((app.status === "pending" && who === app.sender) || ongoing(app)));
       app.status = "cancelled";
-      app.proposal = null;
+      for (const visit of Object.values(app.visits)) visit.proposedDate = "";
       break;
-    case "reschedule":
-      requireValue(editableRoute(app));
-      requireValue(date(p.date) !== app.date);
-      app.proposal = {by:who,date:p.date,from:app.status};
-      app.status = "rescheduling";
-      break;
-    case "settleDate":
-      requireValue(app?.status === "rescheduling" && (!p.accept || app.proposal.by !== who));
-      if (p.accept) app.date = app.proposal.date;
-      app.status = app.proposal.from;
-      app.proposal = null;
-      break;
-    case "start":
-      requireValue(app?.status === "confirmed" && app.stops.length);
-      app.status = "active";
-      break;
-    case "complete":
-      requireValue(app?.status === "active");
-      app.status = "completed";
-      break;
-    case "stop": {
-      requireValue(editableRoute(app) && belongs(p.site,app.city));
-      const at = app.stops.findIndex(x => x.site === p.site);
-      const previous = app.stops[at];
-      const event = string(p.event ?? previous?.event ?? "",200);
-      requireValue(!event || event.startsWith(p.site + "-event-"));
-      const questions = {...previous?.questions};
-      if (previous?.question && !previous.questions) questions[app.sender] = previous.question;
-      if (p.question !== undefined) questions[who] = string(p.question,260);
-      const fields = {site:p.site,time:string(p.time ?? previous?.time ?? "",80),questions,event};
-      if (at === -1) app.stops.push(fields);
-      else app.stops[at] = fields;
-      notify(s,app,who,"route");
+    case "reschedule": {
+      requireValue(ongoing(app));
+      const visit = app.visits[who], when = date(p.date);
+      requireValue(!visit.visited && when !== visit.date);
+      requireValue(!visit.proposedDate || (visit.proposedBy ?? who) === who);
+      visit.proposedDate = when;
+      visit.proposedBy = who;
+      updateProgress(app);
+      notify(s,app,who,"rescheduling");
       return app.id;
     }
-    case "moveStop":
-    case "removeStop": {
-      requireValue(editableRoute(app));
-      const at = app.stops.findIndex(x => x.site === p.site);
-      requireValue(at >= 0);
-      if (action === "removeStop") app.stops.splice(at,1);
-      else {
-        const dest = at + p.delta;
-        requireValue([1,-1].includes(p.delta) && dest >= 0 && dest < app.stops.length);
-        [app.stops[at],app.stops[dest]] = [app.stops[dest],app.stops[at]];
-      }
-      notify(s,app,who,"route");
+    case "settleDate": {
+      requireValue(ongoing(app) && participant(app,p.visitor) && typeof p.accept === "boolean");
+      const visit = app.visits[p.visitor];
+      requireValue(visit.proposedDate && (!p.accept || (visit.proposedBy ?? p.visitor) !== who));
+      if (p.accept) visit.date = visit.proposedDate;
+      visit.proposedDate = "";
+      updateProgress(app);
+      notify(s,app,who,p.accept ? "dateAccepted" : "dateKept");
+      return app.id;
+    }
+    case "visited":
+      requireValue(ongoing(app) && !app.visits[who].visited);
+      app.visits[who].visited = true;
+      app.visits[who].proposedDate = "";
+      updateProgress(app);
+      notify(s,app,who,app.status === "completed" ? "completed" : "visited");
+      return app.id;
+    case "review": {
+      requireValue(app?.visits[who].visited && Number.isInteger(p.rating) && p.rating >= 0 && p.rating <= 5);
+      const text = string(p.text,400,!p.rating);
+      const first = !app.visits[who].review;
+      app.visits[who].review = {rating:p.rating,text};
+      if (first) notify(s,app,who,"review");
       return app.id;
     }
     case "note": {
       requireValue(!p.id || note?.owner === who);
       const sites = [...new Set(p.sites ?? [])];
       requireValue(sites.length && sites.every(site => own(PLACES,site)) && own(visibility,p.visibility));
-      const linked = p.exchange && findApp(s,p.exchange,who);
-      if (p.exchange) requireValue((canReflect(linked) || (linked && note?.exchange === linked.id)) &&
-        sites.every(site => linked.stops.some(stop => stop.site === site) || (note?.exchange === linked.id && note.sites.includes(site))));
+      // Earlier notes may belong to more than one garden. Editing preserves their original audience and places.
+      const previousExchange = note?.exchange || "";
+      requireValue((p.exchange || "") === previousExchange);
+      if (previousExchange) requireValue(sites.length === note.sites.length && sites.every(site => note.sites.includes(site)));
       else requireValue(sites.length === 1 && p.visibility !== "partners");
       const media = p.media === undefined ? note?.media ?? null : p.media;
       if (media) requireValue(["image","audio","video"].includes(media.kind) && typeof media.name === "string");
@@ -220,6 +220,6 @@ export function applyChange(s, who, action, p = {}) {
       return;
     default: throw new Error("unknown-action");
   }
-  notify(s,app,who,action === "settleDate" ? (p.accept ? "dateAccepted" : "dateKept") : app.status);
+  notify(s,app,who,app.status);
   return app.id;
 }

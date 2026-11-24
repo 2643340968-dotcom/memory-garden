@@ -1,6 +1,6 @@
 import {getLanguage, placeText} from "../../i18n/LanguageController.js";
 import {CITIES, PLACES} from "../places.js";
-import {profiles, roles} from "./model.js";
+import {profiles} from "./model.js";
 
 export const say = (zh,en) => getLanguage() === "zh-CN" ? zh : en;
 export const tx = pair => placeText(pair);
@@ -32,7 +32,6 @@ export const select = (items,value,attrs={}) => {
   return control;
 };
 export const options = choices => Object.entries(choices).map(([id,label]) => [id,tx(label)]);
-export const siteOptions = city => CITIES[city].places.map(id => [id,siteName(id)]);
 export const cityOptions = () => Object.keys(CITIES).map(id => [id,cityName(id)]);
 export const input = (type,value="",attrs={}) => h("input",{type,value,...attrs});
 export const area = (value="",max=500,required=false) => h("textarea",{maxlength:max,rows:3,dir:"auto",required},value);
@@ -41,11 +40,11 @@ export const form = (fn,...children) => h("form",{class:"ex-form",onsubmit:e => 
 export const hint = (tag, text) => h(tag,{class:"ex-hint"},text);
 export function offerTitle(o) {
   if (o.theme) return o.theme;
-  return o.role === "local" ? say("一起读" + cityName(o.city) + "的城市记忆","Read the memories of " + cityName(o.city) + " together") :
-    say("从" + cityName(o.origin) + "寄来的城市提问","A question from " + cityName(o.origin));
+  const place = siteName(CITIES[o.home].places[0]), city = cityName(o.home);
+  return say("从" + place + "认识" + city,"Discover " + city + " through " + place);
 }
-export const offerMeta = o => person(o.owner) + " · " + tx(roles[o.role]) + (o.sample ? say(" · 示例意向"," · Sample intention") : "");
-export const safeDate = value => value || say("时间待商量","Date to be agreed");
+export const offerMeta = o => person(o.owner) + (o.sample ? say(" · 示例邀请"," · Sample invitation") : "");
+export const safeDate = value => value || say("日期待定","Date to be agreed");
 
 // Localise the controls while keeping the visitor's unsubmitted words and selections.
 export function relabelForm(root, paint) {
@@ -57,9 +56,8 @@ export function relabelForm(root, paint) {
   nodes().forEach((e,i) => {
     const old = fields[i];
     if (!old || old.type !== e.type) return;
-    if (e.type === "checkbox") e.checked = old.checked;
+    if (e.type === "checkbox" || e.type === "radio") e.checked = old.checked;
     else if (e.value !== old.value) {
-      if (e.hasAttribute("data-readings")) e.dataset.restoreReading = old.value;
       e.value = old.value;
       if (e.tagName === "SELECT") e.dispatchEvent(new Event("change"));
     }

@@ -46,7 +46,11 @@
       </details>
       <button class="language" id="flow-language" type="button">英文</button>
     </header>
-    <div id="exchange-map-actions" hidden><button type="button" id="exchange-city" aria-haspopup="dialog"></button><button type="button" id="exchange-stop" aria-haspopup="dialog" hidden></button></div>
+    <div id="exchange-map-actions" hidden>
+      <button type="button" class="ex-portal" id="exchange-city" aria-haspopup="dialog" aria-controls="exchange-panel">
+        <img id="exchange-city-flower" width="32" height="32" alt=""><span></span>
+      </button>
+    </div>
     <div id="garden-actions" role="group" hidden>
       <button type="button" id="write"></button>
       <button type="button" id="refresh-memories" aria-controls="seeds" hidden>
@@ -83,6 +87,10 @@
           <div class="scroll-distance"><div class="landing-type">
             <h1 id="landing-title">记忆之场</h1>
             <p id="landing-intro">沿着地图走进记忆花园，读一段往事，也可以留下自己的记忆。</p>
+            <button type="button" class="ex-portal" id="exchange-cover" aria-haspopup="dialog" aria-controls="exchange-panel">
+              <span class="ex-portal-flowers" aria-hidden="true"><img src="./assets/flow-flowers/nanjing.svg" alt="" width="32" height="32"><img src="./assets/flow-flowers/qingdao.svg" alt="" width="32" height="32"></span>
+              <span id="exchange-cover-label">双城互访计划</span>
+            </button>
             <p id="landing-hint">下滑进入地图</p>
             <button type="button" class="landing-cue" id="landing-cue" aria-label="进入全国地图" aria-describedby="landing-hint">
               <svg viewBox="0 0 36 36" width="32" height="32" aria-hidden="true">

@@ -127,26 +127,32 @@ const exchange = new ExchangePanel(el("exchange-panel"),store,{
     if (!open) garden.updateActions();
   },
   language:() => changeLanguage(),
-  visit(site,record,write) {
-    requestedFlower = {site,record,write};
+  explore(city,place) {
+    if (landing.active) landing.enter();
+    const next = place ? {level:"place",city,place} : {level:"city",city};
+    if (route.level === next.level && route.city === city && route.place === place) {
+      el("map").focus({preventScroll:true});
+    } else navigate(next,{chapter:false});
+  },
+  visit(site,record) {
+    requestedFlower = {site,record};
     if (garden.id === site && route.level === "garden") openRequestedFlower();
     else navigate({level:"garden",city:PLACES[site].city,place:site});
   }
 });
 function openRequestedFlower() {
   if (!requestedFlower || requestedFlower.site !== garden.id) return;
-  const {record, write} = requestedFlower;
+  const {record} = requestedFlower;
   requestedFlower = null;
-  if (write || record) {
+  if (record) {
     garden.directEntry = true;
     garden.invitation.dismiss();
+    garden.openRecord(garden.recordById(record));
   }
-  if (write) garden.openEditor(write);
-  else if (record) garden.openRecord(garden.recordById(record));
 }
 for (const id of ["exchange-my","exchange-guide"]) el(id).onclick = () => exchange.open({view:"mine",city:route.city});
 el("exchange-city").onclick = () => exchange.open({view:"hub",city:route.city});
-el("exchange-stop").onclick = () => exchange.open({view:"add",city:route.city,site:route.place});
+el("exchange-cover").onclick = () => exchange.open({view:"hub"});
 
 function advance(inward, mark) {
   if (landing.active) {
@@ -250,12 +256,12 @@ function chrome() {
   el("landing-title").textContent = project;
   const intro = el("landing-intro");
   if (getLanguage() === "zh-CN") {
-    intro.replaceChildren(...["一座城，一处记忆花园。", "独自探访，或与另一座城市的同学同行。"].map(words => {
+    intro.replaceChildren(...["沿着地图，读一座城的记忆。", "也可以和远方的同学互访彼此的城市。"].map(words => {
       const phrase = document.createElement("span");
       phrase.textContent = words;
       return phrase;
     }));
-  } else intro.textContent = "Explore a city through its memory gardens, on your own or with a student from another city.";
+  } else intro.textContent = "Explore a city through its memory gardens, or arrange to visit each other’s cities.";
   document.querySelector('meta[name="description"]').content = intro.textContent;
   updateLandingHint();
   el("landing-scroll")
@@ -272,10 +278,12 @@ function chrome() {
   }
   flowerBook.updateLanguage(getLanguage() === "zh-CN");
   exchange.labels();
-  el("exchange-map-actions").hidden = !["city","place"].includes(route.level);
-  el("exchange-city").textContent = local("双城互访","City exchanges");
-  el("exchange-stop").textContent = local("加入共同行程","Add to itinerary");
-  el("exchange-stop").hidden = route.level !== "place";
+  el("exchange-cover-label").textContent = local("双城互访计划","City exchange plans");
+  el("exchange-map-actions").hidden = route.level !== "city";
+  if (route.level === "city") {
+    el("exchange-city-flower").src = plateURL(route.city);
+    el("exchange-city").querySelector("span").textContent = local("双城互访计划 · ","City exchanges · ") + placeText(city.name);
+  }
   el("nearby").setAttribute("aria-label", local("附近地点", "Nearby places"));
   document.querySelector(".north span").textContent = local("北", "N");
   if (el("notice").textContent) el("notice").textContent = savedMessage();
@@ -486,7 +494,7 @@ async function show(next, {chapter = true, restore = false, focus = true, openin
     clearTimeout(loadingTitle);
     const titleVisible = !el("arrival").hidden;
     atlas.root.hidden = true;
-    const directEntry = Boolean(requestedFlower?.write || requestedFlower?.record);
+    const directEntry = Boolean(requestedFlower?.record);
     garden.enter(next.place, collection, eventsForPlace(next.place), prints, titleVisible && !quiet.matches ? 240 : 0,directEntry);
     chrome();
     if (titleVisible) await finishTitle(turn);

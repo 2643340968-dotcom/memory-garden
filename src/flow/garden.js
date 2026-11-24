@@ -240,7 +240,7 @@ export class FlowGarden {
     return this.notes?.get(id) ?? this.events.get(id) ?? this.visit.pool.getById(id);
   }
   label(memory) {
-    if (memory.owner) return memory.exchange ? say("互访札记","Exchange field note") : say("个人记忆","Personal memory");
+    if (memory.owner) return say("个人记忆","Personal memory");
     if (memory.title) return placeText(memory.title);
     if (memory.id.endsWith("-record")) return say("地点札记", "Place note");
     const key = this.collection.featuredLabels[memory.id];
@@ -430,7 +430,7 @@ export class FlowGarden {
       this.sheet.showModal();
     this.updateActions();
   }
-  openEditor(exchange = "") {
+  openEditor() {
     if (!this.visit)
       return;
     this.mode = "editor";
@@ -440,7 +440,7 @@ export class FlowGarden {
     this.showSheet("sheet-title");
     this.card.show(null,[...this.notes.values()].filter(n => n.owner === this.store.actor).reverse()
       .map(n => ({...n,attachment:n.media})));
-    this.journal.write(this.id,exchange);
+    this.journal.write(this.id);
     this.updateLanguage();
     this.text.focus({preventScroll : true});
   }
@@ -564,7 +564,7 @@ export class FlowGarden {
       this.journalLanguage = getLanguage();
       if (this.mode === "editor" && this.journal.fields && this.sheet.open) {
         const existing = this.journal.fields.read();
-        this.journal.write(this.id,existing.exchange,existing);
+        this.journal.write(this.id,existing);
       } else if (this.journal.record) this.journal.updateLanguage();
     }
     const m = this.currentRecord;

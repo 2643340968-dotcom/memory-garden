@@ -1,4 +1,4 @@
-import {canReflect, findApp, visibility} from "./model.js";
+import {visibility} from "./model.js";
 import {area, btn, field, form, group, h, input, options, para, person, relabelForm, row, say, select, siteName, submit, tx} from "./ui.js";
 
 // Keep discussion anchored to a particular flower, even when a field note belongs to several gardens.
@@ -8,38 +8,15 @@ export class GardenJournal {
     this.root = document.getElementById("garden-thread");
     this.composer = document.getElementById("garden-sharing");
   }
-  settings(site, picked="", initial=null) {
-    const s = this.store.state, who = this.store.actor;
-    const apps = s.applications.filter(a => findApp(s,a.id,who) && ((canReflect(a) && a.stops.some(x => x.site === site)) || a.id === initial?.exchange));
-    const exchange = select([["",say("独立记忆","Independent memory")],...apps.map(a =>
-      [a.id,person(a.sender === who ? a.recipient : a.sender) + " · " + (a.date || a.stops.map(x => siteName(x.site)).join(" / "))])],picked);
-    const sites = h("fieldset",{class:"ex-site-checks"});
-    const audience = select([],null);
-    const update = () => {
-      const a = apps.find(a => a.id === exchange.value);
-      const previous = audience.value || initial?.visibility || s.defaults[who] || "public";
-      audience.replaceChildren(...options(visibility).filter(([id]) => a || id !== "partners").map(([id,text]) => new Option(text,id)));
-      audience.value = previous === "partners" && !a ? "private" : previous;
-      sites.replaceChildren(h("legend",{},say("札记关联地点","Places in this field note")));
-      sites.hidden = !a;
-      const places = new Set(a?.stops.map(stop => stop.site));
-      if (a && a.id === initial?.exchange) for (const id of initial.sites) places.add(id);
-      for (const id of places) {
-        const enabled = id !== site;
-        const box = input("checkbox",id,{checked:!enabled || initial?.sites.includes(id),disabled:!enabled});
-        sites.append(h("label",{},box,siteName(id)));
-      }
-    };
-    exchange.onchange = update;
-    update();
-    const element = h("div",{class:"ex-sharing"},
-      apps.length > 0 && field(say("关联互访","Link to an exchange"),exchange),sites,field(say("谁可以看到","Who can see this?"),audience));
-    return {element,read:() => ({exchange:exchange.value,visibility:audience.value,
-      sites:exchange.value ? Array.from(sites.querySelectorAll(":checked"),b => b.value) : [site]})};
+  settings(site, initial=null) {
+    const choices = options(visibility).filter(([id]) => id !== "partners" || initial?.exchange);
+    const audience = select(choices,initial?.visibility || this.store.state.defaults[this.store.actor] || "public");
+    return {element:field(say("谁可以看到","Who can see this?"),audience),
+      read:() => ({exchange:initial?.exchange || "",visibility:audience.value,sites:initial?.sites || [site]})};
   }
-  write(site, app, initial=null) {
+  write(site, initial=null) {
     this.root.hidden = true;
-    this.fields = this.settings(site,app,initial);
+    this.fields = this.settings(site,initial);
     this.composer.replaceChildren(this.fields.element);
     this.composer.hidden = false;
   }
@@ -98,7 +75,7 @@ export class GardenJournal {
       actions.push(para(person(note.owner) + " · " + tx(visibility[note.visibility]) + (note.exchange ? " · " + note.sites.map(siteName).join(" / ") : "")));
       if (note.owner === who) {
         if (editing?.kind === "note") {
-          const text = area(note.text,2000,!note.media), fields = this.settings(site,note.exchange,note);
+          const text = area(note.text,2000,!note.media), fields = this.settings(site,note);
           const remove = input("checkbox");
           actions.push(this.editor(form(() => this.act("note",{id:note.id,text:text.value,...fields.read(),...(remove.checked ? {media:null} : {})},
             say("记忆已更新。","Memory updated."),() => this.onUpdate?.(note.id)),
