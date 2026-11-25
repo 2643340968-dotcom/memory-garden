@@ -48,7 +48,7 @@ quiet.addEventListener("change", updateLandingHint);
 touch.addEventListener("change", updateLandingHint);
 function setMode(mode) {
   countryReady = false;
-  countryInvitation.leave();
+  countryInvitation.leave({restartVisit:mode === "cover"});
   el("edition").dataset.tools = mode;
   el("exchange-map-actions").hidden = true;
   el("exchange-my").hidden = mode === "cover" || route?.level === "country";
@@ -133,7 +133,10 @@ let requestedFlower = null;
 const exchange = new ExchangePanel(el("exchange-panel"),store,{
   toggle(open) {
     el("guide").open = false;
-    if (open) closeChapter();
+    if (open) {
+      closeChapter();
+      el("exchange-map-actions").hidden = true;
+    }
     landing.flowers.obscured = open;
     landing.flowers.wake();
     if (!open) { garden.updateActions(); updateCountryInvitation(); }
@@ -152,15 +155,15 @@ const exchange = new ExchangePanel(el("exchange-panel"),store,{
     else navigate({level:"garden",city:PLACES[site].city,place:site});
   }
 });
-const countryInvitation = new FlowerInvitation(el("exchange-invitation"),"memory-flow-country-invitation-v1",
+const countryInvitation = new FlowerInvitation(el("exchange-invitation"),null,
   () => countryReady && route?.level === "country" && !landing.active && !document.hidden &&
-    atlas.root.dataset.overview === "marks" && atlas.visiblePins?.length === counts.cities &&
+    atlas.root.dataset.overview === "marks" &&
     !atlas.pointers.size && !el("guide").open && !document.querySelector("dialog[open]"),
   updateCountryInvitation);
 function updateCountryInvitation() {
   if (!countryReady || route?.level !== "country" || landing.active) return;
-  el("exchange-map-actions").hidden = !countryInvitation.seen || countryInvitation.dialog.open;
-  el("exchange-guide").hidden = !countryInvitation.seen;
+  el("exchange-map-actions").hidden = countryInvitation.dialog.open || exchange.dialog.open;
+  el("exchange-guide").hidden = false;
   countryInvitation.consider();
 }
 function browseGardens() {
@@ -183,7 +186,7 @@ function openRequestedFlower() {
     garden.openRecord(garden.recordById(record));
   }
 }
-for (const id of ["exchange-my","exchange-guide"]) el(id).onclick = () => exchange.open({view:"mine",city:route.city});
+for (const id of ["exchange-my","exchange-guide"]) el(id).onclick = () => exchange.open({view:"mine"});
 el("exchange-national").onclick = () => exchange.open({view:"hub"});
 
 function advance(inward, mark) {

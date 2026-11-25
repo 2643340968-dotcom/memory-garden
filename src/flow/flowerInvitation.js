@@ -1,4 +1,4 @@
-// Each surface remembers its own invitation. Leaving cancels a pending presentation.
+// A storage key remembers the invitation across visits. An unkeyed invitation belongs to this visit.
 const growthNames = new Set(["stand-rise", "draw-stem", "unroll-leaf", "open-calyx"]);
 
 export class FlowerInvitation {
@@ -8,9 +8,11 @@ export class FlowerInvitation {
     this.available = available;
     this.onChange = onChange;
     this.generation = 0;
-    try { this.seen = localStorage.getItem(storageKey) === "shown"; } catch { this.seen = false; }
+    this.seen = false;
     dialog.addEventListener("close", onChange);
     document.addEventListener("visibilitychange", onChange);
+    if (!storageKey) return;
+    try { this.seen = localStorage.getItem(storageKey) === "shown"; } catch { /* Use this visit. */ }
     window.addEventListener("storage", event => {
       if (event.key === storageKey && event.newValue === "shown") {
         this.seen = true;
@@ -22,9 +24,10 @@ export class FlowerInvitation {
   dismiss() {
     if (this.dialog.open) this.dialog.close();
   }
-  leave() {
+  leave({restartVisit = false} = {}) {
     this.generation++;
     this.pending = false;
+    if (restartVisit && !this.storageKey) this.seen = false;
     this.dismiss();
   }
   consider(field) {
@@ -46,7 +49,7 @@ export class FlowerInvitation {
       this.pending = false;
       if (this.seen) return;
       try {
-        if (localStorage.getItem(this.storageKey) === "shown") {
+        if (this.storageKey && localStorage.getItem(this.storageKey) === "shown") {
           this.seen = true;
           this.onChange();
           return;
@@ -54,7 +57,9 @@ export class FlowerInvitation {
       } catch { /* Storage can be unavailable in a private session. */ }
       this.dialog.showModal();
       this.seen = true;
-      try { localStorage.setItem(this.storageKey, "shown"); } catch { /* Remember in this tab. */ }
+      if (this.storageKey) {
+        try { localStorage.setItem(this.storageKey, "shown"); } catch { /* Remember in this tab. */ }
+      }
       this.onChange();
     };
     requestAnimationFrame(wait);

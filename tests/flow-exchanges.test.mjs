@@ -9,7 +9,7 @@ const create = () => {
   const run = (actor,action,fields) => applyChange(state,actor,action,fields);
   const offer = state.offers.find(o => o.home === "qingdao");
   const host = offer.owner, third = host === "lin" ? "zhou" : "lin";
-  const id = run("an","draft",{offer:offer.id});
+  const id = run("an","draft",{offer:offer.id,home:"nanjing"});
   const act = (actor,action,data={}) => run(actor,action,{app:id,...data});
   const send = () => act("an","send",{message:"  河岸的城市记忆  ",method:"online",date:"2027-01-04"});
   const confirm = () => {send(); act(host,"respond",{status:"confirmed"});};
@@ -21,29 +21,58 @@ test("every resident can exchange visits with each of the other seventeen cities
   for (const o of state.offers) {
     assert.equal(homeCity(o.owner),o.home);
     for (const visitor of state.offers) {
-      assert.equal(canApply(o,visitor.owner),visitor.home !== o.home);
+      assert.equal(canApply(o,visitor.owner,visitor.home),visitor.home !== o.home);
       if (visitor.home === o.home) continue;
-      const id = run(visitor.owner,"draft",{offer:o.id}), a = findApp(state,id,visitor.owner);
+      const id = run(visitor.owner,"draft",{offer:o.id,home:visitor.home}), a = findApp(state,id,visitor.owner);
       assert.deepEqual([a.visits[visitor.owner].from,a.visits[visitor.owner].to],[visitor.home,o.home]);
       assert.deepEqual([a.visits[o.owner].from,a.visits[o.owner].to],[o.home,visitor.home]);
     }
   }
-  const fields = {away:"qingdao",theme:" 海岸与城市 ",method:"offline",date:"2027-01-02"};
+  const fields = {home:"nanjing",away:"qingdao",theme:" 海岸与城市 ",method:"offline",date:"2027-01-02"};
   assert.throws(() => run("an","publish",{...fields,away:"nanjing"}));
   const id = run("an","publish",fields);
-  assert.throws(() => run("an","draft",{offer:id}));
-  assert.throws(() => run("lin","draft",{offer:id}));
-  const application = findApp(state,run("zhou","draft",{offer:id}),"zhou");
+  assert.throws(() => run("an","draft",{offer:id,home:"qingdao"}));
+  assert.throws(() => run("lin","draft",{offer:id,home:"chengdu"}));
+  const application = findApp(state,run("zhou","draft",{offer:id,home:"qingdao"}),"zhou");
   assert.equal(application.visits.an.date,fields.date);
   assert.equal(application.visits.zhou.date,"");
   assert.throws(() => run("lin","closeOffer",{id}));
   run("an","closeOffer",{id});
-  assert.throws(() => run("zhou","draft",{offer:id}));
+  assert.throws(() => run("zhou","draft",{offer:id,home:"qingdao"}));
+});
+test("one visitor can explicitly choose any ordered city pair without changing identity or reusing another route's draft",() => {
+  const book = newBook(), actor = book.defaultReader;
+  assert.equal(homeCity(actor),undefined);
+  const cities = Object.keys(CITIES), ids = new Set();
+  for (const offer of book.offers) {
+    for (const home of [...cities,"","missing",undefined]) {
+      const draft = () => applyChange(book,actor,"draft",{offer:offer.id,home});
+      if (!cities.includes(home) || home === offer.home) {
+        assert.throws(draft);
+        continue;
+      }
+      const id = draft(), app = findApp(book,id,actor);
+      assert.equal(draft(),id);
+      assert.ok(!ids.has(id));
+      ids.add(id);
+      assert.deepEqual([app.visits[actor].from,app.visits[actor].to],[home,offer.home]);
+      assert.deepEqual([app.visits[offer.owner].from,app.visits[offer.owner].to],[offer.home,home]);
+    }
+  }
+  assert.equal(ids.size,18*17);
+  const fields = {home:"kunming",away:"wuhan",method:"offline",theme:" 两地的春天 "};
+  for (const invalid of [{home:undefined},{home:"missing"},{away:""},{away:"kunming"}])
+    assert.throws(() => applyChange(book,actor,"publish",{...fields,...invalid}));
+  const id = applyChange(book,actor,"publish",fields);
+  assert.throws(() => applyChange(book,"an","draft",{offer:id,home:"nanjing"}));
+  const app = findApp(book,applyChange(book,"an","draft",{offer:id,home:"wuhan"}),"an");
+  assert.deepEqual([app.visits.an.from,app.visits.an.to],["wuhan","kunming"]);
+  assert.deepEqual([app.visits[actor].from,app.visits[actor].to],["kunming","wuhan"]);
 });
 test("drafts, invitations, rejection and reapplication respect the two participants",() => {
   const {state,run,act,offer,host,third,id,send} = create();
   assert.equal(findApp(state,id,host),undefined);
-  assert.equal(run("an","draft",{offer:offer.id}),id);
+  assert.equal(run("an","draft",{offer:offer.id,home:"nanjing"}),id);
   act("an","saveDraft",{message:" draft ",method:"online",date:""});
   send();
   assert.equal(findApp(state,id,third),undefined);
@@ -52,7 +81,7 @@ test("drafts, invitations, rejection and reapplication respect the two participa
   assert.throws(() => act(third,"respond",{status:"confirmed"}));
   act(host,"respond",{status:"declined"});
   assert.ok(state.notices.some(n => n.kind === "declined" && n.to === "an"));
-  const next = run("an","draft",{offer:offer.id});
+  const next = run("an","draft",{offer:offer.id,home:"nanjing"});
   assert.notEqual(next,id);
   run("an","discard",{app:next});
   assert.equal(findApp(state,next,"an"),undefined);
@@ -170,7 +199,9 @@ test("existing single-city plans migrate once without inventing a return visit o
     offers:["local","visitor"].map(role => ({id:role,city:"qingdao",origin:"nanjing",role,owner:"zhou",sample:true,open:true})),
     applications:["local","visitor"].map(offer => ({id:"old-"+offer,city:"qingdao",sender:"an",recipient:"zhou",offer,
       status:"completed",date:"2026-09-01",stops:[{site:"zhanqiao",time:"12:30",question:"Tides?"}]}))};
+  delete original.defaultReader;
   const next = upgradeBook(original);
+  assert.equal(next.defaultReader,"an");
   assert.equal(next.notes[0],note);
   assert.equal(next.serial,44);
   assert.equal(upgradeBook(next),next);

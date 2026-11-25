@@ -5,8 +5,10 @@ const names = {an:["小安","An"], lin:["林禾","Lin He"], zhou:["周宁","Zhou
 const residentsByCity = Object.fromEntries(Object.keys(CITIES).map(city => [city,residents[city] ?? "student-" + city]));
 const homeCities = Object.fromEntries(Object.entries(residentsByCity).map(([city,id]) => [id,city]));
 export const homeCity = who => homeCities[who];
-export const profiles = Object.fromEntries(Object.entries(homeCities).map(([id,city]) =>
-  [id,names[id] ?? [CITIES[city].name[0] + "同学", "Student in " + CITIES[city].name[1]]]));
+export const profiles = {visitor:["访客","Visitor"]};
+for (const [id,city] of Object.entries(homeCities)) {
+  profiles[id] = names[id] ?? [CITIES[city].name[0] + "同学", "Student in " + CITIES[city].name[1]];
+}
 export const states = {
   draft:["草稿","Draft"], pending:["待回应","Awaiting reply"], confirmed:["已确认","Confirmed"],
   rescheduling:["商量日期中","Changing dates"], declined:["已拒绝","Declined"],
@@ -17,9 +19,9 @@ export const methods = {offline:["实地互访","In person"], online:["线上互
 export const participant = (a, who) => a && (a.sender === who || a.recipient === who);
 export const counterpart = (a, who) => a.sender === who ? a.recipient : a.sender;
 export const ongoing = a => a && ["confirmed","rescheduling","active"].includes(a.status);
-export function canApply(offer, who) {
-  const home = homeCity(who);
-  return Boolean(offer?.open && home && offer.owner !== who && offer.home !== home && (!offer.away || offer.away === home));
+export function canApply(offer, who, home) {
+  return Boolean(offer?.open && Object.hasOwn(profiles,who) && Object.hasOwn(CITIES,home) && offer.owner !== who &&
+    offer.home !== home && (!offer.away || offer.away === home));
 }
 export function makeVisits(sender,recipient,from,to) {
   const leg = (from,to) => ({from,to,date:"",proposedDate:"",visited:false,review:null});
@@ -47,7 +49,7 @@ export function newBook() {
   const offers = Object.entries(residentsByCity).map(([home,owner]) => ({
     id:"exchange-with-" + home, owner, home, away:"", sample:true, method:"offline", theme:"", date:"", open:true
   }));
-  return {version:3, serial:0, offers, applications:[], notes:[], comments:[], reports:[], notices:[], defaults:{}};
+  return {version:3, defaultReader:"visitor", serial:0, offers, applications:[], notes:[], comments:[], reports:[], notices:[], defaults:{}};
 }
 export function findApp(state, id, who) {
   return state.applications.find(a => a.id === id && participant(a,who) && (a.status !== "draft" || a.sender === who));
@@ -72,8 +74,8 @@ export function applyChange(s, who, action, p = {}) {
   const note = s.notes.find(n => n.id === p.id);
   switch (action) {
     case "publish": {
-      const home = homeCity(who);
-      requireValue(own(CITIES,p.away) && p.away !== home && own(methods,p.method));
+      const home = p.home;
+      requireValue(own(CITIES,home) && own(CITIES,p.away) && p.away !== home && own(methods,p.method));
       const theme = string(p.theme,160,true), when = p.date ? date(p.date) : "";
       const id = nextId(s,"offer");
       s.offers.unshift({id,owner:who,home,away:p.away,method:p.method,theme,date:when,open:true});
@@ -87,12 +89,12 @@ export function applyChange(s, who, action, p = {}) {
     }
     case "draft": {
       const offer = s.offers.find(o => o.id === p.offer);
-      requireValue(canApply(offer,who));
+      requireValue(canApply(offer,who,p.home));
       const current = s.applications.find(a => a.offer === offer.id && a.sender === who &&
-        !["cancelled","declined","completed"].includes(a.status));
+        a.visits[who].from === p.home && !["cancelled","declined","completed"].includes(a.status));
       if (current) return current.id;
       const id = nextId(s,"visit");
-      const visits = makeVisits(who,offer.owner,homeCity(who),offer.home);
+      const visits = makeVisits(who,offer.owner,p.home,offer.home);
       visits[offer.owner].date = offer.date;
       s.applications.unshift({id,offer:offer.id,sender:who,recipient:offer.owner,
         status:"draft",message:"",method:offer.method,visits});

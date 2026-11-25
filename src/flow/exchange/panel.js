@@ -1,16 +1,46 @@
 import {plateURL} from "../flowerForms.js";
-import {canApply, counterpart, findApp, homeCity, methods, ongoing, profiles, states, visibility} from "./model.js";
+import {canApply, counterpart, findApp, methods, ongoing, profiles, states, visibility} from "./model.js";
 import {area, btn, cityName, cityOptions, field, form, group, h, hint, input, offerMeta, offerTitle,
   options, para, person, relabelForm, row, safeDate, say, select, siteName, submit, tx} from "./ui.js";
 
-const defaultPartner = home => home === "nanjing" ? "qingdao" : "nanjing";
 const pairName = (a,b) => cityName(a) + " ⇄ " + cityName(b);
+const crossing = () => h("div",{class:"ex-crossing","aria-hidden":"true"},h("i"),h("i"));
 
 function cityPair(home,away) {
   const specimen = (city,caption) => h("div",{class:"ex-city-specimen"},
     h("img",{src:plateURL(city),alt:"",width:52,height:52}),h("div",{},hint("small",caption),h("strong",{},cityName(city))));
   return h("div",{class:"ex-city-pair"},specimen(home,say("我所在的城市","My city")),
-    h("div",{class:"ex-crossing","aria-hidden":"true"},h("i"),h("i")),specimen(away,say("对方所在的城市","Partner city")));
+    crossing(),specimen(away,say("对方所在的城市","Partner city")));
+}
+
+function chooseCities(home,away,onChange) {
+  const options = [["",say("选择城市","Choose a city")],...cityOptions()];
+  function cityField(name,label,value) {
+    const control = select(options,value ?? "",{name,required:true});
+    const flower = h("img",{alt:"",width:32,height:32});
+    const node = field(label,control);
+    node.classList.add("ex-city-choice");
+    node.firstElementChild.append(flower);
+    return {control,flower,node};
+  }
+  const from = cityField("home",say("我所在的城市","My city"),home);
+  const to = cityField("away",say("我想去的城市","City to visit"),away);
+  function sync() {
+    for (const [side,other] of [[from,to],[to,from]]) {
+      const city = side.control.value;
+      for (const option of side.control.options)
+        option.disabled = Boolean(option.value && option.value === other.control.value);
+      side.flower.hidden = !city;
+      if (city) side.flower.src = plateURL(city);
+      else side.flower.removeAttribute("src");
+    }
+  }
+  for (const {control} of [from,to]) control.onchange = () => {
+    sync();
+    onChange(from.control.value,to.control.value);
+  };
+  sync();
+  return h("div",{class:"ex-city-pair"},from.node,crossing(),to.node);
 }
 
 export class ExchangePanel {
@@ -87,7 +117,6 @@ export class ExchangePanel {
     const v = this.state;
     this.history = [];
     if (v.view === "app" && findApp(this.store.state,v.app,account)) this.state = {view:"app",app:v.app};
-    else if (v.view === "hub") this.state = {view:"hub",city:v.city};
     else this.state = {view:"mine",tab:"visits"};
     this.message = say("已切换体验身份","Demo identity switched");
     this.store.choose(account);
@@ -121,8 +150,6 @@ export class ExchangePanel {
     if (!this.dialog.open || !this.state) return;
     const v = this.state, who = this.store.actor;
     const app = findApp(this.store.state,v.app,who);
-    const home = homeCity(who);
-    const city = app?.visits[who].to ?? (v.city && v.city !== home ? v.city : defaultPartner(home));
     const title = v.view === "hub" ? say("双城互访计划","City exchange plans") :
       v.view === "publish" ? say("发起互访邀请","Publish an invitation") :
       v.view === "app" && app ? say("互访申请","Exchange application") : say("我的互访","My exchanges");
@@ -130,46 +157,57 @@ export class ExchangePanel {
     const heading = h("h2",{id:"exchange-title",tabindex:"-1"},title);
     header.replaceChildren(h("div",{class:"ex-heading-copy"},heading));
     this.dialog.querySelector(".ex-close").setAttribute("aria-label",say("关闭","Close"));
-    const actorSelect = select(options(profiles),who,{"aria-label":say("切换体验身份","Switch demo identity"),onchange:e => this.switchIdentity(e.target.value)});
-    this.dialog.querySelector(".ex-tools").replaceChildren(
-      ...(this.history.length ? [btn(say("上一步","Back"),() => this.back(),"ex-link")] : []),
-      h("label",{class:"ex-actor"},say("体验身份","Demo identity"),actorSelect),
-      btn(say("英文","Chinese"),() => this.language(),"ex-link"));
+    const tools = this.dialog.querySelector(".ex-tools");
+    tools.replaceChildren();
+    if (this.history.length) tools.append(btn(say("上一步","Back"),() => this.back(),"ex-link"));
+    if (v.view !== "hub" && v.view !== "publish") {
+      const actorSelect = select(options(profiles),who,{"aria-label":say("切换体验身份","Switch demo identity"),onchange:e => this.switchIdentity(e.target.value)});
+      tools.append(h("label",{class:"ex-actor"},say("体验身份","Demo identity"),actorSelect));
+    }
+    tools.append(btn(say("英文","Chinese"),() => this.language(),"ex-link"));
     this.dialog.querySelector(".ex-storage").textContent = this.store.db ?
       say("本机原型 · 身份与记录保存在此浏览器","Local prototype · Identities and records stay in this browser") :
       say("临时体验 · 此浏览器当前仅在本次访问保留记录","Temporary session · Records last for this visit");
     this.status.textContent = this.message;
-    const contents = v.view === "hub" ? this.hub(city) : v.view === "publish" ? this.publish(city) :
+    const contents = v.view === "hub" ? this.hub(v) : v.view === "publish" ? this.publish(v) :
       v.view === "app" && app ? this.application(app) : this.mine(v);
     this.body.replaceChildren(...contents);
     if (focus) { this.dialog.scrollTop = 0; heading.focus({preventScroll:true}); }
   }
-  hub(city) {
-    const who = this.store.actor, home = homeCity(who);
-    const choose = select(cityOptions().filter(([id]) => id !== home),city,{onchange:e => {
-      this.state = {view:"hub",city:e.target.value}; this.render();
-      this.body.querySelector(".ex-destination select")?.focus({preventScroll:true});
-    }});
-    const offers = this.store.state.offers.filter(o => !o.legacySample && o.home === city && canApply(o,who));
-    return [cityPair(home,city),h("p",{class:"ex-reciprocal-copy"},say("你去" + cityName(city) + "，当地同学来" + cityName(home) + "。",
-      "You visit " + cityName(city) + ". A student from there visits " + cityName(home) + ".")),
-      h("div",{class:"ex-destination"},field(say("我想去的城市","City I would like to visit"),choose),
-        btn(say("我的申请","My applications"),() => this.go({view:"mine"}),"ex-link")),
-      group(say("来自" + cityName(city) + "的邀请","Invitations from " + cityName(city)),
-        offers.length ? offers.map(o => this.offerCard(o)) : para(say("可以发出第一份邀请。","You can send the first invitation.")),
-        row(btn(say("发起我的邀请","Publish my invitation"),() => this.go({view:"publish",city}),"ex-secondary")))];
+  hub(v) {
+    const summary = h("p",{class:"ex-reciprocal-copy","aria-live":"polite"});
+    const matches = h("div",{class:"ex-matches"});
+    const update = (home,away) => {
+      matches.replaceChildren();
+      if (!home || !away) {
+        summary.textContent = say("选好两座城市，就能查看当地的邀请。","Choose both cities to see local invitations.");
+        return;
+      }
+      summary.textContent = say("你去" + cityName(away) + "，当地同学来" + cityName(home) + "。",
+        "You visit " + cityName(away) + ". Your exchange partner visits " + cityName(home) + ".");
+      const offers = this.store.state.offers.filter(o => !o.legacySample && o.home === away && canApply(o,this.store.actor,home));
+      matches.append(group(say("来自" + cityName(away) + "的邀请","Invitations from " + cityName(away)),
+        offers.length ? offers.map(o => this.offerCard(o,home)) : para(say("可以发出第一份邀请。","You can send the first invitation.")),
+        row(btn(say("发起我的邀请","Publish my invitation"),() => this.go({view:"publish",home,away}),"ex-secondary"))));
+    };
+    const choices = chooseCities(v.home,v.away,(home,away) => {
+      this.state = {view:"hub",home,away};
+      update(home,away);
+    });
+    update(v.home,v.away);
+    return [choices,summary,matches,row(btn(say("我的申请","My applications"),() => this.go({view:"mine"}),"ex-link"))];
   }
-  offerCard(o) {
+  offerCard(o,home) {
     return h("article",{class:"ex-item ex-offer"},h("div",{},hint("p",offerMeta(o)),h("h4",{dir:"auto"},offerTitle(o)),
       para(tx(methods[o.method]) + (o.date ? " · " + o.date : ""))),
-      btn(say("申请互访","Apply for exchange"),() => this.act("draft",{offer:o.id},id => ({view:"app",app:id})),"ex-primary"));
+      btn(say("申请互访","Apply for exchange"),() => this.act("draft",{offer:o.id,home},id => ({view:"app",app:id})),"ex-primary"));
   }
-  publish(city) {
-    const who = this.store.actor, home = homeCity(who);
+  publish(v) {
     const title = area("",160,true), mode = select(options(methods),"offline"), when = input("date");
-    return [cityPair(home,city),form(() => this.act("publish",
-      {away:city,theme:title.value,method:mode.value,date:when.value},{view:"mine",tab:"visits"},
-      say("邀请已发布，" + cityName(city) + "的同学可以申请。","Invitation published for students in " + cityName(city) + ".")),
+    const choices = chooseCities(v.home,v.away,(home,away) => Object.assign(v,{home,away}));
+    return [form(() => this.act("publish",
+      {home:v.home,away:v.away,theme:title.value,method:mode.value,date:when.value},{view:"mine",tab:"visits"},
+      say("邀请已发布，" + cityName(v.away) + "的同学可以申请。","Invitation published for students in " + cityName(v.away) + ".")),choices,
       field(say("你想交换怎样的城市记忆？","Which city memories would you like to exchange?"),title),
       h("div",{class:"ex-pair"},field(say("互访方式","Format"),mode),field(say("我的到访日期（选填）","My visit date (optional)"),when)),
       row(submit(say("发布邀请","Publish invitation"))))];
@@ -219,8 +257,8 @@ export class ExchangePanel {
     if (ongoing(a) && !mine.visited) content.push(row(this.gardenLink(mine.to)));
     if (ongoing(a)) content.push(h("details",{class:"ex-details"},h("summary",{},say("取消这次互访","Cancel this exchange")),
       row(change(say("确认取消互访","Confirm cancellation"),"cancel"))));
-    if (["declined","cancelled"].includes(a.status) && who === a.sender && canApply(offer,who))
-      content.push(row(btn(say("重新申请","Apply again"),() => this.act("draft",{offer:offer.id},id => ({view:"app",app:id})),"ex-secondary")));
+    if (["declined","cancelled"].includes(a.status) && who === a.sender && canApply(offer,who,mine.from))
+      content.push(row(btn(say("重新申请","Apply again"),() => this.act("draft",{offer:offer.id,home:mine.from},id => ({view:"app",app:id})),"ex-secondary")));
     return content;
   }
   visitRow(app,visitor,isMine) {
@@ -308,7 +346,7 @@ export class ExchangePanel {
       if (own.length) content.push(group(say("我发出的邀请","Invitations I published"),...own.map(o => h("article",{class:"ex-item"},
         h("h4",{dir:"auto"},o.theme),para(pairName(o.home,o.away)),o.open ?
           btn(say("收起邀请","Close invitation"),() => this.act("closeOffer",{id:o.id}),"ex-link") : para(say("已收起","Closed"))))));
-      content.push(row(btn(say("发现双城互访","Discover city exchanges"),() => this.go({view:"hub",city:v.city}),"ex-primary")));
+      content.push(row(btn(say("发现双城互访","Discover city exchanges"),() => this.go({view:"hub"}),"ex-primary")));
     } else if (tab === "notes") {
       const notes = s.notes.filter(n => n.owner === who);
       content.push(group(say("我留下的花","Flowers I have left"),notes.length ? notes.map(n =>

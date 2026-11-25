@@ -30,10 +30,10 @@ export class ExchangeStore extends EventTarget {
   constructor() {
     super();
     this.state = newBook();
-    this.actor = "an";
+    this.reader = null;
     try {
       const saved = sessionStorage.getItem(sessionKey);
-      if (Object.hasOwn(profiles,saved)) this.actor = saved;
+      if (Object.hasOwn(profiles,saved)) this.reader = saved;
     } catch { /* Restricted storage still allows a visit. */ }
     this.temporaryBlobs = new Map();
     this.queue = Promise.resolve();
@@ -62,9 +62,10 @@ export class ExchangeStore extends EventTarget {
     this.changed();
   }
   changed() { this.dispatchEvent(new Event("change")); }
+  get actor() { return this.reader ?? this.state.defaultReader; }
   choose(actor) {
     if (!Object.hasOwn(profiles,actor) || this.actor === actor) return;
-    this.actor = actor;
+    this.reader = actor;
     try { sessionStorage.setItem(sessionKey,actor); } catch { /* Private browsing. */ }
     this.changed();
   }
@@ -73,7 +74,7 @@ export class ExchangeStore extends EventTarget {
     this.queue = result.catch(() => {});
     return result;
   }
-  change(action, payload, blob, actor = this.actor) {
+  change(action, payload, blob, reader = this.reader) {
     return this.schedule(async () => {
       await this.ready;
       let next, id;
@@ -83,7 +84,7 @@ export class ExchangeStore extends EventTarget {
         try {
           const book = tx.objectStore("book");
           next = upgradeBook(await get(book,"current"));
-          id = applyChange(next,actor,action,payload);
+          id = applyChange(next,reader ?? next.defaultReader,action,payload);
           book.put(next,"current");
           if (blob) tx.objectStore("media").put(blob,id);
           if (action === "removeNote" || (action === "note" && payload.media === null)) tx.objectStore("media").delete(payload.id ?? id);
@@ -95,7 +96,7 @@ export class ExchangeStore extends EventTarget {
         await finished;
       } else {
         next = structuredClone(this.state);
-        id = applyChange(next,actor,action,payload);
+        id = applyChange(next,reader ?? next.defaultReader,action,payload);
         if (blob) this.temporaryBlobs.set(id,blob);
         if (action === "removeNote" || (action === "note" && payload.media === null)) this.temporaryBlobs.delete(payload.id ?? id);
       }

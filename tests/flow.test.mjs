@@ -734,7 +734,8 @@ test("the garden waits for real growth and remembers a displayed invitation acro
   visit.consider(field);
   new FlowerInvitation(dialog,"garden",()=>true,()=>{}).consider(field);
   assert.equal(frames.length,0);
-  const country = new FlowerInvitation(dialog,"country",()=>available,()=>{});
+  preferences.set("memory-flow-country-invitation-v1","shown");
+  const country = new FlowerInvitation(dialog,null,()=>available,()=>{});
   country.consider();
   country.leave();
   await frames.shift()();
@@ -742,7 +743,18 @@ test("the garden waits for real growth and remembers a displayed invitation acro
   country.consider();
   await frames.shift()();
   assert.equal(shown,2);
-  assert.equal(preferences.size,2);
+  country.leave();
+  country.consider();
+  assert.equal(frames.length,0);
+  country.leave({restartVisit:true});
+  country.consider();
+  await frames.shift()();
+  assert.equal(shown,3);
+  country.leave();
+  new FlowerInvitation(dialog,null,()=>available,()=>{}).consider();
+  await frames.shift()();
+  assert.equal(shown,4);
+  assert.deepEqual([...preferences.keys()],["garden","memory-flow-country-invitation-v1"]);
 });
 
 test("both upright prints for each city have transparency and share the 160 by 144 stem registration", () => {

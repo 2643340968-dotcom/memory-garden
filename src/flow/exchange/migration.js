@@ -37,7 +37,9 @@ function upgradeVisits(book) {
 export function upgradeBook(previous) {
   if (!previous) return newBook();
   if (![1,2,3].includes(previous.version)) throw new Error("unsupported-exchange-version");
-  const book = upgradeVisits(previous);
+  const visits = upgradeVisits(previous);
+  // Earlier editions filed an anonymous visitor's records under An.
+  const book = visits.defaultReader ? visits : {...visits,defaultReader:"an"};
   if (book.version === 3 && !book.comments.length) return book;
 
   // Each surviving entry keeps its author, exact words and original garden.
